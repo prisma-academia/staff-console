@@ -39,63 +39,59 @@ const createRequest = async (endpoint, options = {}, retry = true) => {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   const url = `${config.baseUrl}${apiVersion}/${cleanEndpoint}`;
 
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...baseHeaders,
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...options.headers,
-      },
-    });
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...baseHeaders,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
 
-    if (response.status === 401 && retry && refreshToken && user) {
-      if (!isRefreshing) {
-        isRefreshing = true;
-        try {
-          const refreshResponse = await fetch(`${config.baseUrl}${apiVersion}/user/refresh-token`, {
-            method: 'POST',
-            headers: baseHeaders,
-            body: JSON.stringify({
-              email: user.email,
-              refreshToken,
-            }),
-          });
-
-          const refreshResult = await refreshResponse.json();
-
-          if (refreshResult.ok) {
-            const newToken = refreshResult.data.token;
-            setToken(newToken);
-            isRefreshing = false;
-            onRefreshed(newToken);
-            
-            // Retry the original request with the new token
-            return createRequest(endpoint, options, false);
-          }
-          
-          // If refresh fails, log out
-          logOut();
-          throw new Error('Session expired. Please log in again.');
-        } catch (error) {
-          isRefreshing = false;
-          logOut();
-          throw error;
-        }
-      } else {
-        // Wait for the token to be refreshed
-        return new Promise((resolve) => {
-          addRefreshSubscriber((newToken) => {
-            resolve(createRequest(endpoint, options, false));
-          });
+  if (response.status === 401 && retry && refreshToken && user) {
+    if (!isRefreshing) {
+      isRefreshing = true;
+      try {
+        const refreshResponse = await fetch(`${config.baseUrl}${apiVersion}/user/refresh-token`, {
+          method: 'POST',
+          headers: baseHeaders,
+          body: JSON.stringify({
+            email: user.email,
+            refreshToken,
+          }),
         });
-      }
-    }
 
-    return handleResponse(response);
-  } catch (error) {
-    throw error;
+        const refreshResult = await refreshResponse.json();
+
+        if (refreshResult.ok) {
+          const newToken = refreshResult.data.token;
+          setToken(newToken);
+          isRefreshing = false;
+          onRefreshed(newToken);
+          
+          // Retry the original request with the new token
+          return createRequest(endpoint, options, false);
+        }
+        
+        // If refresh fails, log out
+        logOut();
+        throw new Error('Session expired. Please log in again.');
+      } catch (error) {
+        isRefreshing = false;
+        logOut();
+        throw error;
+      }
+    } else {
+      // Wait for the token to be refreshed
+      return new Promise((resolve) => {
+        addRefreshSubscriber((newToken) => {
+          resolve(createRequest(endpoint, options, false));
+        });
+      });
+    }
   }
+
+  return handleResponse(response);
 };
 
 export const apiClient = {
@@ -223,6 +219,15 @@ export const userGroupApi = {
       method: 'DELETE',
       body: JSON.stringify({ userIds }),
     }),
+};
+
+export const RolePermissionApi = {
+  getRolePermissions: () => apiClient.get('role-permission'),
+  getRolePermissionById: (id) => apiClient.get(`role-permission/${id}`),
+  getRolePermissionByRole: (role) => apiClient.get(`role-permission/role/${role}`),
+  createRolePermission: (data) => apiClient.post('role-permission', data),
+  updateRolePermission: (id, data) => apiClient.put(`role-permission/${id}`, data),
+  deleteRolePermission: (id) => apiClient.delete(`role-permission/${id}`),
 };
 
 // export const AdmissionApi = {

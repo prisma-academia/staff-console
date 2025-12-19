@@ -36,7 +36,6 @@ export default function ManageMembersModal({ open, onClose, group }) {
   const { enqueueSnackbar } = useSnackbar();
   
   const [selectedUsers, setSelectedUsers] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch all users for the search dropdown
   const { data: allUsers, isLoading: usersLoading } = useQuery({

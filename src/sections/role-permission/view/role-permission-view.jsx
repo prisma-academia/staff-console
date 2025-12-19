@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useSnackbar } from 'notistack';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import Stack from '@mui/material/Stack';
@@ -11,38 +10,40 @@ import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
-import { Box, Chip, Paper, Button, Divider, TableRow, TableCell, LinearProgress } from '@mui/material';
+import { Box, Chip, Paper, Divider, TableRow, TableCell, LinearProgress } from '@mui/material';
 
 import config from 'src/config';
-import { UserApi } from 'src/api';
+import { RolePermissionApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
 import Scrollbar from 'src/components/scrollbar';
 
 import TableNoData from '../table-no-data';
-import UserTableRow from '../user-table-row';
-import UserTableHead from '../user-table-head';
-import UserTableToolbar from '../user-table-toolbar';
-import { applyFilter, getComparator } from '../utils';
+import TableEmptyRows from '../table-empty-rows';
+import AddRolePermission from '../add-role-permission';
+import { emptyRows, applyFilter, getComparator } from '../utils';
+import RolePermissionTableRow from '../role-permission-table-row';
+import RolePermissionTableHead from '../role-permission-table-head';
+import RolePermissionTableToolbar from '../role-permission-table-toolbar';
 
 // ----------------------------------------------------------------------
 
-export default function UserPage() {
-  const navigate = useNavigate();
+export default function RolePermissionView() {
   const [page, setPage] = useState(0);
   const [order, setOrder] = useState('asc');
   const [selected, setSelected] = useState([]);
-  const [orderBy, setOrderBy] = useState('firstName');
+  const [orderBy, setOrderBy] = useState('role');
   const [filterName, setFilterName] = useState('');
   const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [openAddModal, setOpenAddModal] = useState(false);
   const theme = useTheme();
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => UserApi.getUsers(),
+    queryKey: ['role-permissions'],
+    queryFn: () => RolePermissionApi.getRolePermissions(),
   });
 
   const handleSort = (event, id) => {
@@ -92,14 +93,14 @@ export default function UserPage() {
     setFilterName(event.target.value);
   };
 
-  const { mutate: deleteBulkUsers } = useMutation({
+  const { mutate: deleteBulkRolePermissions } = useMutation({
     mutationFn: async (ids) => {
-      const promises = ids.map(id => UserApi.deleteUser(id));
+      const promises = ids.map(id => RolePermissionApi.deleteRolePermission(id));
       return Promise.all(promises);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      enqueueSnackbar(`${selected.length} users deleted successfully`, { variant: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['role-permissions'] });
+      enqueueSnackbar(`${selected.length} role permissions deleted successfully`, { variant: 'success' });
       setSelected([]);
     },
     onError: (error) => {
@@ -108,8 +109,8 @@ export default function UserPage() {
   });
 
   const handleBulkDelete = () => {
-    if (window.confirm(`Are you sure you want to delete ${selected.length} users?`)) {
-      deleteBulkUsers(selected);
+    if (window.confirm(`Are you sure you want to delete ${selected.length} role permissions?`)) {
+      deleteBulkRolePermissions(selected);
     }
   };
 
@@ -127,21 +128,14 @@ export default function UserPage() {
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
           <Box>
             <Typography variant="h4" color="text.primary" fontWeight="700">
-              Users Management
+              Role Permission Management
             </Typography>
             <Typography variant="body2" color="text.secondary" mt={1}>
-              Manage system users, roles, and account statuses
+              Manage role permissions and access controls
             </Typography>
           </Box>
-          <Can do="add_user">
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<Iconify icon="eva:plus-fill" />}
-              onClick={() => navigate('/user/new')}
-            >
-              New User
-            </Button>
+          <Can do="add_role_permission">
+            <AddRolePermission open={openAddModal} setOpen={setOpenAddModal} />
           </Can>
         </Box>
 
@@ -159,7 +153,7 @@ export default function UserPage() {
           {isLoading && <LinearProgress sx={{ borderTopLeftRadius: 2, borderTopRightRadius: 2 }} />}
 
           <Box sx={{ p: 2 }}>
-            <UserTableToolbar
+            <RolePermissionTableToolbar
               numSelected={selected.length}
               filterName={filterName}
               onFilterName={handleFilterByName}
@@ -171,7 +165,7 @@ export default function UserPage() {
           <Scrollbar>
             <TableContainer sx={{ overflow: 'unset', minHeight: 400 }}>
               <Table sx={{ minWidth: 800 }}>
-                <UserTableHead
+                <RolePermissionTableHead
                   order={order}
                   orderBy={orderBy}
                   rowCount={data?.length || 0}
@@ -179,12 +173,11 @@ export default function UserPage() {
                   onRequestSort={handleSort}
                   onSelectAllClick={handleSelectAllClick}
                   headLabel={[
-                    { id: 'firstName', label: 'Full Name', align: 'left' },
-                    { id: 'email', label: 'Email' },
-                    { id: 'gender', label: 'Gender' },
-                    { id: 'role', label: 'Role' },
-                    { id: 'status', label: 'Status' },
-                    { id: 'lastLogin', label: 'Last Login' },
+                    { id: 'role', label: 'Role', align: 'left' },
+                    { id: 'permissions', label: 'Permissions' },
+                    { id: 'isActive', label: 'Status' },
+                    { id: 'createdBy', label: 'Created By' },
+                    { id: 'createdAt', label: 'Created At' },
                     { id: '' },
                   ]}
                 />
@@ -193,7 +186,7 @@ export default function UserPage() {
                   {isLoading ? (
                     Array.from(new Array(5)).map((_, index) => (
                       <TableRow key={index}>
-                        <TableCell colSpan={8} sx={{ height: 72 }}>
+                        <TableCell colSpan={6} sx={{ height: 72 }}>
                           <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <Box sx={{ width: '100%', height: 10, bgcolor: alpha(theme.palette.primary.main, 0.1), borderRadius: 1 }} />
                           </Box>
@@ -205,7 +198,7 @@ export default function UserPage() {
                       {dataFiltered
                         .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                         .map((row) => (
-                          <UserTableRow
+                          <RolePermissionTableRow
                             key={row._id}
                             row={row}
                             selected={selected.indexOf(row._id) !== -1}
@@ -219,7 +212,7 @@ export default function UserPage() {
 
                   {!isLoading && dataFiltered.length === 0 && !filterName && (
                     <TableRow>
-                      <TableCell align="center" colSpan={8} sx={{ py: 5 }}>
+                      <TableCell align="center" colSpan={6} sx={{ py: 5 }}>
                         <Box sx={{ textAlign: 'center' }}>
                           <Box 
                             component="img" 
@@ -227,15 +220,17 @@ export default function UserPage() {
                             sx={{ height: 100, mx: 'auto', opacity: 0.8 }} 
                           />
                           <Typography variant="h6" paragraph mt={2}>
-                            No Users Found
+                            No Role Permissions Found
                           </Typography>
                           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                            Try adjusting your filters or add a new user
+                            Try adjusting your filters or add a new role permission
                           </Typography>
                         </Box>
                       </TableCell>
                     </TableRow>
                   )}
+
+                  {!isLoading && <TableEmptyRows height={72} emptyRows={emptyRows(page, rowsPerPage, dataFiltered.length)} />}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -245,7 +240,7 @@ export default function UserPage() {
             <TablePagination
               page={page}
               component="div"
-              count={data?.length || 0}
+              count={dataFiltered?.length || 0}
               rowsPerPage={rowsPerPage}
               onPageChange={handleChangePage}
               rowsPerPageOptions={[5, 10, 25]}
@@ -281,7 +276,7 @@ export default function UserPage() {
                 />
                 <Box>
                   <Stack direction="row" spacing={1}>
-                    <Can do="delete_user">
+                    <Can do="delete_role_permission">
                       <Chip 
                         icon={<Iconify icon="eva:trash-2-outline" />} 
                         label="Delete" 

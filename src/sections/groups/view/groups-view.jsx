@@ -27,16 +27,21 @@ import ManageMembersModal from '../manage-members-modal';
 const COLUMNS = [
   { id: 'name', label: 'Group Name', align: 'left' },
   { id: 'description', label: 'Description', align: 'left' },
-  { id: 'type', label: 'Type', align: 'left', renderCell: (row) => (
-    <Chip 
-      label={row.type || 'custom'} 
-      size="small" 
-      color={
-        row.type === 'department' ? 'primary' : 
-        row.type === 'union' ? 'info' : 'default'
-      } 
-    />
-  )},
+  { id: 'type', label: 'Type', align: 'left', renderCell: (row) => {
+    let chipColor = 'default';
+    if (row.type === 'department') {
+      chipColor = 'primary';
+    } else if (row.type === 'union') {
+      chipColor = 'info';
+    }
+    return (
+      <Chip 
+        label={row.type || 'custom'} 
+        size="small" 
+        color={chipColor} 
+      />
+    );
+  }},
   { id: 'users', label: 'Members', align: 'center', renderCell: (row) => row.users?.length || 0 },
   { id: 'isActive', label: 'Status', align: 'left', renderCell: (row) => (
     <Chip 

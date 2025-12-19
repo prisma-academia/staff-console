@@ -30,6 +30,12 @@ const useNavConfig = () => {
       permission: 'view_user_group',
     },
     {
+      title: 'Role Permissions',
+      path: '/role-permission',
+      icon: icon('ic_settings'),
+      permission: 'view_role_permission',
+    },
+    {
       title: 'Application',
       path: '/application',
       icon: icon('ic_admission'),

@@ -15,6 +15,8 @@ import animationData from '../assets/animation.json';
 
 const IndexPage = lazy(() => import('src/pages/app'));
 const UserPage = lazy(() => import('src/pages/user'));
+const UserDetailPage = lazy(() => import('src/sections/user/detail/user-detail-page'));
+const UserAddPage = lazy(() => import('src/sections/user/add/user-add-page'));
 const GroupsPage = lazy(() => import('src/pages/groups'));
 const AdmissionPage = lazy(() => import('src/pages/admission'));
 const StudentPage = lazy(() => import('src/pages/student'));
@@ -31,6 +33,7 @@ const ResultPage = lazy(() => import('src/pages/result'));
 const CoursePage = lazy(() => import('src/pages/course'));
 const FeePage = lazy(() => import('src/pages/fee'));
 const MailPage = lazy(() => import('src/pages/mail'));
+const RolePermissionPage = lazy(() => import('src/pages/role-permission'));
 const Page404 = lazy(() => import('src/pages/page-not-found'));
 
 // PrivateRoute Component
@@ -88,6 +91,22 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <UserPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'user/new',
+          element: (
+            <PrivateRoute>
+              <UserAddPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'user/:id',
+          element: (
+            <PrivateRoute>
+              <UserDetailPage />
             </PrivateRoute>
           ),
         },
@@ -216,6 +235,14 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <SettingsPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'role-permission',
+          element: (
+            <PrivateRoute>
+              <RolePermissionPage />
             </PrivateRoute>
           ),
         },

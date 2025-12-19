@@ -8,19 +8,14 @@
    * @param {Object} filters - Filter criteria like status, folder, etc.
    * @returns {Promise<Array>} - List of emails
    */
-  getEmails: async (filters = {}) => {
-    try {
-      // TODO: Replace with actual API call
-      // const response = await axios.get('/api/mail', { params: filters });
-      // return response.data;
-      
-      // Return empty array until API is implemented
-      return [];
-    } catch (error) {
-      console.error('Error fetching emails:', error);
-      throw error;
-    }
-  },
+  getEmails: async (filters = {}) => 
+    // TODO: Replace with actual API call
+    // const response = await axios.get('/api/mail', { params: filters });
+    // return response.data;
+    
+    // Return empty array until API is implemented
+     []
+  ,
   
   /**
    * Get a single email by ID

@@ -15,8 +15,6 @@ import { RouterLink } from 'src/routes/components';
 
 import { useResponsive } from 'src/hooks/use-responsive';
 
-import { useAuthStore } from 'src/store';
-
 import Logo from 'src/components/logo';
 import Can from 'src/components/permission/can';
 import Scrollbar from 'src/components/scrollbar';
@@ -29,7 +27,6 @@ import useNavConfig from './config-navigation';
 
 export default function Nav({ openNav, onCloseNav }) {
   const pathname = usePathname();
-  const user = useAuthStore((state) => state.user);
   const navConfig = useNavConfig();
   const theme = useTheme();
 

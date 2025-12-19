@@ -135,8 +135,14 @@ const config = {
     position: import.meta.env.VITE_NOTIFICATION_POSITION,
     getAnchorOrigin() {
       const pos = this.position.toLowerCase();
+      let horizontal = 'center';
+      if (pos.includes('left')) {
+        horizontal = 'left';
+      } else if (pos.includes('right')) {
+        horizontal = 'right';
+      }
       return {
-        horizontal: pos.includes('left') ? 'left' : pos.includes('right') ? 'right' : 'center',
+        horizontal,
         vertical: pos.includes('top') ? 'top' : 'bottom',
       };
     },

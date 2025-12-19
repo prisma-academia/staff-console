@@ -29,16 +29,24 @@ const columns = [
     id: 'picture', 
     label: '', 
     cellSx: { width: '5%' }, 
-    renderCell: (row) => (
-      <Avatar 
-        src={row?.picture ? (config.utils.isAbsoluteUrl(row.picture) ? row.picture : config.utils.buildImageUrl(config.upload.baseUrl || `${config.baseUrl}/uploads`, row.picture)) : undefined} 
-        sx={{ 
-          width: 40, 
-          height: 40,
-          border: '2px solid #f5f5f5'
-        }}
-      />
-    )
+    renderCell: (row) => {
+      let avatarSrc;
+      if (row?.picture) {
+        avatarSrc = config.utils.isAbsoluteUrl(row.picture) 
+          ? row.picture 
+          : config.utils.buildImageUrl(config.upload.baseUrl || `${config.baseUrl}/uploads`, row.picture);
+      }
+      return (
+        <Avatar 
+          src={avatarSrc} 
+          sx={{ 
+            width: 40, 
+            height: 40,
+            border: '2px solid #f5f5f5'
+          }}
+        />
+      );
+    }
   },
   {
     id: 'fullName',

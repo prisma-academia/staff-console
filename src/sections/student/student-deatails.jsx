@@ -424,7 +424,12 @@ export default function StudentDetails({ open, setOpen, student }) {
               }
             >
               <Avatar
-                src={studentData.picture ? (config.utils.isAbsoluteUrl(studentData.picture) ? studentData.picture : config.utils.buildImageUrl(config.upload.baseUrl || config.baseUrl, studentData.picture)) : undefined}
+                src={(() => {
+                  if (!studentData.picture) return undefined;
+                  return config.utils.isAbsoluteUrl(studentData.picture) 
+                    ? studentData.picture 
+                    : config.utils.buildImageUrl(config.upload.baseUrl || config.baseUrl, studentData.picture);
+                })()}
                 alt={`${studentData.personalInfo.firstName} ${studentData.personalInfo.lastName}`}
                 sx={{ width: 60, height: 60 }}
               />
