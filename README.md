@@ -4,7 +4,7 @@
 
 > Free React Admin Dashboard made with Material-UI components and React.
 
-![preview](public/assets/preview.jpg)
+<!-- Preview image removed -->
 
 ## Demo
 
