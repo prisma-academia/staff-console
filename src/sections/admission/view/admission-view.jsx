@@ -1,54 +1,111 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import Card from '@mui/material/Card';
-import Stack from '@mui/material/Stack';
-import Table from '@mui/material/Table';
-import Container from '@mui/material/Container';
-import TableBody from '@mui/material/TableBody';
-import Typography from '@mui/material/Typography';
-import TableContainer from '@mui/material/TableContainer';
-import TablePagination from '@mui/material/TablePagination';
+import { Box } from '@mui/system';
+import { 
+  Chip, 
+  Card, 
+  Stack, 
+  alpha, 
+  Button, 
+  useTheme,
+  Container,
+  IconButton,
+  Typography
+} from '@mui/material';
 
 import { useAuthStore } from 'src/store';
 
-import Scrollbar from 'src/components/scrollbar';
+import Iconify from 'src/components/iconify';
+import { GenericTable } from 'src/components/generic-table';
 
-// import AddAdmission from '../add-admission';
-import TableNoData from '../table-no-data';
 import AddAdmission from '../add-admission';
 import AddStudentModal from '../add-student';
-import { applyFilter, getComparator } from '../utils';
-import AdmissionTableRow from '../admission-table-row';
-import AdmissionTableHead from '../admission-table-head';
-import AdmissionTableToolbar from '../admission-table-toolbar';
 
-// ----------------------------------------------------------------------
+const columns = [
+  {
+    id: 'fullName',
+    label: 'Full Name',
+    align: 'left',
+    cellSx: { width: '25%' },
+    renderCell: (row) => (
+      <Typography variant="subtitle2" noWrap>
+        {`${row.application?.firstName} ${row.application?.lastName} ${row.application?.otherName || ''}`}
+      </Typography>
+    ),
+  },
+  { 
+    id: 'number', 
+    label: 'Admission Number', 
+    cellSx: { width: '20%' },
+    renderCell: (row) => (
+      <Typography variant="body2" fontWeight={500}>
+        {row.number}
+      </Typography>
+    )
+  },
+  { 
+    id: 'programme', 
+    label: 'Programme', 
+    cellSx: { width: '20%' }, 
+    renderCell: (row) => (
+      <Typography variant="body2">
+        {row.programme || 'N/A'}
+      </Typography>
+    )
+  },
+  { 
+    id: 'status', 
+    label: 'Status', 
+    cellSx: { width: '15%' }, 
+    renderCell: (row) => {
+      const status = row?.status || 'pending';
+      const statusConfig = {
+        accepted: { label: 'Accepted', color: 'success' },
+        pending: { label: 'Pending', color: 'warning' },
+        rejected: { label: 'Rejected', color: 'error' },
+      };
+      const statusConfigValue = statusConfig[status.toLowerCase()] || { label: status, color: 'default' };
+      return (
+        <Chip 
+          label={statusConfigValue.label} 
+          color={statusConfigValue.color} 
+          size="small" 
+          sx={{ borderRadius: 1 }} 
+        />
+      );
+    }
+  },
+  { 
+    id: 'offerDate', 
+    label: 'Offer Date', 
+    cellSx: { width: '15%' },
+    renderCell: (row) => (
+      <Typography variant="body2">
+        {row.offerDate ? new Date(row.offerDate).toLocaleDateString() : 'N/A'}
+      </Typography>
+    )
+  },
+  { id: 'action', label: 'Action', cellSx: { width: '5%' } },
+];
 
 export default function AdmissionPage() {
-  const [page, setPage] = useState(0);
-  const [order, setOrder] = useState('asc');
-  const [selected, setSelected] = useState([]);
-  const [orderBy, setOrderBy] = useState('number');
-  const [filterName, setFilterName] = useState('');
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const theme = useTheme();
   const [openModal, setOpenModal] = useState(false);
   const [openAdmsModal, setOpenAdmsModal] = useState(false);
   const [modalObj, setModalObj] = useState(null);
 
   const token = useAuthStore((state) => state.token);
+
   const handleOpen = (obj) => {
     setOpenModal(true);
     setModalObj(obj);
   };
-  const handleClose = (obj) => {
+
+  const handleClose = () => {
     setOpenModal(false);
     setModalObj(null);
   };
-  const { data } = useQuery({
-    queryKey: ['admissions'],
-    queryFn: getAdmissions,
-  });
 
   async function getAdmissions() {
     const response = await fetch(`https://api.application.abnacnm.edu.ng/api/v1/admission`, {
@@ -70,134 +127,103 @@ export default function AdmissionPage() {
     throw new Error(result.message);
   }
 
-  const handleSort = (event, id) => {
-    const isAsc = orderBy === id && order === 'asc';
-    setOrder(isAsc ? 'desc' : 'asc');
-    setOrderBy(id);
-  };
-
-  const handleSelectAllClick = (event) => {
-    if (event.target.checked) {
-      const newSelecteds = data.map((n) => n.number);
-      setSelected(newSelecteds);
-      return;
-    }
-    setSelected([]);
-  };
-
-  const handleClick = (event, number) => {
-    const selectedIndex = selected.indexOf(number);
-    let newSelected = [];
-    if (selectedIndex === -1) {
-      newSelected = newSelected.concat(selected, number);
-    } else if (selectedIndex === 0) {
-      newSelected = newSelected.concat(selected.slice(1));
-    } else if (selectedIndex === selected.length - 1) {
-      newSelected = newSelected.concat(selected.slice(0, -1));
-    } else if (selectedIndex > 0) {
-      newSelected = newSelected.concat(
-        selected.slice(0, selectedIndex),
-        selected.slice(selectedIndex + 1)
-      );
-    }
-    setSelected(newSelected);
-  };
-
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setPage(0);
-    setRowsPerPage(parseInt(event.target.value, 10));
-  };
-
-  const handleFilterByName = (event) => {
-    setPage(0);
-    setFilterName(event.target.value);
-  };
-
-  const dataFiltered = applyFilter({
-    inputData: data || [],
-    comparator: getComparator(order, orderBy),
-    filterName,
+  const { data, isLoading } = useQuery({
+    queryKey: ['admissions'],
+    queryFn: getAdmissions,
   });
 
-  const notFound = !dataFiltered.length && !!filterName;
+  const columnsWithActions = columns.map((column) => {
+    if (column.id === 'action') {
+      return {
+        ...column,
+        renderCell: (row) => (
+          <Stack direction="row" spacing={1}>
+            <IconButton
+              color="primary"
+              size="small"
+              sx={{ 
+                boxShadow: `0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                '&:hover': { 
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                }
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpen(row);
+              }}
+            >
+              <Iconify icon="eva:edit-fill" />
+            </IconButton>
+          </Stack>
+        ),
+      };
+    }
+    return column;
+  });
 
   return (
-    <Container>
+    <Container maxWidth="xl">
       {modalObj && <AddStudentModal open={openModal} handleClose={handleClose} object={modalObj} />}
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={5}>
-        <Typography variant="h4">Admissions</Typography>
+      
+      <Box sx={{ pb: 5, pt: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Box>
+            <Typography variant="h4" color="text.primary" fontWeight="700">
+              Admissions
+            </Typography>
+            <Typography variant="body2" color="text.secondary" mt={1}>
+              Manage student admissions and enrollments
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={2}>
+            <Button 
+              variant="contained" 
+              startIcon={<Iconify icon="eva:plus-fill" />}
+              onClick={() => setOpenAdmsModal(true)}
+              sx={{ 
+                px: 3,
+                boxShadow: theme.customShadows.primary,
+                '&:hover': {
+                  boxShadow: 'none',
+                }
+              }}
+            >
+              New Admission
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Iconify icon="eva:download-fill" />}
+              sx={{ px: 3 }}
+            >
+              Export
+            </Button>
+          </Stack>
+        </Box>
 
-        <AddAdmission open={openAdmsModal} setOpen={setOpenAdmsModal}/>
-      </Stack>
+        <Card sx={{ 
+          boxShadow: `0 0 2px 0 ${alpha(theme.palette.grey[500], 0.2)}, 
+                      0 12px 24px -4px ${alpha(theme.palette.grey[500], 0.12)}`,
+          borderRadius: 2,
+        }}>
+          <GenericTable
+            data={data}
+            columns={columnsWithActions}
+            rowIdField="_id"
+            withCheckbox
+            withToolbar
+            withPagination
+            selectable
+            isLoading={isLoading}
+            emptyRowsHeight={53}
+            toolbarProps={{
+              searchPlaceholder: 'Search admissions...',
+              toolbarTitle: 'Admissions List',
+            }}
+          />
+        </Card>
+      </Box>
 
-      <Card>
-        <AdmissionTableToolbar
-          numSelected={selected.length}
-          filterName={filterName}
-          onFilterName={handleFilterByName}
-        />
-
-        <Scrollbar>
-          <TableContainer sx={{ overflow: 'unset' }}>
-            <Table sx={{ minWidth: 800 }}>
-              <AdmissionTableHead
-                order={order}
-                orderBy={orderBy}
-                rowCount={data?.length}
-                numSelected={selected.length}
-                onRequestSort={handleSort}
-                onSelectAllClick={handleSelectAllClick}
-                headLabel={[
-                  { id: 'fullName', label: 'Full Name', align: 'left' }, // Full Name from application
-                  { id: 'number', label: 'Admission Number' }, // Admission number
-                  { id: 'programme', label: 'Programme' }, // Admission programme
-                  { id: 'status', label: 'Status' }, // Admission status
-                  { id: 'offerDate', label: 'Offer Date' }, // Admission offer date
-                  { id: '' },
-                ]}
-              />
-
-              <TableBody>
-                {dataFiltered
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((row) => (
-                    <AdmissionTableRow
-                      key={row._id}
-                      id={row._id}
-                      fullName={`${row.application?.firstName} ${row.application?.lastName} ${row.application?.otherName || ''}`} // Full Name from application
-                      number={row.number} // Admission number
-                      programme={row.programme} // Programme
-                      status={row.status} // Admission status
-                      offerDate={new Date(row.offerDate)} // Offer Date formatted
-                      object={row}
-                      selected={selected.indexOf(row._id) !== -1}
-                      handleClick={(event) => handleClick(event, row._id)}
-                      handleOpen={handleOpen}
-                    />
-                  ))}
-
-                {/* <TableEmptyRows height={77} emptyRows={emptyRows(page, rowsPerPage, data.length)} /> */}
-
-                {notFound && <TableNoData query={filterName} />}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Scrollbar>
-
-        <TablePagination
-          page={page}
-          component="div"
-          count={data?.length}
-          rowsPerPage={rowsPerPage}
-          onPageChange={handleChangePage}
-          rowsPerPageOptions={[5, 10, 25]}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
-      </Card>
+      <AddAdmission open={openAdmsModal} setOpen={setOpenAdmsModal}/>
     </Container>
   );
 }

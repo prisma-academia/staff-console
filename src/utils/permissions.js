@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 
 import { useAuthStore } from 'src/store';
+import { useErrorStore } from 'src/store/error-store';
 
 const getPermissions = (state) => {
   if (state.permissions && state.permissions.length > 0) return state.permissions;
-  if (Array.isArray(state.user?.permissions)) {
-    return state.user.permissions.map((p) => (typeof p === 'string' ? p : p.action));
+  if (Array.isArray(state.user?.permission)) {
+    return state.user.permission.map((p) => (typeof p === 'string' ? p : p.action));
   }
   return [];
 };
@@ -55,8 +56,8 @@ export const usePermissions = () => {
   
   const permissions = useMemo(() => {
     if (permissionsState && permissionsState.length > 0) return permissionsState;
-    if (Array.isArray(user?.permissions)) {
-      return user.permissions.map((p) => (typeof p === 'string' ? p : p.action));
+    if (Array.isArray(user?.permission)) {
+      return user.permission.map((p) => (typeof p === 'string' ? p : p.action));
     }
     return [];
   }, [permissionsState, user]);
@@ -68,5 +69,30 @@ export const usePermissions = () => {
   const checkAll = (arr) => isAdmin || arr.every((p) => permissions.includes(p));
 
   return { permissions, check, checkAny, checkAll, isAdmin };
+};
+
+/**
+ * Show a permission error modal
+ * @param {Object} options - Error modal options
+ * @param {string} options.title - Title of the error modal (default: 'Access Denied')
+ * @param {string} options.message - Error message (default: permission-based message)
+ * @param {string} options.permission - The permission that was denied (optional)
+ * @param {*} options.details - Additional details to display (optional)
+ */
+export const showPermissionError = ({ title, message, permission, details = null }) => {
+  const { showPermissionError: showError } = useErrorStore.getState();
+  
+  let errorMessage = message;
+  if (!errorMessage && permission) {
+    errorMessage = `You do not have permission to perform this action. Required permission: ${permission}`;
+  } else if (!errorMessage) {
+    errorMessage = 'You do not have permission to perform this action.';
+  }
+  
+  showError({
+    title: title || 'Access Denied',
+    message: errorMessage,
+    details,
+  });
 };
 

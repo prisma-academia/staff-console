@@ -23,9 +23,10 @@ import {
   IconButton,
   useMediaQuery,
   InputAdornment,
+  CircularProgress,
 } from '@mui/material';
 
-import { UserApi, programApi, classLevelApi } from 'src/api';
+import { UserApi, StudentApi, programApi, classLevelApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
 
@@ -46,6 +47,7 @@ export default function AddStudent({ open, setOpen }) {
   const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [isGeneratingRegNumber, setIsGeneratingRegNumber] = React.useState(false);
 
   const validationSchema = Yup.object({
     regNumber: Yup.string().required('Registration number is required'),
@@ -172,7 +174,32 @@ export default function AddStudent({ open, setOpen }) {
 
   const handleClose = () => {
     formik.resetForm();
+    setIsGeneratingRegNumber(false);
     setOpen(false);
+  };
+
+  const handleGenerateRegNumber = async () => {
+    if (!formik.values.program) {
+      enqueueSnackbar('Please select a program first', { variant: 'warning' });
+      return;
+    }
+
+    setIsGeneratingRegNumber(true);
+    try {
+      const response = await StudentApi.generateRegNumber(formik.values.program);
+      // API returns { regNumber: "..." } from result.data
+      const regNumber = response?.regNumber || response;
+      if (regNumber && typeof regNumber === 'string') {
+        formik.setFieldValue('regNumber', regNumber);
+        enqueueSnackbar('Registration number generated successfully', { variant: 'success' });
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (error) {
+      enqueueSnackbar(error.message || 'Failed to generate registration number', { variant: 'error' });
+    } finally {
+      setIsGeneratingRegNumber(false);
+    }
   };
 
   const modalStyle = {
@@ -232,7 +259,62 @@ export default function AddStudent({ open, setOpen }) {
           <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
             <Box component="form" onSubmit={formik.handleSubmit}>
               <Stack spacing={4}>
-                {/* Main Information Card - Registration Number & Enrollment */}
+                {/* Academic Information - FIRST */}
+                <Box>
+                  <Stack direction="row" alignItems="center" mb={2} spacing={1}>
+                    <Iconify icon="mdi:school" color={theme.palette.primary.main} />
+                    <Typography variant="h6" fontWeight={600}>
+                      Academic Information
+                    </Typography>
+                  </Stack>
+                  <Divider sx={{ mb: 2 }} />
+                  <Box sx={sectionCardStyle}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          name="program"
+                          label="Program"
+                          fullWidth
+                          size="small"
+                          select
+                          value={formik.values.program}
+                          onChange={formik.handleChange}
+                          error={formik.touched.program && Boolean(formik.errors.program)}
+                          helperText={formik.touched.program && formik.errors.program}
+                          disabled={isLoadingPrograms}
+                        >
+                          {(programs || []).map((program) => (
+                            <MenuItem key={program._id} value={program._id}>
+                              {program.name}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          name="classLevel"
+                          label="Class Level"
+                          fullWidth
+                          size="small"
+                          select
+                          value={formik.values.classLevel}
+                          onChange={formik.handleChange}
+                          error={formik.touched.classLevel && Boolean(formik.errors.classLevel)}
+                          helperText={formik.touched.classLevel && formik.errors.classLevel}
+                          disabled={isLoadingClassLevels}
+                        >
+                          {(classLevels || []).map((classLevel) => (
+                            <MenuItem key={classLevel._id} value={classLevel._id}>
+                              {classLevel.name}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                </Box>
+
+                {/* Registration & Enrollment Information */}
                 <Box sx={sectionCardStyle}>
                   <Grid container spacing={3}>
                     <Grid item xs={12} md={4}>
@@ -249,6 +331,22 @@ export default function AddStudent({ open, setOpen }) {
                           startAdornment: (
                             <InputAdornment position="start">
                               <Iconify icon="mdi:identifier" />
+                            </InputAdornment>
+                          ),
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                onClick={handleGenerateRegNumber}
+                                disabled={!formik.values.program || isGeneratingRegNumber}
+                                edge="end"
+                                size="small"
+                              >
+                                {isGeneratingRegNumber ? (
+                                  <CircularProgress size={20} />
+                                ) : (
+                                  <Iconify icon="mdi:refresh" />
+                                )}
+                              </IconButton>
                             </InputAdornment>
                           ),
                         }}
@@ -518,61 +616,6 @@ export default function AddStudent({ open, setOpen }) {
                           }
                           helperText={formik.touched.contactInfo?.lga && formik.errors.contactInfo?.lga}
                         />
-                      </Grid>
-                    </Grid>
-                  </Box>
-                </Box>
-
-                {/* Enrollment Information */}
-                <Box>
-                  <Stack direction="row" alignItems="center" mb={2} spacing={1}>
-                    <Iconify icon="mdi:school" color={theme.palette.primary.main} />
-                    <Typography variant="h6" fontWeight={600}>
-                      Academic Information
-                    </Typography>
-                  </Stack>
-                  <Divider sx={{ mb: 2 }} />
-                  <Box sx={sectionCardStyle}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          name="program"
-                          label="Program"
-                          fullWidth
-                          size="small"
-                          select
-                          value={formik.values.program}
-                          onChange={formik.handleChange}
-                          error={formik.touched.program && Boolean(formik.errors.program)}
-                          helperText={formik.touched.program && formik.errors.program}
-                          disabled={isLoadingPrograms}
-                        >
-                          {(programs || []).map((program) => (
-                            <MenuItem key={program._id} value={program._id}>
-                              {program.name}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          name="classLevel"
-                          label="Class Level"
-                          fullWidth
-                          size="small"
-                          select
-                          value={formik.values.classLevel}
-                          onChange={formik.handleChange}
-                          error={formik.touched.classLevel && Boolean(formik.errors.classLevel)}
-                          helperText={formik.touched.classLevel && formik.errors.classLevel}
-                          disabled={isLoadingClassLevels}
-                        >
-                          {(classLevels || []).map((classLevel) => (
-                            <MenuItem key={classLevel._id} value={classLevel._id}>
-                              {classLevel.name}
-                            </MenuItem>
-                          ))}
-                        </TextField>
                       </Grid>
                     </Grid>
                   </Box>

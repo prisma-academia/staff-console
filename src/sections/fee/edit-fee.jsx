@@ -37,7 +37,7 @@ import {
   TableContainer,
 } from '@mui/material';
 
-import { FeeApi, UserApi, programApi, classLevelApi } from 'src/api';
+import { FeeApi, StudentApi, programApi, classLevelApi } from 'src/api';
 
 import CustomSelect from 'src/components/select';
 
@@ -46,6 +46,18 @@ const FEE_TYPE = [
   { name: 'Hostel', _id: 'Hostel' },
   { name: 'Laboratory', _id: 'Laboratory' },
   { name: 'Others', _id: 'Others' },
+];
+
+const SEMESTER_OPTIONS = [
+  { name: 'First Semester', _id: 'First Semester' },
+  { name: 'Second Semester', _id: 'Second Semester' },
+];
+
+const GATEWAY_OPTIONS = [
+  { name: 'Paystack', _id: 'Paystack' },
+  { name: 'Flutterwave', _id: 'Flutterwave' },
+  { name: 'Paypal', _id: 'Paypal' },
+  { name: 'Stripe', _id: 'Stripe' },
 ];
 
 const EditFee = ({ open, setOpen, fee }) => {
@@ -66,7 +78,7 @@ const EditFee = ({ open, setOpen, fee }) => {
 
   const { data: studentOptions } = useQuery({
     queryKey: ['students'],
-    queryFn: UserApi.getStudents,
+    queryFn: () => StudentApi.getStudents(),
   });
 
   const formattedStudentOptions = useMemo(() => {
@@ -103,6 +115,16 @@ const EditFee = ({ open, setOpen, fee }) => {
       ),
       feeType: fee?.feeType || '',
       status: fee?.status || '',
+      semester: fee?.semester || '',
+      gateway: (() => {
+        if (Array.isArray(fee?.gateway)) {
+          return fee.gateway;
+        }
+        if (fee?.gateway) {
+          return [fee.gateway];
+        }
+        return ['Paystack'];
+      })(),
       items: fee?.items || [],
       currentItem: { name: '', quantity: '', price: '' },
       students: (fee?.students || fee?.studentIds || []).map((student) =>
@@ -126,14 +148,37 @@ const EditFee = ({ open, setOpen, fee }) => {
   const validationSchema = Yup.object({
     name: Yup.string().required('Fee name is required'),
     description: Yup.string(),
-    amount: Yup.number().required('Amount is required'),
+    amount: Yup.number().nullable(),
+    items: Yup.array().of(
+      Yup.object().shape({
+        name: Yup.string().required('Item name is required'),
+        quantity: Yup.number().required('Quantity is required').min(0.01, 'Quantity must be greater than 0'),
+        price: Yup.number().required('Price is required').min(0, 'Price must be non-negative'),
+      })
+    ),
     dueDate: Yup.date().required('Due date is required'),
     programs: Yup.array().required('Program(s) are required'),
     classLevels: Yup.array().required('Class level(s) are required'),
     feeType: Yup.string().required('Fee type is required'),
     status: Yup.string(),
+    semester: Yup.string().oneOf(['First Semester', 'Second Semester'], 'Invalid semester'),
+    gateway: Yup.array().of(Yup.string().oneOf(['Paystack', 'Flutterwave', 'Paypal', 'Stripe'], 'Invalid gateway')),
     students: Yup.array().of(Yup.string()),
     users: Yup.array().of(Yup.string()),
+  }).test('amount-or-items', 'Either amount or items array must be provided', function testAmountOrItems(value) {
+    const { amount, items } = value;
+    const hasAmount = amount !== '' && amount !== null && amount !== undefined && !Number.isNaN(Number(amount));
+    const hasItems = items && Array.isArray(items) && items.length > 0;
+    
+    if (!hasAmount && !hasItems) {
+      // eslint-disable-next-line react/no-this-in-sfc
+      return this.createError({
+        path: 'amount',
+        message: 'Either amount or items array must be provided',
+      });
+    }
+    
+    return true;
   });
 
   const formik = useFormik({
@@ -148,12 +193,27 @@ const EditFee = ({ open, setOpen, fee }) => {
         });
         return;
       }
-      const { students, users, ...rest } = values;
+      const { students, users, items, amount, ...rest } = values;
+      
       const payload = {
         ...rest,
         students: students.filter((student) => student && student.trim() !== ''),
         users: users.filter((user) => user && user.trim() !== ''),
       };
+      
+      // If items array is provided and non-empty, omit amount (API will calculate)
+      if (items && items.length > 0) {
+        payload.items = items.map(item => ({
+          name: item.name,
+          quantity: Number(item.quantity),
+          price: Number(item.price),
+        }));
+        // Don't include amount - API will calculate it
+      } else {
+        // If no items, require and send amount
+        payload.amount = Number(amount);
+      }
+      
       mutate({ id: fee?._id, data: payload });
     },
   });
@@ -173,10 +233,33 @@ const EditFee = ({ open, setOpen, fee }) => {
 
   const addItem = () => {
     const { name, quantity, price } = formik.values.currentItem;
-    if (name && quantity && price) {
-      formik.setFieldValue('items', [...(formik.values.items || []), formik.values.currentItem]);
-      formik.setFieldValue('currentItem', { name: '', quantity: '', price: '' });
+    
+    // Validate item before adding
+    if (!name || !name.trim()) {
+      enqueueSnackbar({ message: 'Item name is required', variant: 'error' });
+      return;
     }
+    
+    const numQuantity = Number(quantity);
+    const numPrice = Number(price);
+    
+    if (!quantity || numQuantity <= 0) {
+      enqueueSnackbar({ message: 'Quantity must be greater than 0', variant: 'error' });
+      return;
+    }
+    
+    if (price === '' || numPrice < 0) {
+      enqueueSnackbar({ message: 'Price must be non-negative', variant: 'error' });
+      return;
+    }
+    
+    // Add validated item
+    formik.setFieldValue('items', [...(formik.values.items || []), {
+      name: name.trim(),
+      quantity: numQuantity,
+      price: numPrice,
+    }]);
+    formik.setFieldValue('currentItem', { name: '', quantity: '', price: '' });
   };
 
   const handleModalClose = () => {
@@ -254,8 +337,16 @@ const EditFee = ({ open, setOpen, fee }) => {
                     value={formik.values.amount}
                     onChange={formik.handleChange}
                     error={formik.touched.amount && Boolean(formik.errors.amount)}
-                    helperText={formik.touched.amount && formik.errors.amount}
-                    disabled={hasCompletedPayments}
+                    helperText={(() => {
+                      if (formik.touched.amount && formik.errors.amount) {
+                        return formik.errors.amount;
+                      }
+                      if (formik.values.items.length > 0) {
+                        return 'Amount will be calculated from items';
+                      }
+                      return 'Required if items are not provided';
+                    })()}
+                    disabled={hasCompletedPayments || formik.values.items.length > 0}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -346,11 +437,31 @@ const EditFee = ({ open, setOpen, fee }) => {
                     </FormHelperText>
                   </FormControl>
                 </Grid>
+                <Grid item xs={12} sm={6}>
+                  <CustomSelect
+                    data={SEMESTER_OPTIONS}
+                    label="Semester"
+                    name="semester"
+                    formik={formik}
+                    disabled={hasCompletedPayments}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <CustomSelect
+                    data={GATEWAY_OPTIONS}
+                    label="Payment Gateway(s)"
+                    name="gateway"
+                    formik={formik}
+                    multiple
+                    showSelectedCount
+                    disabled={hasCompletedPayments}
+                  />
+                </Grid>
                 <Divider sx={{ my: 5, width: '100%' }} />
 
                 <Grid item xs={12}>
                   <Typography variant="h6" gutterBottom>
-                    Items
+                    Items (Optional - if provided, amount will be auto-calculated)
                   </Typography>
 
                   <Stack direction="row" spacing={2} alignItems="center">

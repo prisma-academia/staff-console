@@ -11,7 +11,7 @@ import Iconify from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
-export default function ProgramTableToolbar({ numSelected, filterName, onFilterName }) {
+export default function ProgramTableToolbar({ numSelected, filterName, onFilterName, onDelete }) {
   return (
     <Toolbar
       sx={{
@@ -46,8 +46,8 @@ export default function ProgramTableToolbar({ numSelected, filterName, onFilterN
       )}
 
       {numSelected > 0 ? (
-        <Tooltip title="Delete">
-          <IconButton>
+        <Tooltip title="Delete selected">
+          <IconButton onClick={onDelete} color="error">
             <Iconify icon="eva:trash-2-fill" />
           </IconButton>
         </Tooltip>
@@ -66,4 +66,5 @@ ProgramTableToolbar.propTypes = {
   numSelected: PropTypes.number,
   filterName: PropTypes.string,
   onFilterName: PropTypes.func,
+  onDelete: PropTypes.func,
 };

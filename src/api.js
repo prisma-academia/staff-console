@@ -1,21 +1,57 @@
 // apiClient.js
 import config from './config';
 import { useAuthStore } from './store';
+import { useErrorStore } from './store/error-store';
 
 const baseHeaders = {
   'Content-Type': 'application/json',
 };
 
 const handleResponse = async (response) => {
-  const result = await response.json();
+  let result;
+  try {
+    const text = await response.text();
+    result = text ? JSON.parse(text) : {};
+  } catch (parseError) {
+    // If response is not valid JSON, create a basic error structure
+    result = {
+      ok: false,
+      message: response.statusText || 'An error occurred',
+    };
+  }
+
   if (response.ok && result.ok) {
     return result.data;
   }
   
   // Create a structured error object
-  const error = new Error(result.message || 'An error occurred');
+  const errorMessage = result.message || result.error || response.statusText || 'An error occurred';
+  const error = new Error(errorMessage);
   error.status = response.status;
   error.data = result;
+  
+  // Show error modal for critical errors
+  const { showError, showPermissionError } = useErrorStore.getState();
+  
+  // 403 Forbidden - Permission denied
+  if (response.status === 403) {
+    showPermissionError({
+      title: 'Access Denied',
+      message: errorMessage,
+      details: result,
+    });
+  }
+  // 500+ Server errors - Critical errors
+  else if (response.status >= 500) {
+    showError({
+      title: 'Server Error',
+      message: errorMessage,
+      details: result,
+    });
+  }
+  // 401 is handled separately in createRequest for token refresh
+  // Other errors (400, 404, etc.) will be thrown and can be handled by components
+  
   throw error;
 };
 
@@ -39,14 +75,27 @@ const createRequest = async (endpoint, options = {}, retry = true) => {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   const url = `${config.baseUrl}${apiVersion}/${cleanEndpoint}`;
 
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...baseHeaders,
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        ...baseHeaders,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+  } catch (networkError) {
+    // Network error - show error modal with retry option
+    const { showError } = useErrorStore.getState();
+    showError({
+      title: 'Network Error',
+      message: 'Unable to connect to the server. Please check your internet connection and try again.',
+      details: networkError.message,
+      retry: () => createRequest(endpoint, options, retry),
+    });
+    throw networkError;
+  }
 
   if (response.status === 401 && retry && refreshToken && user) {
     if (!isRefreshing) {
@@ -73,7 +122,15 @@ const createRequest = async (endpoint, options = {}, retry = true) => {
           return createRequest(endpoint, options, false);
         }
         
-        // If refresh fails, log out
+        // If refresh fails, show error modal and log out
+        const { showError } = useErrorStore.getState();
+        showError({
+          title: 'Session Expired',
+          message: 'Your session has expired. Please log in again.',
+          onClose: () => {
+            logOut();
+          },
+        });
         logOut();
         throw new Error('Session expired. Please log in again.');
       } catch (error) {
@@ -131,11 +188,13 @@ export const UserApi = {
   deleteUser: (id) => apiClient.delete(`user/${id}`),
   adminResetPassword: (userId, data) => apiClient.post(`user/admin/reset-password/${userId}`, data),
   forgotPassword: (data) => apiClient.post('user/forgot-password', data),
+  changePassword: (data) => apiClient.post('user/reset-password', data),
   checkPermission: (action) => apiClient.post('user/check-permission', { action }),
 };
 
 export const programApi = {
   getPrograms: () => apiClient.get('program'),
+  getProgramById: (id) => apiClient.get(`program/${id}`),
   createProgram: (data) => apiClient.post('program', data),
   updateProgram: (id, data) => apiClient.put(`program/${id}`, data),
   deleteProgram: (id) => apiClient.delete(`program/${id}`),
@@ -143,6 +202,7 @@ export const programApi = {
 
 export const classLevelApi = {
   getClassLevels: () => apiClient.get('classlevel'),
+  getClassLevelById: (id) => apiClient.get(`classlevel/${id}`),
   createClassLevel: (data) => apiClient.post('classlevel', data),
   updateClassLevel: (id, data) => apiClient.put(`classlevel/${id}`, data),
   deleteClassLevel: (id) => apiClient.delete(`classlevel/${id}`),
@@ -230,6 +290,184 @@ export const RolePermissionApi = {
   deleteRolePermission: (id) => apiClient.delete(`role-permission/${id}`),
 };
 
+export const SettingsApi = {
+  getSettings: () => apiClient.get('settings'),
+  updateSettings: (data) => apiClient.put('settings', data),
+  resetSettings: () => apiClient.post('settings/reset'),
+};
+
+const buildQueryString = (params) => {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && value !== '') {
+      if (value instanceof Date) {
+        searchParams.append(key, value.toISOString());
+      } else {
+        searchParams.append(key, value);
+      }
+    }
+  });
+  return searchParams.toString();
+};
+
+export const AuditApi = {
+  getStats: (params) => {
+    const queryString = params ? buildQueryString(params) : '';
+    return apiClient.get(`audit/stats${queryString ? `?${queryString}` : ''}`);
+  },
+  getAuditLogs: (params) => {
+    const queryString = params ? buildQueryString(params) : '';
+    return apiClient.get(`audit${queryString ? `?${queryString}` : ''}`);
+  },
+  getAuditLogById: (id) => apiClient.get(`audit/${id}`),
+  getAuditLogsByEntity: (entityType, entityId, params) => {
+    const queryString = params ? buildQueryString(params) : '';
+    return apiClient.get(`audit/entity/${entityType}/${entityId}${queryString ? `?${queryString}` : ''}`);
+  },
+  getAuditLogsByActor: (actorId, params) => {
+    const queryString = params ? buildQueryString(params) : '';
+    return apiClient.get(`audit/actor/${actorId}${queryString ? `?${queryString}` : ''}`);
+  },
+  createAuditLog: (data) => apiClient.post('audit', data),
+  deleteAuditLog: (id) => apiClient.delete(`audit/${id}`),
+};
+
 // export const AdmissionApi = {
 //   getAdmissions: () => apiClient.get('admission'),
 // };
+
+export const StudentApi = {
+  getStudents: (params) => {
+    let queryString = '';
+    if (params) {
+      if (typeof params === 'string') {
+        queryString = params;
+      } else if (typeof params === 'object') {
+        // Filter out React Query internal parameters
+        const filteredParams = {};
+        Object.entries(params).forEach(([key, value]) => {
+          // Only include actual query parameters, not React Query internals
+          if (!['client', 'queryKey', 'signal', 'meta', 'pageParam'].includes(key)) {
+            filteredParams[key] = value;
+          }
+        });
+        if (Object.keys(filteredParams).length > 0) {
+          queryString = buildQueryString(filteredParams);
+        }
+      }
+    }
+    return apiClient.get(`student${queryString ? `?${queryString}` : ''}`);
+  },
+  getStudentById: (id) => apiClient.get(`student/${id}`),
+  adminEditStudent: (id, data) => apiClient.put(`student/admin/edit/${id}`, data),
+  adminDisableStudent: (id) => apiClient.put(`student/admin/disable/${id}`),
+  adminResetPassword: (id, data) => apiClient.post(`student/admin/reset-password/${id}`, data),
+  generateRegNumber: (programId) => apiClient.get(`student/reg-number/${programId}`),
+  // Bulk upload methods
+  downloadBulkUploadTemplate: async (format = 'xlsx') => {
+    const { token } = useAuthStore.getState();
+    const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
+    const url = `${config.baseUrl}${apiVersion}/student/bulk-upload/template?format=${format}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      let errorMessage = 'Failed to download template';
+      try {
+        const errorText = await response.text();
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.message || errorMessage;
+        
+        // Handle permission errors
+        if (response.status === 403) {
+          const { showPermissionError } = useErrorStore.getState();
+          showPermissionError({
+            title: 'Access Denied',
+            message: errorMessage,
+            details: errorJson,
+          });
+        } else if (response.status >= 500) {
+          const { showError } = useErrorStore.getState();
+          showError({
+            title: 'Server Error',
+            message: errorMessage,
+            details: errorJson,
+          });
+        }
+      } catch {
+        // If response is not JSON, use status text
+        errorMessage = response.statusText || errorMessage;
+      }
+      
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      throw error;
+    }
+
+    // Return blob for download handling
+    return response.blob();
+  },
+  validateBulkUpload: async (file) => {
+    const { token } = useAuthStore.getState();
+    const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
+    const url = `${config.baseUrl}${apiVersion}/student/bulk-upload/validate`;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.ok) {
+      const errorMessage = result.message || result.error || 'Failed to validate file';
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      error.data = result;
+      
+      // Handle specific error cases
+      if (response.status === 403) {
+        const { showPermissionError } = useErrorStore.getState();
+        showPermissionError({
+          title: 'Access Denied',
+          message: errorMessage,
+          details: result,
+        });
+      } else if (response.status >= 500) {
+        const { showError } = useErrorStore.getState();
+        showError({
+          title: 'Server Error',
+          message: errorMessage,
+          details: result,
+        });
+      }
+      
+      throw error;
+    }
+
+    return result.data;
+  },
+  bulkInsertStudents: (data) => apiClient.post('student/bulk-insert', data),
+};
+
+export const TemplateApi = {
+  getTemplates: (params) => {
+    const queryString = params ? buildQueryString(params) : '';
+    return apiClient.get(`template${queryString ? `?${queryString}` : ''}`);
+  },
+  getTemplateById: (id) => apiClient.get(`template/${id}`),
+  createTemplate: (data) => apiClient.post('template', data),
+  updateTemplate: (id, data) => apiClient.put(`template/${id}`, data),
+  deleteTemplate: (id) => apiClient.delete(`template/${id}`),
+};

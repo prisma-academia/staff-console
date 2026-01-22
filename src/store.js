@@ -11,8 +11,8 @@ export const useAuthStore = create(
       refreshToken: null,
       permissions: [],
       logIn: ({ user, token, refreshToken }) => {
-        const permissions = Array.isArray(user?.permissions)
-          ? user.permissions.map((p) => (typeof p === 'string' ? p : p.action))
+        const permissions = Array.isArray(user?.permission)
+          ? user.permission.map((p) => (typeof p === 'string' ? p : p.action))
           : [];
         set({
           user,

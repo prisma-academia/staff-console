@@ -9,7 +9,7 @@ import OutlinedInput from '@mui/material/OutlinedInput';
 import InputAdornment from '@mui/material/InputAdornment';
 import { Box, Chip, Stack, TextField } from '@mui/material';
 
-import { FeeApi, UserApi } from 'src/api';
+import { FeeApi, StudentApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
 import CustomSelect from 'src/components/old-select/select';
@@ -29,7 +29,7 @@ export default function PaymentTableToolbar({
 }) {
   const { data: users } = useQuery({
     queryKey: ['students'],
-    queryFn: UserApi.getStudents,
+    queryFn: () => StudentApi.getStudents(),
   });
 
   const { data: fees } = useQuery({

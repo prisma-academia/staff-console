@@ -7,8 +7,6 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Fade from '@mui/material/Fade';
 import Stack from '@mui/material/Stack';
-import Modal from '@mui/material/Modal';
-import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
@@ -35,14 +33,8 @@ export default function LoginView() {
   const logIn = useAuthStore((state) => state.logIn);
 
   const [showPassword, setShowPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  
-  const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
-  const [changeReason, setChangeReason] = useState('');
 
   const { enqueueSnackbar } = useSnackbar();
 
@@ -59,8 +51,8 @@ export default function LoginView() {
       if (message.includes('New password required') || 
           message.includes('pending') || 
           (error.data && error.data.mustChangePassword)) {
-        setPasswordChangeRequired(true);
-        setChangeReason(message);
+        // Redirect to reset password page with email
+        router.push(`/auth/reset-password?email=${encodeURIComponent(email)}`);
         enqueueSnackbar(message, { variant: 'info' });
       } else {
         enqueueSnackbar(message, { variant: 'error' });
@@ -74,28 +66,7 @@ export default function LoginView() {
       return;
     }
     
-    const payload = { email, password };
-    if (passwordChangeRequired) {
-      if (!newPassword) {
-        enqueueSnackbar('New password is required', { variant: 'warning' });
-        return;
-      }
-      if (newPassword !== confirmNewPassword) {
-        enqueueSnackbar('Passwords do not match', { variant: 'error' });
-        return;
-      }
-      payload.newPassword = newPassword;
-    }
-    
-    mutate(payload);
-  };
-
-  const handleCloseModal = () => {
-    if (!isPending) {
-      setPasswordChangeRequired(false);
-      setNewPassword('');
-      setConfirmNewPassword('');
-    }
+    mutate({ email, password });
   };
 
   const renderForm = (
@@ -118,7 +89,6 @@ export default function LoginView() {
           name="email"
           label="Email address"
           placeholder="Enter your email"
-          disabled={passwordChangeRequired}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -136,7 +106,6 @@ export default function LoginView() {
           onChange={(e) => setPassword(e.target.value)}
           type={showPassword ? 'text' : 'password'}
           placeholder="Enter your password"
-          disabled={passwordChangeRequired}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -148,7 +117,6 @@ export default function LoginView() {
                 <IconButton 
                   onClick={() => setShowPassword(!showPassword)} 
                   edge="end"
-                  disabled={passwordChangeRequired}
                   sx={{ 
                     color: 'text.disabled',
                     '&:hover': {
@@ -204,76 +172,6 @@ export default function LoginView() {
     </Fade>
   );
 
-  const renderPasswordChangeModal = (
-    <Modal
-      open={passwordChangeRequired}
-      onClose={handleCloseModal}
-      aria-labelledby="password-change-modal"
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Card
-        sx={{
-          p: 5,
-          width: 1,
-          maxWidth: 420,
-          borderRadius: 3,
-        }}
-      >
-        <Stack spacing={3}>
-          <Typography variant="h5" sx={{ fontWeight: 600 }}>
-            Change Password Required
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {changeReason || 'Your account requires a password update before proceeding.'}
-          </Typography>
-
-          <TextField
-            fullWidth
-            label="New Password"
-            type={showNewPassword ? 'text' : 'password'}
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton onClick={() => setShowNewPassword(!showNewPassword)} edge="end">
-                    <Iconify icon={showNewPassword ? 'eva:eye-fill' : 'eva:eye-off-fill'} />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          <TextField
-            fullWidth
-            label="Confirm New Password"
-            type={showNewPassword ? 'text' : 'password'}
-            value={confirmNewPassword}
-            onChange={(e) => setConfirmNewPassword(e.target.value)}
-          />
-
-          <Stack direction="row" spacing={2}>
-            <Button fullWidth variant="outlined" onClick={handleCloseModal} disabled={isPending}>
-              Cancel
-            </Button>
-            <LoadingButton
-              fullWidth
-              variant="contained"
-              loading={isPending}
-              onClick={handleClick}
-            >
-              Update & Login
-            </LoadingButton>
-          </Stack>
-        </Stack>
-      </Card>
-    </Modal>
-  );
-
   return (
     <Box
       sx={{
@@ -319,8 +217,6 @@ export default function LoginView() {
           </Stack>
         </Card>
       </Stack>
-      
-      {renderPasswordChangeModal}
     </Box>
   );
 }

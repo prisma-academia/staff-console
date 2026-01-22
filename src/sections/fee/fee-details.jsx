@@ -183,6 +183,28 @@ const FeeDetails = ({ open, setOpen, fee }) => {
                         {feeDetails?.status || 'N/A'}
                       </Label>
                     </Grid>
+                    {feeDetails?.semester && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          Semester
+                        </Typography>
+                        <Typography variant="body1">{feeDetails.semester}</Typography>
+                      </Grid>
+                    )}
+                    {feeDetails?.gateway && (feeDetails.gateway.length > 0 || (Array.isArray(feeDetails.gateway) ? false : feeDetails.gateway)) && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          Payment Gateway(s)
+                        </Typography>
+                        <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}>
+                          {(Array.isArray(feeDetails.gateway) ? feeDetails.gateway : [feeDetails.gateway])
+                            .filter(Boolean)
+                            .map((gateway, index) => (
+                              <Chip key={index} label={gateway} size="small" variant="outlined" />
+                            ))}
+                        </Stack>
+                      </Grid>
+                    )}
                     <Grid item xs={12} sm={6}>
                       <Typography variant="body2" color="text.secondary">
                         Created At

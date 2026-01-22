@@ -3,39 +3,110 @@ import { useQuery } from '@tanstack/react-query';
 
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
-import Table from '@mui/material/Table';
 import Container from '@mui/material/Container';
-import TableBody from '@mui/material/TableBody';
 import Typography from '@mui/material/Typography';
-import TableContainer from '@mui/material/TableContainer';
-import TablePagination from '@mui/material/TablePagination';
+import { alpha, useTheme } from '@mui/material/styles';
+import { Box, Button, IconButton } from '@mui/material';
 
 import { paymentApi } from 'src/api';
 
-import Scrollbar from 'src/components/scrollbar';
+import Label from 'src/components/label';
+import Iconify from 'src/components/iconify';
+import { GenericTable } from 'src/components/generic-table';
 
-import TableNoData from '../table-no-data';
-import PaymentTableRow from '../payment-table-row';
-import PaymentTableHead from '../payment-table-head';
-import { applyFilter, getComparator } from '../utils';
-import PaymentTableToolbar from '../payment-table-toolbar';
-
-
+import PaymentDetails from '../payment-details';
 
 // ----------------------------------------------------------------------
 
-export default function PaymentPage() {
-  const [page, setPage] = useState(0);
-  const [order, setOrder] = useState('asc');
-  const [selected, setSelected] = useState([]);
-  const [orderBy, setOrderBy] = useState('user');
-  const [filterName, setFilterName] = useState('');
-  const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [selectedUser, setSelectedUser] = useState('');
-  const [selectedFee, setSelectedFee] = useState('');
-  const [selectedRegNumber, setSelectedRegNumber] = useState('');
+const getStatusColor = (status) => {
+  if (status === 'Failed') return 'error';
+  if (status === 'Pending') return 'warning';
+  if (status === 'Completed') return 'success';
+  if (status === 'Overdue') return 'error';
+  return 'default';
+};
 
-  const { data, loading } = useQuery({
+const getUserName = (payment) => {
+  if (!payment?.user) return 'Unknown';
+  if (typeof payment.user === 'string') return payment.user;
+  const fullName = `${payment.user?.personalInfo?.firstName || ''} ${payment.user?.personalInfo?.lastName || ''}`.trim();
+  return fullName || payment.user?.email || 'Unknown';
+};
+
+const getFeeName = (payment) => {
+  if (!payment?.fee) return 'Unknown';
+  if (typeof payment.fee === 'string') return payment.fee;
+  return payment.fee?.name || 'Unknown';
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  try {
+    return new Date(dateString).toLocaleDateString();
+  } catch {
+    return 'N/A';
+  }
+};
+
+const columns = [
+  { 
+    id: 'user', 
+    label: 'Full Name', 
+    align: 'left', 
+    cellSx: { width: '20%' },
+    renderCell: (row) => (
+      <Typography variant="subtitle2" noWrap>
+        {getUserName(row)}
+      </Typography>
+    )
+  },
+  { 
+    id: 'fee', 
+    label: 'Fee',
+    cellSx: { width: '15%' },
+    renderCell: (row) => getFeeName(row)
+  },
+  { 
+    id: 'amount', 
+    label: 'Amount',
+    cellSx: { width: '15%' },
+    renderCell: (row) => (
+      typeof row?.amount === 'number' ? `₦${row.amount.toLocaleString()}` : row?.amount || 'N/A'
+    )
+  },
+  { 
+    id: 'status', 
+    label: 'Status',
+    cellSx: { width: '10%' },
+    renderCell: (row) => (
+      <Label color={getStatusColor(row?.status)}>
+        {row?.status || 'N/A'}
+      </Label>
+    )
+  },
+  { 
+    id: 'reference', 
+    label: 'Reference',
+    cellSx: { width: '20%' },
+    renderCell: (row) => row?.reference || 'N/A'
+  },
+  { 
+    id: 'createdAt', 
+    label: 'Date',
+    cellSx: { width: '10%' },
+    renderCell: (row) => formatDate(row?.createdAt || row?.updatedAt)
+  },
+  { id: 'action', label: 'Action', cellSx: { width: '10%' } },
+];
+
+export default function PaymentPage() {
+  const theme = useTheme();
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [selectedUser] = useState('');
+  const [selectedFee] = useState('');
+  const [selectedRegNumber] = useState('');
+
+  const { data, isLoading } = useQuery({
     queryKey: ['payments', selectedUser, selectedFee, selectedRegNumber],
     queryFn: () => paymentApi.getPayments(
       selectedUser || undefined,
@@ -44,136 +115,78 @@ export default function PaymentPage() {
     ),
   });
 
-  const handleSort = (event, id) => {
-    const isAsc = orderBy === id && order === 'asc';
-    setOrder(isAsc ? 'desc' : 'asc');
-    setOrderBy(id);
-  };
-
-  const handleSelectAllClick = (event) => {
-    if (event.target.checked) {
-      const newSelecteds = (data || []).map((n) => n._id);
-      setSelected(newSelecteds);
-      return;
+  const columnsWithActions = columns.map((column) => {
+    if (column.id === 'action') {
+      return {
+        ...column,
+        renderCell: (row) => (
+          <Stack direction="row" spacing={1} justifyContent="flex-end">
+             <IconButton onClick={(e) => {
+                e.stopPropagation();
+                setSelectedPayment(row);
+             }}>
+              <Iconify icon="carbon:settings-edit" />
+            </IconButton>
+          </Stack>
+        ),
+      };
     }
-    setSelected([]);
-  };
-
-  const handleClick = (event, id) => {
-    const selectedIndex = selected.indexOf(id);
-    let newSelected = [];
-    if (selectedIndex === -1) {
-      newSelected = newSelected.concat(selected, id);
-    } else if (selectedIndex === 0) {
-      newSelected = newSelected.concat(selected.slice(1));
-    } else if (selectedIndex === selected.length - 1) {
-      newSelected = newSelected.concat(selected.slice(0, -1));
-    } else if (selectedIndex > 0) {
-      newSelected = newSelected.concat(
-        selected.slice(0, selectedIndex),
-        selected.slice(selectedIndex + 1)
-      );
-    }
-    setSelected(newSelected);
-  };
-
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setPage(0);
-    setRowsPerPage(parseInt(event.target.value, 10));
-  };
-
-  const handleFilterByName = (event) => {
-    setPage(0);
-    setFilterName(event.target.value);
-  };
-
-  const dataFiltered = applyFilter({
-    inputData: data || [],
-    comparator: getComparator(order, orderBy),
-    filterName,
+    return column;
   });
 
-  const notFound = !dataFiltered.length && !!filterName;
-
   return (
-    <Container>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={5}>
-        <Typography variant="h4">Payments</Typography>
-      </Stack>
-      {/* { console.log("payment",data)} */}
-        {loading ? (<div>Loading...</div>)
-        :
-        (
-          <Card>
-        <PaymentTableToolbar
-          numSelected={selected.length}
-          filterName={filterName}
-          onFilterName={handleFilterByName}
-          selectedUser={selectedUser}
-          selectedFee={selectedFee}
-          selectedRegNumber={selectedRegNumber}
-          onUserChange={setSelectedUser}
-          onFeeChange={setSelectedFee}
-          onRegNumberChange={setSelectedRegNumber}
-        />
+    <Container maxWidth="xl">
+      <Box sx={{ pb: 5, pt: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Box>
+            <Typography variant="h4" color="text.primary" fontWeight="700">
+              Payments
+            </Typography>
+            <Typography variant="body2" color="text.secondary" mt={1}>
+              Manage fee payments and transactions
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={2}>
+            {/* Add Payment Button if needed, currently not in original view */}
+             <Button
+              variant="outlined"
+              startIcon={<Iconify icon="eva:download-fill" />}
+              sx={{ px: 3 }}
+            >
+              Export
+            </Button>
+          </Stack>
+        </Box>
 
-        <Scrollbar>
-          <TableContainer sx={{ overflow: 'unset' }}>
-            <Table sx={{ minWidth: 800 }}>
-              <PaymentTableHead
-                order={order}
-                orderBy={orderBy}
-                rowCount={data?.length}
-                numSelected={selected.length}
-                onRequestSort={handleSort}
-                onSelectAllClick={handleSelectAllClick}
-                headLabel={[
-                  { id: 'user', label: 'Full Name', align: 'left' }, 
-                  { id: 'fee', label: 'Fee' }, 
-                  { id: 'amount', label: 'Amount' }, 
-                  { id: 'status', label: 'Status' }, 
-                  { id: 'reference', label: 'Reference' }, 
-                  { id: 'createdAt', label: 'Date' }, 
-                  { id: '' }, // Extra action column
-                ]}
-              />
+        <Card sx={{ 
+          boxShadow: `0 0 2px 0 ${alpha(theme.palette.grey[500], 0.2)}, 
+                      0 12px 24px -4px ${alpha(theme.palette.grey[500], 0.12)}`,
+          borderRadius: 2,
+        }}>
+          <GenericTable
+            data={data}
+            columns={columnsWithActions}
+            rowIdField="_id"
+            withCheckbox
+            withToolbar
+            withPagination
+            selectable
+            isLoading={isLoading}
+            emptyRowsHeight={53}
+            onRowClick={(row) => setSelectedPayment(row)}
+            toolbarProps={{
+              searchPlaceholder: 'Search payments...',
+              toolbarTitle: 'Payments List',
+            }}
+          />
+        </Card>
+      </Box>
 
-              <TableBody>
-                {dataFiltered
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((row) => (
-                    <PaymentTableRow
-                      key={row._id}
-                      payment={row}
-                      selected={selected.indexOf(row._id) !== -1}
-                      handleClick={(event) => handleClick(event, row._id)}
-                    />
-                  ))}
-
-                {notFound && <TableNoData query={filterName} />}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Scrollbar>
-
-        <TablePagination
-          page={page}
-          component="div"
-          count={data?.length}
-          rowsPerPage={rowsPerPage}
-          onPageChange={handleChangePage}
-          rowsPerPageOptions={[5, 10, 25]}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
-      </Card>
-        )
-      }
-      
+      <PaymentDetails 
+        open={Boolean(selectedPayment)} 
+        setOpen={(val) => !val && setSelectedPayment(null)} 
+        payment={selectedPayment} 
+      />
     </Container>
   );
 }
-

@@ -48,15 +48,25 @@ export default function GenericTable({
   onSelectionChange = null,
   filterFunction = null,
   placeholderRowCount = 5,
+  // Manual pagination props
+  manualPagination = false,
+  count = 0,
+  page: manualPage = 0,
+  rowsPerPage: manualRowsPerPage = 5,
+  onPageChange = null,
+  onRowsPerPageChange = null,
 }) {
   const theme = useTheme();
   
-  const [page, setPage] = useState(0);
+  const [internalPage, setInternalPage] = useState(0);
   const [order, setOrder] = useState(initialSort.order);
   const [selected, setSelected] = useState([]);
   const [orderBy, setOrderBy] = useState(initialSort.orderBy);
   const [filterName, setFilterName] = useState('');
-  const [rowsPerPage, setRowsPerPage] = useState(initialRowsPerPage);
+  const [internalRowsPerPage, setInternalRowsPerPage] = useState(initialRowsPerPage);
+
+  const page = manualPagination ? manualPage : internalPage;
+  const rowsPerPage = manualPagination ? manualRowsPerPage : internalRowsPerPage;
 
   const handleSort = (event, id) => {
     const isAsc = orderBy === id && order === 'asc';
@@ -101,32 +111,52 @@ export default function GenericTable({
   };
 
   const handleChangePage = (event, newPage) => {
-    setPage(newPage);
+    if (manualPagination) {
+      if (onPageChange) onPageChange(event, newPage);
+    } else {
+      setInternalPage(newPage);
+    }
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setPage(0);
-    setRowsPerPage(parseInt(event.target.value, 10));
+    const newRowsPerPage = parseInt(event.target.value, 10);
+    if (manualPagination) {
+      if (onRowsPerPageChange) onRowsPerPageChange(event);
+    } else {
+      setInternalPage(0);
+      setInternalRowsPerPage(newRowsPerPage);
+    }
   };
 
   const handleFilterByName = (event) => {
-    setPage(0);
+    if (!manualPagination) {
+      setInternalPage(0);
+    }
     setFilterName(event.target.value);
   };
 
-  const filteredData = applyFilter({
-    inputData: data || [],
-    comparator: getComparator(order, orderBy),
-    filterName,
-    filterFunction,
-  });
+  // Only apply client-side filtering and sorting if NOT manual pagination
+  // If manual pagination, assume data is already filtered/sorted by parent
+  const processedData = manualPagination 
+    ? data 
+    : applyFilter({
+        inputData: data || [],
+        comparator: getComparator(order, orderBy),
+        filterName,
+        filterFunction,
+      });
 
-  const notFound = !filteredData.length && !!filterName;
+  const notFound = !processedData.length && !!filterName;
   const isEmptyData = !isLoading && data.length === 0;
 
   const emptyRowsCount = withPagination
-    ? emptyRows(page, rowsPerPage, filteredData.length)
+    ? emptyRows(page, rowsPerPage, manualPagination ? count : processedData.length)
     : 0;
+
+  // For manual pagination, data is already sliced. For client-side, we slice it.
+  const visibleRows = manualPagination 
+    ? processedData 
+    : processedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
     <Paper
@@ -161,7 +191,7 @@ export default function GenericTable({
               <TableHead
                 order={order}
                 orderBy={orderBy}
-                rowCount={data?.length || 0}
+                rowCount={manualPagination ? count : (data?.length || 0)}
                 headLabel={columns}
                 numSelected={selected.length}
                 onRequestSort={handleSort}
@@ -171,7 +201,7 @@ export default function GenericTable({
             )}
 
             <TableBody>
-              {isLoading ? (
+              {isLoading && visibleRows.length === 0 ? (
                 Array.from(new Array(placeholderRowCount)).map((_, index) => (
                   <TableRow key={index}>
                     <TableCell colSpan={columns.length + (withCheckbox ? 1 : 0)} sx={{ height: 72 }}>
@@ -195,113 +225,57 @@ export default function GenericTable({
                 ))
               ) : (
                 <>
-                  {withPagination ? (
-                    filteredData
-                      .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                      .map((row) => {
-                        const id = row[rowIdField];
-                        const isItemSelected = selected.indexOf(id) !== -1;
-                        
-                        const rowClickHandler = onRowClick 
-                          ? (e) => {
-                              if (e.target.closest('button, a, input[type="checkbox"]')) return;
-                              onRowClick(row, e);
-                            }
-                          : undefined;
-                          
-                        return renderRow 
-                          ? renderRow({
-                              row,
-                              selected: isItemSelected,
-                              handleClick: (e) => handleClick(e, id),
-                              onClick: rowClickHandler,
-                            })
-                          : (
-                            <TableRow 
-                              hover 
-                              key={id} 
-                              tabIndex={-1}
-                              role="checkbox" 
-                              selected={isItemSelected}
-                              onClick={rowClickHandler}
-                            >
-                              {withCheckbox && selectable && (
-                                <TableCell padding="checkbox">
-                                  <Checkbox 
-                                    checked={isItemSelected} 
-                                    onChange={(e) => handleClick(e, id)} 
-                                  />
-                                </TableCell>
-                              )}
-                              
-                              {columns.map((column) => (
-                                <TableCell 
-                                  key={column.id} 
-                                  align={column.align || 'left'}
-                                  sx={column.cellSx}
-                                >
-                                  {column.renderCell 
-                                    ? column.renderCell(row) 
-                                    : row[column.id]
-                                  }
-                                </TableCell>
-                              ))}
-                            </TableRow>
-                          );
-                      })
-                  ) : (
-                    filteredData.map((row) => {
-                      const id = row[rowIdField];
-                      const isItemSelected = selected.indexOf(id) !== -1;
+                  {visibleRows.map((row) => {
+                    const id = row[rowIdField];
+                    const isItemSelected = selected.indexOf(id) !== -1;
+                    
+                    const rowClickHandler = onRowClick 
+                      ? (e) => {
+                          if (e.target.closest('button, a, input[type="checkbox"]')) return;
+                          onRowClick(row, e);
+                        }
+                      : undefined;
                       
-                      const rowClickHandler = onRowClick 
-                        ? (e) => {
-                            if (e.target.closest('button, a, input[type="checkbox"]')) return;
-                            onRowClick(row, e);
-                          }
-                        : undefined;
-                        
-                      return renderRow 
-                        ? renderRow({
-                            row,
-                            selected: isItemSelected,
-                            handleClick: (e) => handleClick(e, id),
-                            onClick: rowClickHandler,
-                          })
-                        : (
-                          <TableRow 
-                            hover 
-                            key={id} 
-                            tabIndex={-1}
-                            role="checkbox" 
-                            selected={isItemSelected}
-                            onClick={rowClickHandler}
-                          >
-                            {withCheckbox && selectable && (
-                              <TableCell padding="checkbox">
-                                <Checkbox 
-                                  checked={isItemSelected} 
-                                  onChange={(e) => handleClick(e, id)} 
-                                />
-                              </TableCell>
-                            )}
-                            
-                            {columns.map((column) => (
-                              <TableCell 
-                                key={column.id} 
-                                align={column.align || 'left'}
-                                sx={column.cellSx}
-                              >
-                                {column.renderCell 
-                                  ? column.renderCell(row) 
-                                  : row[column.id]
-                                }
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        );
-                    })
-                  )}
+                    return renderRow 
+                      ? renderRow({
+                          row,
+                          selected: isItemSelected,
+                          handleClick: (e) => handleClick(e, id),
+                          onClick: rowClickHandler,
+                        })
+                      : (
+                        <TableRow 
+                          hover 
+                          key={id} 
+                          tabIndex={-1}
+                          role="checkbox" 
+                          selected={isItemSelected}
+                          onClick={rowClickHandler}
+                        >
+                          {withCheckbox && selectable && (
+                            <TableCell padding="checkbox">
+                              <Checkbox 
+                                checked={isItemSelected} 
+                                onChange={(e) => handleClick(e, id)} 
+                              />
+                            </TableCell>
+                          )}
+                          
+                          {columns.map((column) => (
+                            <TableCell 
+                              key={column.id} 
+                              align={column.align || 'left'}
+                              sx={column.cellSx}
+                            >
+                              {column.renderCell 
+                                ? column.renderCell(row) 
+                                : row[column.id]
+                              }
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      );
+                  })}
 
                   {notFound && (
                     noDataComponent || (
@@ -359,10 +333,10 @@ export default function GenericTable({
         <TablePagination
           page={page}
           component="div"
-          count={filteredData.length}
+          count={manualPagination ? count : processedData.length}
           rowsPerPage={rowsPerPage}
           onPageChange={handleChangePage}
-          rowsPerPageOptions={[5, 10, 25]}
+          rowsPerPageOptions={[5, 10, 25, 50, 100]}
           onRowsPerPageChange={handleChangeRowsPerPage}
           sx={{ 
             borderTop: `1px solid ${theme.palette.divider}`,
@@ -400,4 +374,10 @@ GenericTable.propTypes = {
   onSelectionChange: PropTypes.func,
   filterFunction: PropTypes.func,
   placeholderRowCount: PropTypes.number,
-}; 
+  manualPagination: PropTypes.bool,
+  count: PropTypes.number,
+  page: PropTypes.number,
+  rowsPerPage: PropTypes.number,
+  onPageChange: PropTypes.func,
+  onRowsPerPageChange: PropTypes.func,
+};

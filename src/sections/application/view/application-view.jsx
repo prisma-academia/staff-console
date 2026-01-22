@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
 import { Visibility, FileDownload } from '@mui/icons-material';
-import { Chip, Button, Divider, Container, IconButton, Typography } from '@mui/material';
+import { Chip, Card, alpha, Button, useTheme, Container, IconButton, Typography } from '@mui/material';
 
 import config from 'src/config';
 import { useAuthStore } from 'src/store';
@@ -25,6 +25,7 @@ const columns = [
 ]
 
 export default function ApplicationPage() {
+  const theme = useTheme();
   const token = useAuthStore((state) => state.token);
   const [selectedRow, setSelectedRow] = useState(null);
   const [openViewModal, setOpenViewModal] = useState(false);
@@ -120,27 +121,32 @@ export default function ApplicationPage() {
           </Button>
         </Box>
 
-        <Divider sx={{ mb: 4 }} />
-        <GenericTable
-          data={data}
-          columns={columnsWithActions}
-          rowIdField="id"
-          withCheckbox
-          withToolbar
-          withPagination
-          selectable
-          isLoading={isLoading}
-          emptyRowsHeight={53}
-          noDataComponent={null}
-          EmptyStateComponent={null}
-          customTableHead={null}
-          renderRow={null}
-          onRowClick={handleRowClick}
-          toolbarProps={{
-            searchPlaceholder: "Search applications...",
-            toolbarTitle: "Applications",
-          }}
-        />
+        <Card sx={{ 
+          boxShadow: `0 0 2px 0 ${alpha(theme.palette.grey[500], 0.2)}, 
+                      0 12px 24px -4px ${alpha(theme.palette.grey[500], 0.12)}`,
+          borderRadius: 2,
+        }}>
+          <GenericTable
+            data={data}
+            columns={columnsWithActions}
+            rowIdField="id"
+            withCheckbox
+            withToolbar
+            withPagination
+            selectable
+            isLoading={isLoading}
+            emptyRowsHeight={53}
+            noDataComponent={null}
+            EmptyStateComponent={null}
+            customTableHead={null}
+            renderRow={null}
+            onRowClick={handleRowClick}
+            toolbarProps={{
+              searchPlaceholder: "Search applications...",
+              toolbarTitle: "Applications",
+            }}
+          />
+        </Card>
       </Box>
       
       {/* View Modal */}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
@@ -20,9 +21,9 @@ import config from 'src/config';
 import Iconify from 'src/components/iconify';
 import { GenericTable } from 'src/components/generic-table';
 
-import { UserApi } from '../../../api';
 import AddStudent from '../add-student';
-import StudentDetails from '../student-deatails';
+import { StudentApi } from '../../../api';
+import BulkUploadModal from '../bulk-upload/bulk-upload-modal';
 
 const columns = [
   { 
@@ -80,7 +81,7 @@ const columns = [
     cellSx: { width: '20%' }, 
     renderCell: (row) => (
       <Typography variant="body2">
-        {row.program.name}
+        {row.program?.name || 'N/A'}
       </Typography>
     )
   },
@@ -90,7 +91,7 @@ const columns = [
     cellSx: { width: '15%' }, 
     renderCell: (row) => (
       <Typography variant="body2">
-        {row.classLevel.name}
+        {row.classLevel?.name || 'N/A'}
       </Typography>
     )
   },
@@ -98,30 +99,40 @@ const columns = [
     id: 'status', 
     label: 'Status', 
     cellSx: { width: '10%' }, 
-    renderCell: (row) => (
-      row?.status === 'active' 
-        ? <Chip label="Active" color="success" size="small" sx={{ borderRadius: 1 }} /> 
-        : <Chip label="Inactive" color="error" size="small" sx={{ borderRadius: 1 }} />
-    )
+    renderCell: (row) => {
+      const status = row?.status || 'pending';
+      const statusConfig = {
+        active: { label: 'Active', color: 'success' },
+        pending: { label: 'Pending', color: 'warning' },
+        disable: { label: 'Disabled', color: 'error' },
+      };
+      const statusConfigValue = statusConfig[status] || { label: status, color: 'default' };
+      return (
+        <Chip 
+          label={statusConfigValue.label} 
+          color={statusConfigValue.color} 
+          size="small" 
+          sx={{ borderRadius: 1 }} 
+        />
+      );
+    }
   },
   { id: 'action', label: 'Action', cellSx: { width: '15%' } },
 ];
 
 export default function StudentView() {
   const theme = useTheme();
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [openViewModal, setOpenViewModal] = useState(false);
+  const navigate = useNavigate();
   const [openAddModal, setOpenAddModal] = useState(false);
+  const [openBulkUploadModal, setOpenBulkUploadModal] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['students'],
-    queryFn: UserApi.getStudents,
+    queryFn: () => StudentApi.getStudents(),
   });
 
   const handleRowClick = (row) => {
-    console.log('Row clicked, opening modal with data:', row);
-    setSelectedRow(row);
-    setOpenViewModal(true);
+    navigate(`/student/${row._id}`);
   };
 
 
@@ -194,6 +205,21 @@ export default function StudentView() {
               Add Student
             </Button>
             <Button
+              variant="contained"
+              color="secondary"
+              startIcon={<Iconify icon="mdi:upload-multiple" />}
+              onClick={() => setOpenBulkUploadModal(true)}
+              sx={{ 
+                px: 3,
+                boxShadow: theme.customShadows.secondary,
+                '&:hover': {
+                  boxShadow: 'none',
+                }
+              }}
+            >
+              Bulk Upload
+            </Button>
+            <Button
               variant="outlined"
               startIcon={<Iconify icon="eva:download-fill" />}
               sx={{ px: 3 }}
@@ -231,19 +257,16 @@ export default function StudentView() {
         </Card>
       </Box>
 
-      {/* View Modal */}
-      {selectedRow && (
-        <StudentDetails 
-          open={openViewModal} 
-          setOpen={setOpenViewModal} 
-          student={selectedRow}
-        />
-      )}
-
       {/* Add Student Modal */}
       <AddStudent
         open={openAddModal}
         setOpen={setOpenAddModal}
+      />
+
+      {/* Bulk Upload Modal */}
+      <BulkUploadModal
+        open={openBulkUploadModal}
+        setOpen={setOpenBulkUploadModal}
       />
     </Container>
   );

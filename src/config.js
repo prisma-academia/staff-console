@@ -4,21 +4,21 @@
  */
 
 // Helper function to parse comma-separated strings to arrays
-const parseArray = (value, defaultValue = []) => {
-  if (!value) return defaultValue;
+const parseArray = (value) => {
+  if (!value) return undefined;
   return value.split(',').map((item) => item.trim());
 };
 
 // Helper function to parse numbers
-const parseNumber = (value, defaultValue = 0) => {
-  if (!value) return defaultValue;
+const parseNumber = (value) => {
+  if (!value) return undefined;
   const parsed = Number(value);
-  return Number.isNaN(parsed) ? defaultValue : parsed;
+  return Number.isNaN(parsed) ? undefined : parsed;
 };
 
 // Helper function to parse booleans
-const parseBoolean = (value, defaultValue = false) => {
-  if (value === undefined || value === null || value === '') return defaultValue;
+const parseBoolean = (value) => {
+  if (value === undefined || value === null || value === '') return undefined;
   if (typeof value === 'boolean') return value;
   return value.toLowerCase() === 'true';
 };
@@ -54,14 +54,14 @@ const config = {
   appName: import.meta.env.VITE_APP_NAME,
   appShortName: import.meta.env.VITE_APP_SHORT_NAME,
   appDescription: import.meta.env.VITE_APP_DESCRIPTION,
-  appKeywords: parseArray(import.meta.env.VITE_APP_KEYWORDS, ['management', 'admin', 'console']),
+  appKeywords: parseArray(import.meta.env.VITE_APP_KEYWORDS),
   appAuthor: import.meta.env.VITE_APP_AUTHOR,
 
   // API Configuration
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL,
   applicationBaseUrl: import.meta.env.VITE_API_APPLICATION_BASE_URL,
-  apiVersion: import.meta.env.VITE_API_VERSION || '/api/v1',
-  apiTimeout: parseNumber(import.meta.env.VITE_API_TIMEOUT, 30000),
+  apiVersion: import.meta.env.VITE_API_VERSION,
+  apiTimeout: parseNumber(import.meta.env.VITE_API_TIMEOUT),
   
   // Legacy support - maintain backward compatibility
   baseUrl: import.meta.env.VITE_API_BASE_URL,
@@ -78,24 +78,40 @@ const config = {
     basePath: import.meta.env.VITE_ASSETS_BASE_PATH,
     icons: {
       navbar: import.meta.env.VITE_ASSETS_ICONS_NAVBAR_PATH,
-      dashboard: import.meta.env.VITE_ASSETS_ICONS_DASHBOARD_PATH || '/assets/icons/dashboard',
-      notifications: import.meta.env.VITE_ASSETS_ICONS_NOTIFICATIONS_PATH || '/assets/icons',
-      flags: import.meta.env.VITE_ASSETS_ICONS_FLAGS_PATH || '/assets/icons',
+      dashboard: import.meta.env.VITE_ASSETS_ICONS_DASHBOARD_PATH,
+      notifications: import.meta.env.VITE_ASSETS_ICONS_NOTIFICATIONS_PATH,
+      flags: import.meta.env.VITE_ASSETS_ICONS_FLAGS_PATH,
     },
     illustrations: {
-      basePath: import.meta.env.VITE_ASSETS_ILLUSTRATIONS_PATH || '/assets/illustrations',
-      notFound: import.meta.env.VITE_ASSETS_ILLUSTRATION_404_PATH || '/assets/illustrations/illustration_404.svg',
+      basePath: import.meta.env.VITE_ASSETS_ILLUSTRATIONS_PATH,
+      notFound: import.meta.env.VITE_ASSETS_ILLUSTRATION_404_PATH,
     },
     backgrounds: {
-      basePath: import.meta.env.VITE_ASSETS_BACKGROUNDS_PATH || '/assets/background',
-      overlay: import.meta.env.VITE_ASSETS_BACKGROUND_OVERLAY_PATH || '/assets/background/overlay_4.jpg',
+      basePath: import.meta.env.VITE_ASSETS_BACKGROUNDS_PATH,
+      overlay: import.meta.env.VITE_ASSETS_BACKGROUND_OVERLAY_PATH,
     },
   },
   theme: {
     primaryColor: import.meta.env.VITE_THEME_PRIMARY_COLOR,
+    primary: {
+      lighter: import.meta.env.VITE_THEME_PRIMARY_LIGHTER || '#F5A3A4',
+      light: import.meta.env.VITE_THEME_PRIMARY_LIGHT || '#EB4C4E',
+      main: import.meta.env.VITE_THEME_PRIMARY_MAIN || '#AA5037',
+      dark: import.meta.env.VITE_THEME_PRIMARY_DARK || '#A10029',
+      darker: import.meta.env.VITE_THEME_PRIMARY_DARKER || '#71001C',
+      contrastText: import.meta.env.VITE_THEME_PRIMARY_CONTRAST_TEXT || '#FFFFFF',
+    },
     secondaryColor: import.meta.env.VITE_THEME_SECONDARY_COLOR,
+    secondary: {
+      lighter: import.meta.env.VITE_THEME_SECONDARY_LIGHTER || '#4A5F63',
+      light: import.meta.env.VITE_THEME_SECONDARY_LIGHT || '#32454A',
+      main: import.meta.env.VITE_THEME_SECONDARY_MAIN || '#132C33',
+      dark: import.meta.env.VITE_THEME_SECONDARY_DARK || '#0E2127',
+      darker: import.meta.env.VITE_THEME_SECONDARY_DARKER || '#08171B',
+      contrastText: import.meta.env.VITE_THEME_SECONDARY_CONTRAST_TEXT || '#FFFFFF',
+    },
     mode: import.meta.env.VITE_THEME_MODE,
-    borderRadius: parseNumber(import.meta.env.VITE_THEME_BORDER_RADIUS, 8),
+    borderRadius: parseNumber(import.meta.env.VITE_THEME_BORDER_RADIUS),
   },
 
   // Routing & Navigation
@@ -107,18 +123,17 @@ const config = {
 
   // Server Configuration
   server: {
-    devPort: parseNumber(import.meta.env.VITE_DEV_PORT, 3030),
-    previewPort: parseNumber(import.meta.env.VITE_PREVIEW_PORT, 3030),
+    devPort: parseNumber(import.meta.env.VITE_DEV_PORT),
+    previewPort: parseNumber(import.meta.env.VITE_PREVIEW_PORT),
     host: import.meta.env.VITE_HOST,
   },
 
   // File Uploads
   upload: {
     baseUrl: import.meta.env.VITE_UPLOAD_BASE_URL,
-    maxFileSize: parseNumber(import.meta.env.VITE_MAX_FILE_SIZE, 5242880), // 5MB default
+    maxFileSize: parseNumber(import.meta.env.VITE_MAX_FILE_SIZE), // 5MB default
     allowedFileTypes: parseArray(
-      import.meta.env.VITE_ALLOWED_FILE_TYPES,
-      ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx']
+      import.meta.env.VITE_ALLOWED_FILE_TYPES
     ),
   },
 
@@ -131,7 +146,7 @@ const config = {
 
   // Notification & UI
   notifications: {
-    maxSnacks: parseNumber(import.meta.env.VITE_NOTIFICATION_MAX_SNACKS, 1),
+    maxSnacks: parseNumber(import.meta.env.VITE_NOTIFICATION_MAX_SNACKS),
     position: import.meta.env.VITE_NOTIFICATION_POSITION,
     getAnchorOrigin() {
       const pos = this.position.toLowerCase();
@@ -155,20 +170,20 @@ const config = {
 
   // Feature Flags
   features: {
-    mail: parseBoolean(import.meta.env.VITE_FEATURE_MAIL_ENABLED, true),
-    analytics: parseBoolean(import.meta.env.VITE_FEATURE_ANALYTICS_ENABLED, true),
-    export: parseBoolean(import.meta.env.VITE_FEATURE_EXPORT_ENABLED, true),
+    mail: parseBoolean(import.meta.env.VITE_FEATURE_MAIL_ENABLED),
+    analytics: parseBoolean(import.meta.env.VITE_FEATURE_ANALYTICS_ENABLED),
+    export: parseBoolean(import.meta.env.VITE_FEATURE_EXPORT_ENABLED),
   },
 
   // Development & Debugging
   debug: {
-    enabled: parseBoolean(import.meta.env.VITE_DEBUG_MODE, false),
+    enabled: parseBoolean(import.meta.env.VITE_DEBUG_MODE),
     logLevel: import.meta.env.VITE_LOG_LEVEL,
   },
 
   // Navigation
   navigation: {
-    roles: parseArray(import.meta.env.VITE_NAV_ROLES, ['admin', 'staff', 'staffAdmin']),
+    roles: parseArray(import.meta.env.VITE_NAV_ROLES),
   },
 
   // Date & Time
@@ -180,10 +195,9 @@ const config = {
 
   // Pagination & Tables
   table: {
-    rowsPerPage: parseNumber(import.meta.env.VITE_TABLE_ROWS_PER_PAGE, 10),
+    rowsPerPage: parseNumber(import.meta.env.VITE_TABLE_ROWS_PER_PAGE),
     rowsPerPageOptions: parseArray(
-      import.meta.env.VITE_TABLE_ROWS_PER_PAGE_OPTIONS,
-      ['5', '10', '25', '50', '100']
+      import.meta.env.VITE_TABLE_ROWS_PER_PAGE_OPTIONS
     ).map(Number),
   },
   

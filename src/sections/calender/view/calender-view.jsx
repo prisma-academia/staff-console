@@ -1,172 +1,163 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import Card from '@mui/material/Card';
-import Stack from '@mui/material/Stack';
-import Table from '@mui/material/Table';
-import Container from '@mui/material/Container';
-import TableBody from '@mui/material/TableBody';
-import Typography from '@mui/material/Typography';
-import TableContainer from '@mui/material/TableContainer';
-import TablePagination from '@mui/material/TablePagination';
+import { Box } from '@mui/system';
+import { 
+  Card, 
+  Stack, 
+  alpha, 
+  Button,
+  useTheme,
+  Container,
+  Typography
+} from '@mui/material';
 
 import { EventApi } from 'src/api';
-// import config from 'src/config';
-// import { useAuthStore } from 'src/store';
 
-import Scrollbar from 'src/components/scrollbar';
+import Iconify from 'src/components/iconify';
+import { GenericTable } from 'src/components/generic-table';
 
-import TableNoData from '../table-no-data';
 import AddCalenderModal from '../add-calender';
-import CalenderTableRow from '../calender-table-row';
-import { applyFilter, getComparator } from '../utils';
-import CalenderTableHead from '../calender-table-head';
-import CalenderTableToolbar from '../calender-table-toolbar';
 
-// ----------------------------------------------------------------------
+const columns = [
+  { 
+    id: 'title', 
+    label: 'Title', 
+    align: 'left',
+    cellSx: { width: '20%' },
+    renderCell: (row) => (
+      <Typography variant="subtitle2" noWrap>
+        {row.title}
+      </Typography>
+    )
+  },
+  { 
+    id: 'start', 
+    label: 'Start Date', 
+    cellSx: { width: '15%' },
+    renderCell: (row) => (
+      <Typography variant="body2">
+        {row.start}
+      </Typography>
+    )
+  },
+  { 
+    id: 'end', 
+    label: 'End Date', 
+    cellSx: { width: '15%' },
+    renderCell: (row) => (
+      <Typography variant="body2">
+        {row.end}
+      </Typography>
+    )
+  },
+  { 
+    id: 'category', 
+    label: 'Category', 
+    cellSx: { width: '10%' },
+    renderCell: (row) => (
+      <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
+        {row.category}
+      </Typography>
+    )
+  },
+  { 
+    id: 'classLevels', 
+    label: 'Class Levels', 
+    cellSx: { width: '15%' },
+    renderCell: (row) => (
+      <Typography variant="body2" noWrap>
+        {row.classLevels?.map((level) => level.name).join(', ') || 'All'}
+      </Typography>
+    )
+  },
+  { 
+    id: 'programs', 
+    label: 'Programs', 
+    cellSx: { width: '15%' },
+    renderCell: (row) => (
+      <Typography variant="body2" noWrap>
+        {row.programs?.map((prog) => prog.name).join(', ') || 'All'}
+      </Typography>
+    )
+  },
+  { 
+    id: 'createdBy', 
+    label: 'Created By', 
+    cellSx: { width: '10%' } 
+  },
+];
 
 export default function CalenderPage() {
-  const [page, setPage] = useState(0);
-  const [order, setOrder] = useState('asc');
-  const [selected, setSelected] = useState([]);
+  const theme = useTheme();
   const [open, setOpen] = useState(false);
-  const [orderBy, setOrderBy] = useState('title');
-  const [filterName, setFilterName] = useState('');
-  const [rowsPerPage, setRowsPerPage] = useState(5);
 
-  const { data, loading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['events'],
     queryFn: EventApi.getEvents,
   });
 
-  const handleSort = (event, id) => {
-    const isAsc = orderBy === id && order === 'asc';
-    setOrder(isAsc ? 'desc' : 'asc');
-    setOrderBy(id);
-  };
-
-  const handleSelectAllClick = (event) => {
-    if (event.target.checked) {
-      const newSelecteds = data.map((n) => n.title);
-      setSelected(newSelecteds);
-      return;
-    }
-    setSelected([]);
-  };
-
-  const handleClick = (event, title) => {
-    const selectedIndex = selected.indexOf(title);
-    let newSelected = [];
-    if (selectedIndex === -1) {
-      newSelected = newSelected.concat(selected, title);
-    } else if (selectedIndex === 0) {
-      newSelected = newSelected.concat(selected.slice(1));
-    } else if (selectedIndex === selected.length - 1) {
-      newSelected = newSelected.concat(selected.slice(0, -1));
-    } else if (selectedIndex > 0) {
-      newSelected = newSelected.concat(
-        selected.slice(0, selectedIndex),
-        selected.slice(selectedIndex + 1)
-      );
-    }
-    setSelected(newSelected);
-  };
-
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setPage(0);
-    setRowsPerPage(parseInt(event.target.value, 10));
-  };
-
-  const handleFilterByName = (event) => {
-    setPage(0);
-    setFilterName(event.target.value);
-  };
-
-  const dataFiltered = applyFilter({
-    inputData: data || [],
-    comparator: getComparator(order, orderBy),
-    filterName,
-  });
-
-  const notFound = !dataFiltered.length && !!filterName;
-
   return (
-    <Container>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={5}>
-        <Typography variant="h4">Calender</Typography>
-        <AddCalenderModal open={open} setOpen={setOpen} />
-      </Stack>
-      {loading ? (
-        <div>Loading...</div>
-      ) : (
-        <Card>
-          <CalenderTableToolbar
-            numSelected={selected.length}
-            filterName={filterName}
-            onFilterName={handleFilterByName}
-          />
+    <Container maxWidth="xl">
+      <Box sx={{ pb: 5, pt: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Box>
+            <Typography variant="h4" color="text.primary" fontWeight="700">
+              Calendar Events
+            </Typography>
+            <Typography variant="body2" color="text.secondary" mt={1}>
+              Manage school calendar events and schedules
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={2}>
+            <Button 
+              variant="contained" 
+              startIcon={<Iconify icon="eva:plus-fill" />}
+              onClick={() => setOpen(true)}
+              sx={{ 
+                px: 3,
+                boxShadow: theme.customShadows.primary,
+                '&:hover': {
+                  boxShadow: 'none',
+                }
+              }}
+            >
+              Add Event
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Iconify icon="eva:download-fill" />}
+              sx={{ px: 3 }}
+            >
+              Export
+            </Button>
+          </Stack>
+        </Box>
 
-          <Scrollbar>
-            <TableContainer sx={{ overflow: 'unset' }}>
-              <Table sx={{ minWidth: 800 }}>
-                <CalenderTableHead
-                  order={order}
-                  orderBy={orderBy}
-                  rowCount={data?.length}
-                  numSelected={selected.length}
-                  onRequestSort={handleSort}
-                  onSelectAllClick={handleSelectAllClick}
-                  headLabel={[
-                    { id: 'title', label: 'Title', align: 'left' },
-                    { id: 'start', label: 'Start Date' },
-                    { id: 'end', label: 'End Date' },
-                    { id: 'category', label: 'Category' },
-                    { id: 'classLevels', label: 'Class Levels' },
-                    { id: 'programs', label: 'Programs' },
-                    { id: 'createdBy', label: 'Created By' },
-                  ]}
-                />
-
-                <TableBody>
-                  {dataFiltered
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((row) => (
-                      <CalenderTableRow
-                        key={row?._id}
-                        id={row?._id}
-                        title={row?.title}
-                        start={row?.start}
-                        end={row?.end}
-                        category={row?.category}
-                        classlevels={row?.classLevels?.map((level) => level.name).join(', ')}
-                        programs={row?.programs?.map((prog) => prog.name).join(', ')}
-                        createdBy={row?.createdBy}
-                        selected={selected.indexOf(row._id) !== -1}
-                        handleClick={(event) => handleClick(event, row._id)}
-                      />
-                    ))}
-
-                  {notFound && <TableNoData query={filterName} />}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Scrollbar>
-
-          <TablePagination
-            page={page}
-            component="div"
-            count={data?.length}
-            rowsPerPage={rowsPerPage}
-            onPageChange={handleChangePage}
-            rowsPerPageOptions={[5, 10, 25]}
-            onRowsPerPageChange={handleChangeRowsPerPage}
+        <Card sx={{ 
+          boxShadow: `0 0 2px 0 ${alpha(theme.palette.grey[500], 0.2)}, 
+                      0 12px 24px -4px ${alpha(theme.palette.grey[500], 0.12)}`,
+          borderRadius: 2,
+        }}>
+          <GenericTable
+            data={data}
+            columns={columns}
+            rowIdField="_id"
+            withCheckbox
+            withToolbar
+            withPagination
+            selectable
+            isLoading={isLoading}
+            emptyRowsHeight={53}
+            toolbarProps={{
+              searchPlaceholder: 'Search events...',
+              toolbarTitle: 'Events List',
+            }}
           />
         </Card>
-      )}
+      </Box>
+
+      <AddCalenderModal open={open} setOpen={setOpen} />
     </Container>
   );
 }

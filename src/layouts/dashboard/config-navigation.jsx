@@ -36,6 +36,18 @@ const useNavConfig = () => {
       permission: 'view_role_permission',
     },
     {
+      title: 'Audit Logs',
+      path: '/audit',
+      icon: icon('ic_settings'),
+      permission: 'view_audit',
+    },
+    {
+      title: 'Application Settings',
+      path: '/app-settings',
+      icon: icon('ic_settings'),
+      permission: 'view_settings',
+    },
+    {
       title: 'Application',
       path: '/application',
       icon: icon('ic_admission'),
@@ -96,6 +108,12 @@ const useNavConfig = () => {
       permission: 'view_course',
     },
     {
+      title: 'Class Levels',
+      path: '/classlevel',
+      icon: icon('ic_program'),
+      permission: 'view_classlevel',
+    },
+    {
       title: 'Calendar',
       path: '/calender',
       icon: icon('ic_calendar'),
@@ -106,6 +124,12 @@ const useNavConfig = () => {
       path: '/result',
       icon: icon('ic_result'),
       permission: 'view_result',
+    },
+    {
+      title: 'Templates',
+      path: '/template',
+      icon: icon('ic_settings'),
+      permission: 'view_template',
     },
   ], []);
 

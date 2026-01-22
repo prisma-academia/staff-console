@@ -1,9 +1,9 @@
 import * as Yup from 'yup';
 import { useFormik } from 'formik';
 import { useSnackbar } from 'notistack';
-import { useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useRef, useMemo, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import LoadingButton from '@mui/lab/LoadingButton';
@@ -22,7 +22,7 @@ import {
   LinearProgress,
 } from '@mui/material';
 
-import { UserApi, RolePermissionApi } from 'src/api';
+import { UserApi, AuditApi, RolePermissionApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
@@ -103,6 +103,24 @@ export default function UserDetailPage() {
       name: role.charAt(0).toUpperCase() + role.slice(1),
     }));
   }, [rolePermissions]);
+
+  // Track if audit log has been created to prevent duplicate entries
+  const auditLogCreated = useRef(false);
+
+  // Create audit log when user data is loaded
+  useEffect(() => {
+    if (user?._id && id && !auditLogCreated.current && !isLoading && !isError) {
+      auditLogCreated.current = true;
+      AuditApi.createAuditLog({
+        entityType: 'User',
+        entityId: user._id,
+        actionType: 'view',
+        status: 'success',
+      }).catch(() => {
+        // Silently handle errors - don't disrupt user experience
+      });
+    }
+  }, [user, id, isLoading, isError]);
 
   const { mutate: updateUser } = useMutation({
     mutationFn: (userData) => UserApi.updateUser(id, userData),

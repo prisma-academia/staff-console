@@ -1,194 +1,285 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useSnackbar } from 'notistack';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
-import Table from '@mui/material/Table';
+import Button from '@mui/material/Button';
 import Container from '@mui/material/Container';
-import TableBody from '@mui/material/TableBody';
 import Typography from '@mui/material/Typography';
-import TableContainer from '@mui/material/TableContainer';
-import TablePagination from '@mui/material/TablePagination';
+import { alpha, useTheme } from '@mui/material/styles';
+import { Box, Chip, Dialog, IconButton, DialogTitle, DialogContent, DialogActions, DialogContentText } from '@mui/material';
 
-import config from 'src/config';
-import { useAuthStore } from 'src/store';
+import { programApi } from 'src/api';
 
-import Scrollbar from 'src/components/scrollbar';
+import Iconify from 'src/components/iconify';
+import { GenericTable } from 'src/components/generic-table';
 
 import AddProgram from '../add-program';
-import TableNoData from '../table-no-data';
-import ProgramTableRow from '../program-table-row';
-import ProgramTableHead from '../program-table-head';
-import { applyFilter, getComparator } from '../utils';
-import ProgramTableToolbar from '../program-table-toolbar';
-
-
+import EditProgram from '../edit-program';
 
 // ----------------------------------------------------------------------
 
 export default function ProgramPage() {
-  const [page, setPage] = useState(0);
-  const [open, setOpen] = useState(false);
-  const [order, setOrder] = useState('asc');
-  const [selected, setSelected] = useState([]);
-  const [orderBy, setOrderBy] = useState('name');
-  const [filterName, setFilterName] = useState('');
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const theme = useTheme();
+  const { enqueueSnackbar } = useSnackbar();
+  const queryClient = useQueryClient();
+  const [openAdd, setOpenAdd] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
+  const [selectedProgramId, setSelectedProgramId] = useState(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [programToDelete, setProgramToDelete] = useState(null);
 
-  const token = useAuthStore((state) => state.token);
-  const { data,loading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['programs'],
-    queryFn: getPrograms,
+    queryFn: () => programApi.getPrograms(),
   });
 
-  async function getPrograms() {
-    const response = await fetch(`${config.baseUrl}/api/v1/program`, {
-      headers: {
-        'Content-Type': 'application/json',
-        authorization: `Bearer ${token}`,
-      },
-    });
-    
-    if (!response.ok) {
-      const errorMessage = await response.text();
-      throw new Error(errorMessage);
-    }
-
-    const result = await response.json();
-    if (result.ok) {
-      return result.data;
-    }
-    throw new Error(result.message);
-  }
-
-  const handleSort = (event, id) => {
-    const isAsc = orderBy === id && order === 'asc';
-    setOrder(isAsc ? 'desc' : 'asc');
-    setOrderBy(id);
-  };
-
-  const handleSelectAllClick = (event) => {
-    if (event.target.checked) {
-      const newSelecteds = data.map((n) => n.name);
-      setSelected(newSelecteds);
-      return;
-    }
-    setSelected([]);
-  };
-
-  const handleClick = (event, name) => {
-    const selectedIndex = selected.indexOf(name);
-    let newSelected = [];
-    if (selectedIndex === -1) {
-      newSelected = newSelected.concat(selected, name);
-    } else if (selectedIndex === 0) {
-      newSelected = newSelected.concat(selected.slice(1));
-    } else if (selectedIndex === selected.length - 1) {
-      newSelected = newSelected.concat(selected.slice(0, -1));
-    } else if (selectedIndex > 0) {
-      newSelected = newSelected.concat(
-        selected.slice(0, selectedIndex),
-        selected.slice(selectedIndex + 1)
-      );
-    }
-    setSelected(newSelected);
-  };
-
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setPage(0);
-    setRowsPerPage(parseInt(event.target.value, 10));
-  };
-
-  const handleFilterByName = (event) => {
-    setPage(0);
-    setFilterName(event.target.value);
-  };
-
-  const dataFiltered = applyFilter({
-    inputData: data || [],
-    comparator: getComparator(order, orderBy),
-    filterName,
+  const { mutate: deleteProgram, isPending: isDeleting } = useMutation({
+    mutationFn: (id) => programApi.deleteProgram(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['programs'] });
+      enqueueSnackbar('Program deleted successfully', { variant: 'success' });
+      setDeleteDialogOpen(false);
+      setProgramToDelete(null);
+    },
+    onError: (deleteError) => {
+      let errorMessage = 'An error occurred';
+      if (deleteError.data?.message) {
+        errorMessage = deleteError.data.message;
+      } else if (deleteError.message) {
+        errorMessage = deleteError.message;
+      }
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    },
   });
 
-  const notFound = !dataFiltered.length && !!filterName;
+  const handleEdit = (programId) => {
+    setSelectedProgramId(programId);
+    setOpenEdit(true);
+  };
+
+  const handleDelete = (program) => {
+    setProgramToDelete(program);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (programToDelete) {
+      deleteProgram(programToDelete._id);
+    }
+  };
+
+  const columns = [
+    { 
+      id: 'name', 
+      label: 'Program Name', 
+      align: 'left', 
+      cellSx: { width: '20%' },
+      renderCell: (row) => (
+        <Typography variant="subtitle2" noWrap>
+          {row.name}
+        </Typography>
+      )
+    },
+    { 
+      id: 'code', 
+      label: 'Code',
+      cellSx: { width: '8%' }
+    },
+    { 
+      id: 'type', 
+      label: 'Type',
+      cellSx: { width: '8%' },
+      renderCell: (row) => (
+        <Chip 
+          label={row.type || 'N/A'} 
+          size="small" 
+          color={row.type === 'ND' ? 'primary' : 'secondary'}
+          variant="outlined"
+        />
+      )
+    },
+    { 
+      id: 'department', 
+      label: 'Department',
+      cellSx: { width: '15%' },
+      renderCell: (row) => (
+        <Typography variant="body2" noWrap>
+          {row.department?.name || 'N/A'}
+        </Typography>
+      )
+    },
+    { 
+      id: 'durationInYears', 
+      label: 'Duration',
+      cellSx: { width: '10%' },
+      renderCell: (row) => `${row.durationInYears || 0} Years`
+    },
+    { 
+      id: 'totalCreditsRequired', 
+      label: 'Credits',
+      cellSx: { width: '10%' }
+    },
+    { 
+      id: 'school', 
+      label: 'School',
+      cellSx: { width: '12%' },
+      renderCell: (row) => (
+        <Typography variant="body2" noWrap>
+          {row.school || 'N/A'}
+        </Typography>
+      )
+    },
+    { 
+      id: 'isActive', 
+      label: 'Status',
+      cellSx: { width: '8%' },
+      renderCell: (row) => (
+        <Chip 
+          label={row.isActive ? 'Active' : 'Inactive'} 
+          size="small" 
+          color={row.isActive ? 'success' : 'default'}
+          variant="outlined"
+        />
+      )
+    },
+    { 
+      id: 'action', 
+      label: 'Action', 
+      align: 'right',
+      cellSx: { width: '9%' },
+      renderCell: (row) => (
+        <Stack direction="row" spacing={1} justifyContent="flex-end">
+          <IconButton 
+            color="primary" 
+            size="small"
+            onClick={() => handleEdit(row._id)}
+            title="Edit Program"
+          >
+            <Iconify icon="eva:edit-fill" />
+          </IconButton>
+          <IconButton 
+            color="error" 
+            size="small"
+            onClick={() => handleDelete(row)}
+            title="Delete Program"
+          >
+            <Iconify icon="eva:trash-2-fill" />
+          </IconButton>
+        </Stack>
+      )
+    },
+  ];
 
   return (
-    <Container>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={5}>
-        <Typography variant="h4">Programs</Typography>
-        <AddProgram open={open} setOpen={setOpen}/>
-      </Stack>
-        {loading ? (<div>Loading...</div>)
-        :
-        (
-          <Card>
-        <ProgramTableToolbar
-          numSelected={selected.length}
-          filterName={filterName}
-          onFilterName={handleFilterByName}
-        />
+    <Container maxWidth="xl">
+      <Box sx={{ pb: 5, pt: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Box>
+            <Typography variant="h4" color="text.primary" fontWeight="700">
+              Programs
+            </Typography>
+            <Typography variant="body2" color="text.secondary" mt={1}>
+              Manage academic programs and requirements
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={2}>
+            <Button 
+              variant="contained" 
+              startIcon={<Iconify icon="eva:plus-fill" />}
+              onClick={() => setOpenAdd(true)}
+              sx={{ 
+                px: 3,
+                boxShadow: theme.customShadows.primary,
+                '&:hover': {
+                  boxShadow: 'none',
+                }
+              }}
+            >
+              Add Program
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Iconify icon="eva:download-fill" />}
+              sx={{ px: 3 }}
+            >
+              Export
+            </Button>
+          </Stack>
+        </Box>
 
-        <Scrollbar>
-          <TableContainer sx={{ overflow: 'unset' }}>
-            <Table sx={{ minWidth: 800 }}>
-              <ProgramTableHead
-                order={order}
-                orderBy={orderBy}
-                rowCount={data?.length}
-                numSelected={selected.length}
-                onRequestSort={handleSort}
-                onSelectAllClick={handleSelectAllClick}
-                headLabel={[
-                  { id: 'name', label: 'Program Name', align: 'left' }, 
-                  { id: 'code', label: 'Program Code' }, 
-                  { id: 'department', label: 'Department' }, 
-                  { id: 'duration', label: 'Duration' }, 
-                  { id: 'creditsRequired', label: 'Total Credits Required' }, 
-                  { id: '' }, // Extra action column
-                ]}
-              />
+        {error && (
+          <Box sx={{ mb: 2, p: 2, bgcolor: 'error.lighter', borderRadius: 1 }}>
+            <Typography color="error.main">
+              Error loading programs: {error?.message || 'An error occurred'}
+            </Typography>
+          </Box>
+        )}
 
-              <TableBody>
-                {dataFiltered
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((row) => (
-                    <ProgramTableRow
-                      key={row._id}
-                      id={row._id}
-                      name={row.name}
-                      code={row.code}
-                      department={row.department}
-                      duration={row.durationInYears}
-                      creditsRequired={row.totalCreditsRequired}
-                      selected={selected.indexOf(row._id) !== -1}
-                      handleClick={(event) => handleClick(event, row._id)}
-                    />
-                  ))}
+        <Card sx={{ 
+          boxShadow: `0 0 2px 0 ${alpha(theme.palette.grey[500], 0.2)}, 
+                      0 12px 24px -4px ${alpha(theme.palette.grey[500], 0.12)}`,
+          borderRadius: 2,
+        }}>
+          <GenericTable
+            data={data || []}
+            columns={columns}
+            rowIdField="_id"
+            withCheckbox
+            withToolbar
+            withPagination
+            selectable
+            isLoading={isLoading}
+            emptyRowsHeight={53}
+            toolbarProps={{
+              searchPlaceholder: 'Search programs...',
+              toolbarTitle: 'Programs List',
+            }}
+          />
+        </Card>
+      </Box>
 
-                {notFound && <TableNoData query={filterName} />}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Scrollbar>
-
-        <TablePagination
-          page={page}
-          component="div"
-          count={data?.length}
-          rowsPerPage={rowsPerPage}
-          onPageChange={handleChangePage}
-          rowsPerPageOptions={[5, 10, 25]}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
-      </Card>
-        )
-      }
+      <AddProgram open={openAdd} setOpen={setOpenAdd} />
       
+      {selectedProgramId && (
+        <EditProgram 
+          open={openEdit} 
+          setOpen={setOpenEdit}
+          programId={selectedProgramId}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
+      >
+        <DialogTitle id="delete-dialog-title">
+          Delete Program
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-dialog-description">
+            Are you sure you want to delete the program &quot;{programToDelete?.name}&quot;? 
+            This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={confirmDelete} 
+            color="error" 
+            variant="contained"
+            disabled={isDeleting}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
-

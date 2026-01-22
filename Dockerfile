@@ -13,11 +13,11 @@ FROM nginx:stable-perl
 # Copy the build output to NGINX's web root
 COPY --from=build /app/dist/ /usr/share/nginx/html
 
-# Copy custom NGINX configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+# Copy custom NGINX configuration template
+COPY nginx.conf.template /etc/nginx/nginx.conf.template
 
 # Expose port 80
 EXPOSE 80
 
-# Start NGINX
-CMD ["nginx", "-g", "daemon off;"]
+# Start NGINX with environment variable substitution
+CMD ["/bin/sh", "-c", "envsubst < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"]

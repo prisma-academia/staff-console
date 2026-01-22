@@ -1,4 +1,5 @@
 import { alpha } from '@mui/material/styles';
+import config from '../config';
 
 // ----------------------------------------------------------------------
 
@@ -31,21 +32,21 @@ export const green = {
 
 
 export const primary = {
-  lighter: '#F5A3A4', // Very light shade of redhunt color
-  light: '#EB4C4E',   // Lightened version of redhunt color
-  main: '#DA0037',    // Base redhunt color
-  dark: '#A10029',    // Darkened version of redhunt color
-  darker: '#71001C',  // Very dark shade of redhunt color
-  contrastText: '#FFFFFF', // White text for contrast
+  lighter: config.theme.primary.lighter, // Very light shade of redhunt color
+  light: config.theme.primary.light,   // Lightened version of redhunt color
+  main: config.theme.primary.main,    // Base redhunt color
+  dark: config.theme.primary.dark,    // Darkened version of redhunt color
+  darker: config.theme.primary.darker,  // Very dark shade of redhunt color
+  contrastText: config.theme.primary.contrastText, // White text for contrast
 };
 
 export const secondary = {
-  lighter: '#4A5F63', // Very light shade of secondary color
-  light: '#32454A',   // Lightened version of secondary color
-  main: '#132C33',    // Base secondary color
-  dark: '#0E2127',    // Darkened version of secondary color
-  darker: '#08171B',  // Very dark shade of secondary color
-  contrastText: '#FFFFFF', // White text for contrast
+  lighter: config.theme.secondary.lighter, // Very light shade of secondary color
+  light: config.theme.secondary.light,   // Lightened version of secondary color
+  main: config.theme.secondary.main,    // Base secondary color
+  dark: config.theme.secondary.dark,    // Darkened version of secondary color
+  darker: config.theme.secondary.darker,  // Very dark shade of secondary color
+  contrastText: config.theme.secondary.contrastText, // White text for contrast
 };
 
 export const info = {

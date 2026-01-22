@@ -1,3 +1,7 @@
+/**
+ * @deprecated This file contains incorrect code (user edit functionality) and is not used.
+ * Please use edit-program.jsx instead for program editing functionality.
+ */
 import * as React from 'react';
 import PropTypes from 'prop-types';
 import { useSnackbar } from 'notistack';

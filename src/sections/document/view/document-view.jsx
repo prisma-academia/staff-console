@@ -1,43 +1,79 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import Card from '@mui/material/Card';
-import Stack from '@mui/material/Stack';
-import Table from '@mui/material/Table';
-import Container from '@mui/material/Container';
-import TableBody from '@mui/material/TableBody';
-import Typography from '@mui/material/Typography';
-import TableContainer from '@mui/material/TableContainer';
-import TablePagination from '@mui/material/TablePagination';
+import { Box } from '@mui/system';
+import { 
+  Card, 
+  Stack, 
+  alpha, 
+  Button,
+  useTheme,
+  Container,
+  Typography
+} from '@mui/material';
 
 import config from 'src/config';
 import { useAuthStore } from 'src/store';
 
-import Scrollbar from 'src/components/scrollbar';
+import Iconify from 'src/components/iconify';
+import { GenericTable } from 'src/components/generic-table';
 
 import AddDocument from '../add-document';
-import TableNoData from '../table-no-data';
-import DocumentTableRow from '../document-table-row';
-import { applyFilter, getComparator } from '../utils';
-import DocumentTableHead from '../document-table-head';
-import DocumentTableToolbar from '../document-table-toolbar';
 
-// ----------------------------------------------------------------------
+const columns = [
+  { 
+    id: 'title', 
+    label: 'Title', 
+    align: 'left', 
+    cellSx: { width: '25%' },
+    renderCell: (row) => (
+      <Typography variant="subtitle2" noWrap>
+        {row.title}
+      </Typography>
+    )
+  },
+  { 
+    id: 'tags', 
+    label: 'Tags', 
+    cellSx: { width: '20%' },
+    renderCell: (row) => (
+      <Typography variant="body2" color="text.secondary">
+        {row.tags?.join(', ') || 'N/A'}
+      </Typography>
+    )
+  },
+  { 
+    id: 'programs', 
+    label: 'Programs', 
+    cellSx: { width: '15%' },
+    renderCell: (row) => (
+      <Typography variant="body2">
+        {row.programs?.map((program) => program.code).join(', ') || 'All'}
+      </Typography>
+    )
+  },
+  { 
+    id: 'classLevels', 
+    label: 'Class Levels', 
+    cellSx: { width: '15%' },
+    renderCell: (row) => (
+      <Typography variant="body2">
+        {row.classLevels?.map((classLevel) => classLevel?.name).join(', ') || 'All'}
+      </Typography>
+    )
+  },
+  { 
+    id: 'size', 
+    label: 'Size', 
+    cellSx: { width: '10%' } 
+  },
+];
 
 export default function DocumentPage() {
-  const [page, setPage] = useState(0);
+  const theme = useTheme();
   const [open, setOpen] = useState(false);
-  const [order, setOrder] = useState('asc');
-  const [selected, setSelected] = useState([]);
-  const [orderBy, setOrderBy] = useState('title');
-  const [filterName, setFilterName] = useState('');
-  const [rowsPerPage, setRowsPerPage] = useState(5);
 
   const token = useAuthStore((state) => state.token);
-  const { data, loading } = useQuery({
-    queryKey: ['documents'],
-    queryFn: getDocuments,
-  });
 
   async function getDocuments() {
     const response = await fetch(`${config.baseUrl}/api/v1/document`, {
@@ -59,131 +95,72 @@ export default function DocumentPage() {
     throw new Error(result.message);
   }
 
-  const handleSort = (event, id) => {
-    const isAsc = orderBy === id && order === 'asc';
-    setOrder(isAsc ? 'desc' : 'asc');
-    setOrderBy(id);
-  };
-
-  const handleSelectAllClick = (event) => {
-    if (event.target.checked) {
-      const newSelecteds = data.map((n) => n.title);
-      setSelected(newSelecteds);
-      return;
-    }
-    setSelected([]);
-  };
-
-  const handleClick = (event, title) => {
-    const selectedIndex = selected.indexOf(title);
-    let newSelected = [];
-    if (selectedIndex === -1) {
-      newSelected = newSelected.concat(selected, title);
-    } else if (selectedIndex === 0) {
-      newSelected = newSelected.concat(selected.slice(1));
-    } else if (selectedIndex === selected.length - 1) {
-      newSelected = newSelected.concat(selected.slice(0, -1));
-    } else if (selectedIndex > 0) {
-      newSelected = newSelected.concat(
-        selected.slice(0, selectedIndex),
-        selected.slice(selectedIndex + 1)
-      );
-    }
-    setSelected(newSelected);
-  };
-
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setPage(0);
-    setRowsPerPage(parseInt(event.target.value, 10));
-  };
-
-  const handleFilterByName = (event) => {
-    setPage(0);
-    setFilterName(event.target.value);
-  };
-
-  const dataFiltered = applyFilter({
-    inputData: data || [],
-    comparator: getComparator(order, orderBy),
-    filterName,
+  const { data, isLoading } = useQuery({
+    queryKey: ['documents'],
+    queryFn: getDocuments,
   });
 
-  const notFound = !dataFiltered.length && !!filterName;
-
   return (
-    <Container>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={5}>
-        <Typography variant="h4">Documents</Typography>
-        <AddDocument open={open} setOpen={setOpen} />
-      </Stack>
-      {loading ? (
-        <div>Loading...</div>
-      ) : (
-        <Card>
-          <DocumentTableToolbar
-            numSelected={selected.length}
-            filterName={filterName}
-            onFilterName={handleFilterByName}
-          />
+    <Container maxWidth="xl">
+      <Box sx={{ pb: 5, pt: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Box>
+            <Typography variant="h4" color="text.primary" fontWeight="700">
+              Documents
+            </Typography>
+            <Typography variant="body2" color="text.secondary" mt={1}>
+              Manage school documents and resources
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={2}>
+            <Button 
+              variant="contained" 
+              startIcon={<Iconify icon="eva:plus-fill" />}
+              onClick={() => setOpen(true)}
+              sx={{ 
+                px: 3,
+                boxShadow: theme.customShadows.primary,
+                '&:hover': {
+                  boxShadow: 'none',
+                }
+              }}
+            >
+              Upload Document
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Iconify icon="eva:download-fill" />}
+              sx={{ px: 3 }}
+            >
+              Export
+            </Button>
+          </Stack>
+        </Box>
 
-          <Scrollbar>
-            <TableContainer sx={{ overflow: 'unset' }}>
-              <Table sx={{ minWidth: 800 }}>
-                <DocumentTableHead
-                  order={order}
-                  orderBy={orderBy}
-                  rowCount={data?.length}
-                  numSelected={selected.length}
-                  onRequestSort={handleSort}
-                  onSelectAllClick={handleSelectAllClick}
-                  headLabel={[
-                    { id: 'title', label: 'Title', align: 'left' },
-                    { id: 'tags', label: 'Tags' },
-                    { id: 'programs', label: 'Programs' },
-                    { id: 'classLevels', label: 'Class Levels' },
-                    { id: 'size', label: 'size' },
-                    { id: '' },
-                  ]}
-                />
-
-                <TableBody>
-                  {dataFiltered
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((row) => (
-                      <DocumentTableRow
-                        key={row._id}
-                        id={row._id}
-                        title={row.title}
-                        tags={row?.tags.map((tag) => tag).join('  ')}
-                        programs={row.programs.map((program) => program.code).join('  ')}
-                        classlevels={row?.classLevels?.map((classLevel) => classLevel?.name).join('  ')}
-                        size={row.size}
-                        selected={selected.indexOf(row._id) !== -1}
-                        handleClick={(event) => handleClick(event, row._id)}
-                      />
-                    ))}
-
-                  {notFound && <TableNoData query={filterName} />}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Scrollbar>
-
-          <TablePagination
-            page={page}
-            component="div"
-            count={data?.length}
-            rowsPerPage={rowsPerPage}
-            onPageChange={handleChangePage}
-            rowsPerPageOptions={[5, 10, 25]}
-            onRowsPerPageChange={handleChangeRowsPerPage}
+        <Card sx={{ 
+          boxShadow: `0 0 2px 0 ${alpha(theme.palette.grey[500], 0.2)}, 
+                      0 12px 24px -4px ${alpha(theme.palette.grey[500], 0.12)}`,
+          borderRadius: 2,
+        }}>
+          <GenericTable
+            data={data}
+            columns={columns}
+            rowIdField="_id"
+            withCheckbox
+            withToolbar
+            withPagination
+            selectable
+            isLoading={isLoading}
+            emptyRowsHeight={53}
+            toolbarProps={{
+              searchPlaceholder: 'Search documents...',
+              toolbarTitle: 'Documents List',
+            }}
           />
         </Card>
-      )}
+      </Box>
+
+      <AddDocument open={open} setOpen={setOpen} />
     </Container>
   );
 }
