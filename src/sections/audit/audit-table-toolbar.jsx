@@ -79,7 +79,7 @@ export default function AuditTableToolbar({
         </Box>
       ) : (
         <>
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%', flexWrap: 'wrap' }}>
+          <Stack direction="row" alignItems="center" sx={{ width: '100%', flexWrap: 'wrap', gap: 3 }}>
             <OutlinedInput
               value={filterName}
               onChange={onFilterName}
@@ -92,7 +92,7 @@ export default function AuditTableToolbar({
                   />
                 </InputAdornment>
               }
-              sx={{ flex: 1, minWidth: 250, maxWidth: 400 }}
+              sx={{ flex: 1, minWidth: 200, maxWidth: 300 }}
             />
 
             <Box sx={{ width: 180 }}>
