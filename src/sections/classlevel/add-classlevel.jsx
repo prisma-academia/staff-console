@@ -1,24 +1,23 @@
-import * as Yup from 'yup';
-import PropTypes from 'prop-types';
 import { useFormik } from 'formik';
-import React from 'react';
-import { useSnackbar } from 'notistack';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-
+import PropTypes from 'prop-types';
+//
 import LoadingButton from '@mui/lab/LoadingButton';
 import {
+  Backdrop,
   Box,
-  Grid,
+  Button,
   Fade,
+  Grid,
   Modal,
   Stack,
-  Button,
-  useTheme,
-  Backdrop,
   TextField,
   Typography,
   useMediaQuery,
+  useTheme,
 } from '@mui/material';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSnackbar } from 'notistack';
+import * as Yup from 'yup';
 
 import { classLevelApi } from 'src/api';
 
@@ -41,7 +40,7 @@ const AddClassLevel = ({ open, setOpen }) => {
     onError: (error) => {
       // Handle different error types
       let errorMessage = 'An error occurred';
-      
+
       if (error.data?.errors && Array.isArray(error.data.errors)) {
         // Validation errors (422)
         const fieldErrors = error.data.errors.map((err) => err.message).join(', ');
@@ -109,11 +108,11 @@ const AddClassLevel = ({ open, setOpen }) => {
       <Button onClick={() => setOpen(true)} variant="contained" color="inherit" startIcon={<Iconify icon="eva:plus-fill" />}>
         New Class Level
       </Button>
-      <Modal 
-        open={open} 
-        onClose={handleClose} 
-        closeAfterTransition 
-        BackdropComponent={Backdrop} 
+      <Modal
+        open={open}
+        onClose={handleClose}
+        closeAfterTransition
+        BackdropComponent={Backdrop}
         BackdropProps={{ timeout: 500 }}
       >
         <Fade in={open}>
@@ -125,44 +124,44 @@ const AddClassLevel = ({ open, setOpen }) => {
               <Stack spacing={3} sx={{ mt: 2 }}>
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
-                    <TextField 
-                      label="Class Level Name" 
-                      name="name" 
-                      fullWidth 
+                    <TextField
+                      label="Class Level Name"
+                      name="name"
+                      fullWidth
                       placeholder="e.g., 100 level, 200 level"
-                      value={formik.values.name} 
+                      value={formik.values.name}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
-                      error={formik.touched.name && Boolean(formik.errors.name)} 
-                      helperText={formik.touched.name && formik.errors.name} 
+                      error={formik.touched.name && Boolean(formik.errors.name)}
+                      helperText={formik.touched.name && formik.errors.name}
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <TextField 
-                      label="Level" 
-                      name="level" 
-                      type="number" 
-                      fullWidth 
+                    <TextField
+                      label="Level"
+                      name="level"
+                      type="number"
+                      fullWidth
                       placeholder="e.g., 1, 2, 3"
-                      value={formik.values.level} 
+                      value={formik.values.level}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
-                      error={formik.touched.level && Boolean(formik.errors.level)} 
+                      error={formik.touched.level && Boolean(formik.errors.level)}
                       helperText={formik.touched.level && formik.errors.level}
                       inputProps={{ min: 1 }}
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <TextField 
-                      label="Set" 
-                      name="set" 
-                      type="number" 
-                      fullWidth 
+                    <TextField
+                      label="Set"
+                      name="set"
+                      type="number"
+                      fullWidth
                       placeholder="e.g., 1, 2, 3"
-                      value={formik.values.set} 
+                      value={formik.values.set}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
-                      error={formik.touched.set && Boolean(formik.errors.set)} 
+                      error={formik.touched.set && Boolean(formik.errors.set)}
                       helperText={formik.touched.set && formik.errors.set || 'Set/cohort identifier'}
                       inputProps={{ min: 1 }}
                     />

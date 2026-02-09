@@ -5,14 +5,14 @@ import {Select, MenuItem, InputLabel, FormControl } from '@mui/material';
 
 function CustomSelect({ list, value, setValue, label }) {
   return (
-    <FormControl size="small">
+    <FormControl size="medium" style={{ width: "100%"}}>
       <InputLabel>{label}</InputLabel>
-      <Select  value={value} onChange={(e) => setValue(e.target.value)}>
+      <Select value={value} onChange={(e) => setValue(e.target.value)}>
         <MenuItem disabled value="">
           <em>None</em>
         </MenuItem>
-        {list.map((li) => (
-          <MenuItem value={li.value}>{li.name}</MenuItem>
+        {list.map((li, index) => (
+          <MenuItem key={index} value={li.value}>{li.name}</MenuItem>
         ))}
       </Select>
     </FormControl>

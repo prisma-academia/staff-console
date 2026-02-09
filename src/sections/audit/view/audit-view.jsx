@@ -302,8 +302,11 @@ export default function AuditView() {
     },
   ];
 
-  const auditLogs = data?.data || [];
-  const pagination = data?.pagination || { total: 0, limit: rowsPerPage, skip: 0, pages: 0 };
+  const auditLogs = Array.isArray(data) ? data : data?.data || [];
+
+  const pagination = Array.isArray(data)
+    ? { total: data.length, limit: rowsPerPage, skip: page * rowsPerPage, pages: Math.ceil(data.length / rowsPerPage) }
+    : data?.pagination || { total: 0, limit: rowsPerPage, skip: 0, pages: 0 };
 
   return (
     <Container maxWidth="xl">
