@@ -1,8 +1,8 @@
 import PropTypes from 'prop-types';
-import React, { useState } from 'react';
 import { useSnackbar } from 'notistack';
 import { useDropzone } from 'react-dropzone';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import LoadingButton from '@mui/lab/LoadingButton';
 import {
@@ -18,28 +18,34 @@ import {
   Radio,
   Table,
   Button,
+  Dialog,
   Divider,
   Stepper,
   Backdrop,
   useTheme,
   Checkbox,
   TableRow,
+  MenuItem,
   StepLabel,
   FormLabel,
   TableBody,
   TableCell,
   TableHead,
+  TextField,
   Typography,
   IconButton,
   RadioGroup,
   FormControl,
+  DialogTitle,
   useMediaQuery,
+  DialogContent,
+  DialogActions,
   TableContainer,
   LinearProgress,
   FormControlLabel,
 } from '@mui/material';
 
-import { StudentApi } from 'src/api';
+import { StudentApi, programApi, classLevelApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
 
@@ -70,6 +76,37 @@ export default function BulkUploadModal({ open, setOpen }) {
   const [validationResults, setValidationResults] = useState(null);
   const [sendEmail, setSendEmail] = useState(false);
   const [sendSMS, setSendSMS] = useState(false);
+  const [classId, setClassId] = useState('');
+  const [programmeId, setProgrammeId] = useState('');
+  const [generatedPasswords, setGeneratedPasswords] = useState(null);
+
+  // Programs and class levels for Step 3
+  const { data: programs = [] } = useQuery({
+    queryKey: ['programs'],
+    queryFn: programApi.getPrograms,
+  });
+  const { data: classLevels = [] } = useQuery({
+    queryKey: ['classLevels'],
+    queryFn: classLevelApi.getClassLevels,
+  });
+
+  // Pre-fill programme/class from first student when all have the same
+  useEffect(() => {
+    if (!validationResults?.students?.length || programmeId || classId) return;
+    const first = validationResults.students[0];
+    const firstProgramId = first.program?._id ?? first.program;
+    const firstClassId = first.classLevel?._id ?? first.classLevel;
+    if (!firstProgramId || !firstClassId) return;
+    const allSame = validationResults.students.every((s) => {
+      const pId = s.program?._id ?? s.program;
+      const cId = s.classLevel?._id ?? s.classLevel;
+      return pId === firstProgramId && cId === firstClassId;
+    });
+    if (allSame) {
+      setProgrammeId(firstProgramId);
+      setClassId(firstClassId);
+    }
+  }, [validationResults, programmeId, classId]);
 
   // Download template mutation
   const { mutate: downloadTemplate, isPending: isDownloading } = useMutation({
@@ -112,20 +149,29 @@ export default function BulkUploadModal({ open, setOpen }) {
     },
   });
 
-  // Bulk insert mutation
+  // Bulk insert mutation (API returns full result: data, message, generatedPasswords)
   const { mutate: bulkInsert, isPending: isInserting } = useMutation({
     mutationFn: (data) => StudentApi.bulkInsertStudents(data),
-    onSuccess: (data) => {
+    onSuccess: (result) => {
+      const count = result.data?.count ?? 0;
       queryClient.invalidateQueries({ queryKey: ['students'] });
       enqueueSnackbar(
-        `Successfully inserted ${data.count} student(s)`,
+        `Successfully inserted ${count} student(s)`,
         { variant: 'success' }
       );
-      handleClose();
+      if (result.generatedPasswords?.length > 0) {
+        setGeneratedPasswords(result.generatedPasswords);
+      } else {
+        handleClose();
+      }
     },
     onError: (error) => {
       const errorMessage = error.message || 'Failed to insert students';
-      enqueueSnackbar(errorMessage, { variant: 'error' });
+      const details = error.data?.errors;
+      enqueueSnackbar(
+        details?.length ? `${errorMessage}: ${details.join('; ')}` : errorMessage,
+        { variant: 'error' }
+      );
     },
   });
 
@@ -135,7 +181,30 @@ export default function BulkUploadModal({ open, setOpen }) {
     setValidationResults(null);
     setSendEmail(false);
     setSendSMS(false);
+    setClassId('');
+    setProgrammeId('');
+    setGeneratedPasswords(null);
     setOpen(false);
+  };
+
+  const handleDownloadGeneratedPasswords = () => {
+    if (!generatedPasswords?.length) return;
+    const header = 'regNumber,email,password\n';
+    const rows = generatedPasswords
+      .map((p) => `${p.regNumber ?? ''},${p.email ?? ''},${p.password ?? ''}`)
+      .join('\n');
+    const csv = header + rows;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'generated_passwords.csv';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setGeneratedPasswords(null);
+    handleClose();
   };
 
   const handleNext = () => {
@@ -161,13 +230,15 @@ export default function BulkUploadModal({ open, setOpen }) {
   };
 
   const handleBulkInsert = () => {
-    if (validationResults && validationResults.students.length > 0) {
-      bulkInsert({
-        students: validationResults.students,
-        sendEmail,
-        sendSMS,
-      });
-    }
+    if (!validationResults || validationResults.students.length === 0 || !classId || !programmeId) return;
+    const students = validationResults.students.map(({ program, classLevel, ...rest }) => rest);
+    bulkInsert({
+      classId,
+      programmeId,
+      students,
+      sendEmail,
+      sendSMS,
+    });
   };
 
   // File upload dropzone
@@ -410,8 +481,56 @@ export default function BulkUploadModal({ open, setOpen }) {
       <Box>
         <Stack spacing={3}>
           <Alert severity="info" icon={<Iconify icon="mdi:information" />}>
-            Review the validated students below. You can choose to send welcome emails and/or SMS notifications.
+            Review the validated students below. Select the Program and Class Level to apply to all students in this batch, then choose notification options.
           </Alert>
+
+          {/* Program & Class Level - applied to entire batch */}
+          <Card sx={sectionCardStyle}>
+            <Typography variant="h6" fontWeight={600} gutterBottom>
+              Program & Class Level
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              These apply to all students in this batch. Template program/class columns are for reference only.
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Program"
+                  fullWidth
+                  size="small"
+                  select
+                  value={programmeId}
+                  onChange={(e) => setProgrammeId(e.target.value)}
+                  required
+                >
+                  <MenuItem value="">Select program</MenuItem>
+                  {(programs || []).map((program) => (
+                    <MenuItem key={program._id} value={program._id}>
+                      {program.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Class Level"
+                  fullWidth
+                  size="small"
+                  select
+                  value={classId}
+                  onChange={(e) => setClassId(e.target.value)}
+                  required
+                >
+                  <MenuItem value="">Select class level</MenuItem>
+                  {(classLevels || []).map((level) => (
+                    <MenuItem key={level._id} value={level._id}>
+                      {level.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+            </Grid>
+          </Card>
 
           {/* Email/SMS Options */}
           <Card sx={sectionCardStyle}>
@@ -503,12 +622,13 @@ export default function BulkUploadModal({ open, setOpen }) {
   };
 
   return (
+    <>
     <Modal
       open={open}
       onClose={handleClose}
       closeAfterTransition
-      slots={{ backdrop: Backdrop }}
-      slotProps={{ backdrop: { timeout: 500 } }}
+      BackdropComponent={Backdrop}
+      BackdropProps={{ timeout: 500 }}
     >
       <Fade in={open}>
         <Box sx={modalStyle}>
@@ -613,6 +733,7 @@ export default function BulkUploadModal({ open, setOpen }) {
                   variant="contained"
                   onClick={handleBulkInsert}
                   loading={isInserting}
+                  disabled={!classId || !programmeId}
                   startIcon={<Iconify icon="mdi:check-circle" />}
                   sx={{
                     boxShadow: theme.customShadows.primary,
@@ -626,6 +747,29 @@ export default function BulkUploadModal({ open, setOpen }) {
         </Box>
       </Fade>
     </Modal>
+
+    {/* Generated passwords dialog - sibling to Modal to avoid nested overlay issues */}
+    <Dialog open={Boolean(generatedPasswords?.length)} onClose={() => { setGeneratedPasswords(null); handleClose(); }} maxWidth="sm" fullWidth>
+      <DialogTitle>Generated passwords</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {generatedPasswords?.length} temporary password(s) were generated. Download the CSV and share securely with students.
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<Iconify icon="eva:download-fill" />}
+          onClick={handleDownloadGeneratedPasswords}
+        >
+          Download CSV
+        </Button>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => { setGeneratedPasswords(null); handleClose(); }}>
+          Done
+        </Button>
+      </DialogActions>
+    </Dialog>
+    </>
   );
 }
 

@@ -32,6 +32,10 @@ const DocumentPage = lazy(() => import('src/pages/document'));
 const CalenderPage = lazy(() => import('src/pages/calender'));
 const PreferencePage = lazy(() => import('src/pages/preference'));
 const ResultPage = lazy(() => import('src/pages/result'));
+const ResultBuilderPage = lazy(() => import('src/pages/result-builder'));
+const AssessmentPage = lazy(() => import('src/pages/assessment'));
+const AssessmentCoursePage = lazy(() => import('src/pages/assessment-course'));
+const AssessmentEnterScoresPage = lazy(() => import('src/pages/assessment-enter-scores'));
 const CoursePage = lazy(() => import('src/pages/course'));
 const ClassLevelPage = lazy(() => import('src/pages/classlevel'));
 const FeePage = lazy(() => import('src/pages/fee'));
@@ -228,6 +232,38 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <ResultPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'result/builder',
+          element: (
+            <PrivateRoute>
+              <ResultBuilderPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'assessment',
+          element: (
+            <PrivateRoute>
+              <AssessmentPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'assessment/course/:courseId',
+          element: (
+            <PrivateRoute>
+              <AssessmentCoursePage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'assessment/:assessmentId/enter-scores',
+          element: (
+            <PrivateRoute>
+              <AssessmentEnterScoresPage />
             </PrivateRoute>
           ),
         },

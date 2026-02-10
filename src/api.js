@@ -430,6 +430,11 @@ export const StudentApi = {
 
     const result = await response.json();
 
+    // On 400 with validation details (students/errors/summary), return data so UI can show errors
+    if (response.status === 400 && result.data && typeof result.data.summary === 'object') {
+      return result.data;
+    }
+
     if (!response.ok || !result.ok) {
       const errorMessage = result.message || result.error || 'Failed to validate file';
       const error = new Error(errorMessage);
@@ -458,7 +463,47 @@ export const StudentApi = {
 
     return result.data;
   },
-  bulkInsertStudents: (data) => apiClient.post('student/bulk-insert', data),
+  bulkInsertStudents: async (data) => {
+    const { token } = useAuthStore.getState();
+    const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
+    const url = `${config.baseUrl}${apiVersion}/student/bulk-insert`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.ok) {
+      const errorMessage = result.message || result.error || 'Bulk insert failed';
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      error.data = result;
+      if (response.status === 403) {
+        const { showPermissionError } = useErrorStore.getState();
+        showPermissionError({
+          title: 'Access Denied',
+          message: errorMessage,
+          details: result,
+        });
+      } else if (response.status >= 500) {
+        const { showError } = useErrorStore.getState();
+        showError({
+          title: 'Server Error',
+          message: errorMessage,
+          details: result,
+        });
+      }
+      throw error;
+    }
+
+    return result;
+  },
 };
 
 export const TemplateApi = {
@@ -470,4 +515,111 @@ export const TemplateApi = {
   createTemplate: (data) => apiClient.post('template', data),
   updateTemplate: (id, data) => apiClient.put(`template/${id}`, data),
   deleteTemplate: (id) => apiClient.delete(`template/${id}`),
+};
+
+export const AssessmentApi = {
+  getAssessments: (params) => {
+    const queryString = params ? buildQueryString(params) : '';
+    return apiClient.get(`assessment${queryString ? `?${queryString}` : ''}`);
+  },
+  getAssessmentById: (id) => apiClient.get(`assessment/${id}`),
+  createAssessment: (data) => apiClient.post('assessment', data),
+  updateAssessment: (id, data) => apiClient.put(`assessment/${id}`, data),
+  deleteAssessment: (id) => apiClient.delete(`assessment/${id}`),
+};
+
+export const ScoreApi = {
+  getScores: (params) => {
+    const queryString = params ? buildQueryString(params) : '';
+    return apiClient.get(`score${queryString ? `?${queryString}` : ''}`);
+  },
+  getScoreById: (id) => apiClient.get(`score/${id}`),
+  getScoresByAssessment: (assessmentId) => apiClient.get(`score/assessment/${assessmentId}`),
+  getScoresBySession: (sessionId) => apiClient.get(`score/session/${sessionId}`),
+  getScoresByStudent: (studentId) => apiClient.get(`score/student/${studentId}`),
+  createScore: (data) => apiClient.post('score', data),
+  updateScore: (id, data) => apiClient.put(`score/${id}`, data),
+  deleteScore: (id) => apiClient.delete(`score/${id}`),
+};
+
+export const SessionApi = {
+  getSessions: () => apiClient.get('session'),
+  getSessionById: (id) => apiClient.get(`session/${id}`),
+};
+
+// Blob fetch helper for result file downloads (export, template, student PDF)
+const resultBlobFetch = async (path, searchParams = {}) => {
+  const { token } = useAuthStore.getState();
+  const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
+  const query = new URLSearchParams(searchParams).toString();
+  const url = `${config.baseUrl}${apiVersion}/result/${path}${query ? `?${query}` : ''}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    let errorMessage = 'Request failed';
+    try {
+      const errorJson = await response.json();
+      errorMessage = errorJson.message || errorMessage;
+      if (response.status === 403) {
+        useErrorStore.getState().showPermissionError({
+          title: 'Access Denied',
+          message: errorMessage,
+          details: errorJson,
+        });
+      } else if (response.status >= 500) {
+        useErrorStore.getState().showError({
+          title: 'Server Error',
+          message: errorMessage,
+          details: errorJson,
+        });
+      }
+    } catch {
+      errorMessage = response.statusText || errorMessage;
+    }
+    const err = new Error(errorMessage);
+    err.status = response.status;
+    throw err;
+  }
+  return response.blob();
+};
+
+export const ResultApi = {
+  getAll: (params) => {
+    const queryString = params ? buildQueryString(params) : '';
+    return apiClient.get(`result${queryString ? `?${queryString}` : ''}`);
+  },
+  getById: (id) => apiClient.get(`result/${id}`),
+  create: (data) => apiClient.post('result', data),
+  update: (id, data) => apiClient.put(`result/${id}`, data),
+  delete: (id) => apiClient.delete(`result/${id}`),
+  getBuilder: (params) => {
+    const queryString = buildQueryString(params);
+    return apiClient.get(`result/builder${queryString ? `?${queryString}` : ''}`);
+  },
+  bulkSave: (body) => apiClient.post('result/bulk-save', body),
+  bulkUpdate: (body) => apiClient.put('result/bulk', body),
+  bulkDelete: (body) =>
+    createRequest('result/bulk', {
+      method: 'DELETE',
+      body: JSON.stringify(body),
+    }),
+  exportResults: async (params) => resultBlobFetch('export', params),
+  downloadTemplate: async (courseId) => resultBlobFetch('template', { courseId }),
+  getByStudentId: (studentId) => apiClient.get(`result/student/${studentId}`),
+  getByStudentSemester: (studentId, semester) =>
+    apiClient.get(`result/student/${studentId}/semester/${encodeURIComponent(semester)}`),
+  getStudentGpa: (studentId, params) => {
+    const queryString = params ? buildQueryString(params) : '';
+    return apiClient.get(
+      `result/student/${studentId}/gpa${queryString ? `?${queryString}` : ''}`
+    );
+  },
+  downloadStudentResultPdf: async (studentId, classLevelId, semester) => {
+    const path = `student/${studentId}/classLevel/${classLevelId}/semester/${encodeURIComponent(semester)}`;
+    return resultBlobFetch(path);
+  },
 };
