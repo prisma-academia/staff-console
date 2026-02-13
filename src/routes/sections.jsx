@@ -32,12 +32,13 @@ const DocumentPage = lazy(() => import('src/pages/document'));
 const CalenderPage = lazy(() => import('src/pages/calender'));
 const PreferencePage = lazy(() => import('src/pages/preference'));
 const ResultPage = lazy(() => import('src/pages/result'));
-const ResultBuilderPage = lazy(() => import('src/pages/result-builder'));
 const AssessmentPage = lazy(() => import('src/pages/assessment'));
+const AssessmentCoursesPage = lazy(() => import('src/pages/assessment-courses'));
 const AssessmentCoursePage = lazy(() => import('src/pages/assessment-course'));
 const AssessmentEnterScoresPage = lazy(() => import('src/pages/assessment-enter-scores'));
 const CoursePage = lazy(() => import('src/pages/course'));
 const ClassLevelPage = lazy(() => import('src/pages/classlevel'));
+const SessionPage = lazy(() => import('src/pages/session'));
 const FeePage = lazy(() => import('src/pages/fee'));
 const MailPage = lazy(() => import('src/pages/mail'));
 const AuditPage = lazy(() => import('src/pages/audit'));
@@ -220,6 +221,14 @@ export default function Router() {
           ),
         },
         {
+          path: 'session',
+          element: (
+            <PrivateRoute>
+              <SessionPage />
+            </PrivateRoute>
+          ),
+        },
+        {
           path: 'calender',
           element: (
             <PrivateRoute>
@@ -236,18 +245,18 @@ export default function Router() {
           ),
         },
         {
-          path: 'result/builder',
-          element: (
-            <PrivateRoute>
-              <ResultBuilderPage />
-            </PrivateRoute>
-          ),
-        },
-        {
           path: 'assessment',
           element: (
             <PrivateRoute>
               <AssessmentPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'assessment/courses',
+          element: (
+            <PrivateRoute>
+              <AssessmentCoursesPage />
             </PrivateRoute>
           ),
         },

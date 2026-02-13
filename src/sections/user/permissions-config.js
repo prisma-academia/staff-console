@@ -67,6 +67,15 @@ export const PERMISSION_CATEGORIES = [
     ],
   },
   {
+    label: 'Session Management',
+    permissions: [
+      { id: 'add_session', label: 'Add Session' },
+      { id: 'edit_session', label: 'Edit Session' },
+      { id: 'delete_session', label: 'Delete Session' },
+      { id: 'view_session', label: 'View Session' },
+    ],
+  },
+  {
     label: 'Result Management',
     permissions: [
       { id: 'add_result', label: 'Add Result' },

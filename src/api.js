@@ -545,6 +545,10 @@ export const ScoreApi = {
 export const SessionApi = {
   getSessions: () => apiClient.get('session'),
   getSessionById: (id) => apiClient.get(`session/${id}`),
+  getCurrentSession: () => apiClient.get('session/current'),
+  createSession: (data) => apiClient.post('session', data),
+  updateSession: (id, data) => apiClient.put(`session/${id}`, data),
+  deleteSession: (id) => apiClient.delete(`session/${id}`),
 };
 
 // Blob fetch helper for result file downloads (export, template, student PDF)
@@ -600,6 +604,11 @@ export const ResultApi = {
     const queryString = buildQueryString(params);
     return apiClient.get(`result/builder${queryString ? `?${queryString}` : ''}`);
   },
+  getAssessmentSheet: (params) => {
+    const queryString = buildQueryString(params);
+    return apiClient.get(`result/assessment-sheet${queryString ? `?${queryString}` : ''}`);
+  },
+  saveAssessmentSheet: (body) => apiClient.post('result/assessment-sheet/save', body),
   bulkSave: (body) => apiClient.post('result/bulk-save', body),
   bulkUpdate: (body) => apiClient.put('result/bulk', body),
   bulkDelete: (body) =>

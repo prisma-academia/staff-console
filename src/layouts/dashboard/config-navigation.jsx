@@ -114,6 +114,12 @@ const useNavConfig = () => {
       permission: 'view_classlevel',
     },
     {
+      title: 'Sessions',
+      path: '/session',
+      icon: icon('ic_calendar'),
+      permission: 'view_session',
+    },
+    {
       title: 'Calendar',
       path: '/calender',
       icon: icon('ic_calendar'),

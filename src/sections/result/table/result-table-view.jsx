@@ -71,7 +71,7 @@ const STICKY_CELL = (left, zIndex = 1) => ({
   minWidth: 90,
 });
 
-export default function ResultBuilderView() {
+export default function ResultTableView() {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   const [classId, setClassId] = useState('');
@@ -112,7 +112,7 @@ export default function ResultBuilderView() {
       });
       setBuilderData(data);
     } catch (err) {
-      enqueueSnackbar(err.message || 'Failed to load builder data', { variant: 'error' });
+      enqueueSnackbar(err?.message || 'Failed to load result table data', { variant: 'error' });
       setBuilderData(null);
     } finally {
       setLoading(false);
@@ -133,12 +133,11 @@ export default function ResultBuilderView() {
 
   const getDisplayScore = (course) => course.finalScore ?? course.calculatedScore ?? '';
   const getDisplayGrade = (course) => course.finalGrade ?? course.calculatedGrade ?? '';
+  const getDisplayRemark = (course) => course.remark ?? '';
 
   const handleSaveAll = async () => {
     if (!builderData?.students?.length || !sessionId || !semester || !year) {
-      enqueueSnackbar('Load builder data and ensure session, semester, and year are set', {
-        variant: 'warning',
-      });
+      enqueueSnackbar('Load data and ensure session, semester, and year are set', { variant: 'warning' });
       return;
     }
     setSaving(true);
@@ -173,7 +172,7 @@ export default function ResultBuilderView() {
       enqueueSnackbar(`Saved ${resultsData.length} result(s)`, { variant: 'success' });
       loadBuilder();
     } catch (err) {
-      enqueueSnackbar(err.message || 'Failed to save results', { variant: 'error' });
+      enqueueSnackbar(err?.message || 'Failed to save results', { variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -201,15 +200,10 @@ export default function ResultBuilderView() {
       document.body.removeChild(a);
       enqueueSnackbar('Export downloaded', { variant: 'success' });
     } catch (err) {
-      enqueueSnackbar(err.message || 'Export failed', { variant: 'error' });
+      enqueueSnackbar(err?.message || 'Export failed', { variant: 'error' });
     } finally {
       setExporting(false);
     }
-  };
-
-  const handleDownloadTemplate = () => {
-    navigate('/result');
-    enqueueSnackbar('Open Add result / Download template from the Results page', { variant: 'info' });
   };
 
   const classLevelSelectData = useMemo(
@@ -239,13 +233,13 @@ export default function ResultBuilderView() {
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2, pt: 4 }}>
         <Button
           startIcon={<Iconify icon="eva:arrow-back-fill" />}
-          onClick={() => navigate('/result')}
+          onClick={() => navigate('/')}
           variant="outlined"
         >
           Back
         </Button>
         <Typography variant="h4" sx={{ flex: 1 }}>
-          Result builder
+          Result table
         </Typography>
       </Stack>
 
@@ -253,11 +247,7 @@ export default function ResultBuilderView() {
         <Stack direction="row" flexWrap="wrap" alignItems="center" gap={2}>
           <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>Class level</InputLabel>
-            <Select
-              value={classId}
-              label="Class level"
-              onChange={(e) => setClassId(e.target.value)}
-            >
+            <Select value={classId} label="Class level" onChange={(e) => setClassId(e.target.value)}>
               <MenuItem value="">Select</MenuItem>
               {classLevelSelectData.map((c) => (
                 <MenuItem key={c._id} value={c._id}>{c.name}</MenuItem>
@@ -265,12 +255,8 @@ export default function ResultBuilderView() {
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel>Program</InputLabel>
-            <Select
-              value={programId}
-              label="Program"
-              onChange={(e) => setProgramId(e.target.value)}
-            >
+            <InputLabel>Programme</InputLabel>
+            <Select value={programId} label="Programme" onChange={(e) => setProgramId(e.target.value)}>
               <MenuItem value="">Select</MenuItem>
               {programSelectData.map((p) => (
                 <MenuItem key={p._id} value={p._id}>{p.name}</MenuItem>
@@ -279,11 +265,7 @@ export default function ResultBuilderView() {
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>Session</InputLabel>
-            <Select
-              value={sessionId}
-              label="Session"
-              onChange={(e) => setSessionId(e.target.value)}
-            >
+            <Select value={sessionId} label="Session" onChange={(e) => setSessionId(e.target.value)}>
               <MenuItem value="">Select</MenuItem>
               {sessionSelectData.map((s) => (
                 <MenuItem key={s._id} value={s._id}>{s.name}</MenuItem>
@@ -292,11 +274,7 @@ export default function ResultBuilderView() {
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <InputLabel>Semester</InputLabel>
-            <Select
-              value={semester}
-              label="Semester"
-              onChange={(e) => setSemester(e.target.value)}
-            >
+            <Select value={semester} label="Semester" onChange={(e) => setSemester(e.target.value)}>
               <MenuItem value="">Select</MenuItem>
               {SEMESTERS.map((s) => (
                 <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
@@ -319,7 +297,7 @@ export default function ResultBuilderView() {
             disabled={!canLoad}
             startIcon={<Iconify icon="eva:refresh-fill" />}
           >
-            Load
+            Generate
           </LoadingButton>
           <Can anyOf={['add_result', 'edit_result']}>
             <LoadingButton
@@ -344,13 +322,6 @@ export default function ResultBuilderView() {
               Export
             </LoadingButton>
           </Can>
-          <Button
-            variant="outlined"
-            onClick={handleDownloadTemplate}
-            startIcon={<Iconify icon="eva:file-text-fill" />}
-          >
-            Template
-          </Button>
         </Stack>
         {builderData?.metadata && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
@@ -373,17 +344,25 @@ export default function ResultBuilderView() {
                 <TableCell sx={{ ...STICKY_HEADER, left: 382, minWidth: 64, zIndex: 3 }}>CGPA</TableCell>
                 {courseColumns.map((course, idx) => (
                   <React.Fragment key={course.courseId || idx}>
-                    <TableCell
-                      align="center"
-                      sx={{ ...STICKY_HEADER, minWidth: 80 }}
-                    >
-                      {course.courseCode || course.courseName || 'Score'}
+                    {(course.assessments || []).map((assess) => (
+                      <TableCell
+                        key={assess.assessmentId}
+                        align="center"
+                        sx={{ ...STICKY_HEADER, minWidth: 72 }}
+                        title={`${assess.name || assess.type || '—'} / ${assess.maxScore ?? 100}`}
+                      >
+                        <Box sx={{ fontSize: '0.7rem', fontWeight: 600 }}>{assess.name || assess.type || '—'}</Box>
+                        <Box sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>/ {assess.maxScore ?? 100}</Box>
+                      </TableCell>
+                    ))}
+                    <TableCell align="center" sx={{ ...STICKY_HEADER, minWidth: 80 }}>
+                      Score
                     </TableCell>
-                    <TableCell
-                      align="center"
-                      sx={{ ...STICKY_HEADER, minWidth: 64 }}
-                    >
+                    <TableCell align="center" sx={{ ...STICKY_HEADER, minWidth: 64 }}>
                       Grade
+                    </TableCell>
+                    <TableCell align="center" sx={{ ...STICKY_HEADER, minWidth: 100 }}>
+                      Remark
                     </TableCell>
                   </React.Fragment>
                 ))}
@@ -402,10 +381,17 @@ export default function ResultBuilderView() {
                     const bg = GRADE_BG[grade] || 'grey.100';
                     return (
                       <React.Fragment key={course.courseId || colIndex}>
-                        <TableCell
-                          align="center"
-                          sx={{ py: 0.25, bgcolor: bg }}
-                        >
+                        {(course.assessments || []).map((assess) => (
+                          <TableCell
+                            key={assess.assessmentId}
+                            align="center"
+                            sx={{ py: 0.25, fontSize: '0.8125rem' }}
+                          >
+                            {assess.score != null ? assess.score : '—'}
+                            {assess.percentage != null ? ` (${Number(assess.percentage).toFixed(0)}%)` : ''}
+                          </TableCell>
+                        ))}
+                        <TableCell align="center" sx={{ py: 0.25, bgcolor: bg }}>
                           <TextField
                             size="small"
                             type="number"
@@ -418,10 +404,7 @@ export default function ResultBuilderView() {
                             sx={{ width: 72 }}
                           />
                         </TableCell>
-                        <TableCell
-                          align="center"
-                          sx={{ py: 0.25, bgcolor: bg }}
-                        >
+                        <TableCell align="center" sx={{ py: 0.25, bgcolor: bg }}>
                           <Select
                             size="small"
                             value={getDisplayGrade(course)}
@@ -437,6 +420,18 @@ export default function ResultBuilderView() {
                             ))}
                           </Select>
                         </TableCell>
+                        <TableCell align="center" sx={{ py: 0.25 }}>
+                          <TextField
+                            size="small"
+                            placeholder="Remark"
+                            value={getDisplayRemark(course)}
+                            onChange={(e) =>
+                              updateCourseCell(rowIndex, colIndex, 'remark', e.target.value)
+                            }
+                            variant="outlined"
+                            sx={{ width: 96 }}
+                          />
+                        </TableCell>
                       </React.Fragment>
                     );
                   })}
@@ -448,7 +443,7 @@ export default function ResultBuilderView() {
         {!loading && students.length === 0 && (
           <Box sx={{ py: 4, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
-              Select class, program, session, and semester, then click Load to see the grid.
+              Select class, programme, session, and semester, then click Generate to load the result table.
             </Typography>
           </Box>
         )}

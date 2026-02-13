@@ -1,17 +1,17 @@
 import { Helmet } from 'react-helmet-async';
 
-import { ResultTableView } from 'src/sections/result/table';
+import { SessionView } from 'src/sections/session/view';
 
 // ----------------------------------------------------------------------
 
-export default function ResultPage() {
+export default function SessionPage() {
   return (
     <>
       <Helmet>
-        <title>Results | AB NAIBI Admission</title>
+        <title>Sessions | AB NAIBI Admission</title>
       </Helmet>
 
-      <ResultTableView />
+      <SessionView />
     </>
   );
 }
