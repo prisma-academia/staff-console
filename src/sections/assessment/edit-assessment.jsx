@@ -1,4 +1,5 @@
 import * as Yup from 'yup';
+import { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { useFormik } from 'formik';
 import { useSnackbar } from 'notistack';
@@ -19,33 +20,34 @@ import {
   FormControlLabel,
 } from '@mui/material';
 
-import { courseApi, AssessmentApi } from 'src/api';
+import { courseApi, SessionApi, programApi, AssessmentApi } from 'src/api';
 
 import CustomSelect from 'src/components/select';
 
-const ASSESSMENT_TYPE_OPTIONS = [
-  'Exam',
-  'Quiz',
-  'Assignment',
-  'Project',
-  'Test',
-  'Midterm',
-  'Final',
-].map((t) => ({ _id: t, name: t }));
+const ASSESSMENT_TYPE_OPTIONS = ['Exam', 'CA1', 'CA2', 'CA3'].map((t) => ({ _id: t, name: t }));
+
+const getRefId = (ref) => (ref && (typeof ref === 'object' ? ref._id : ref)) || '';
 
 const EditAssessment = ({ open, setOpen, assessment }) => {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
 
-  const { data: courseOptions } = useQuery({
+  const { data: sessions = [] } = useQuery({
+    queryKey: ['sessions'],
+    queryFn: () => SessionApi.getSessions(),
+  });
+  const { data: programs = [] } = useQuery({
+    queryKey: ['programs'],
+    queryFn: () => programApi.getPrograms(),
+  });
+  const { data: courses = [] } = useQuery({
     queryKey: ['courses'],
-    queryFn: courseApi.getCourses,
+    queryFn: () => courseApi.getCourses(),
   });
 
-  const courseSelectOptions = (courseOptions || []).map((c) => ({
-    _id: c._id,
-    name: c.name || c.title || c.code || c._id,
-  }));
+  const sessionList = Array.isArray(sessions) ? sessions : [];
+  const programList = Array.isArray(programs) ? programs : [];
+  const courseList = useMemo(() => (Array.isArray(courses) ? courses : []), [courses]);
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => AssessmentApi.updateAssessment(id, data),
@@ -63,7 +65,6 @@ const EditAssessment = ({ open, setOpen, assessment }) => {
   });
 
   const validationSchema = Yup.object({
-    name: Yup.string().required('Name is required'),
     type: Yup.string()
       .required('Type is required')
       .oneOf(ASSESSMENT_TYPE_OPTIONS.map((o) => o._id), 'Invalid type'),
@@ -75,7 +76,6 @@ const EditAssessment = ({ open, setOpen, assessment }) => {
       .nullable()
       .min(0, 'Must be between 0 and 100')
       .max(100, 'Must be between 0 and 100'),
-    courses: Yup.array().of(Yup.string()),
     dueDate: Yup.date().nullable(),
     isActive: Yup.boolean(),
   });
@@ -83,12 +83,12 @@ const EditAssessment = ({ open, setOpen, assessment }) => {
   const formik = useFormik({
     enableReinitialize: true,
     initialValues: {
-      name: assessment?.name ?? '',
-      description: assessment?.description ?? '',
       type: assessment?.type ?? '',
       maxScore: assessment?.maxScore ?? '',
       weight: assessment?.weight ?? '',
-      courses: (assessment?.courses || []).map((c) => (typeof c === 'object' ? c._id : c)),
+      session: getRefId(assessment?.session),
+      program: getRefId(assessment?.program),
+      course: getRefId(assessment?.course),
       dueDate: assessment?.dueDate
         ? new Date(assessment.dueDate).toISOString().slice(0, 16)
         : '',
@@ -98,18 +98,27 @@ const EditAssessment = ({ open, setOpen, assessment }) => {
     onSubmit: (values) => {
       formik.setSubmitting(true);
       const payload = {
-        name: values.name,
-        description: values.description || undefined,
         type: values.type,
         maxScore: Number(values.maxScore),
         weight: values.weight ? Number(values.weight) : undefined,
-        courses: Array.isArray(values.courses) ? values.courses : [],
+        session: values.session || undefined,
+        program: values.program || undefined,
+        course: values.course || undefined,
         dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : undefined,
         isActive: values.isActive,
       };
       updateMutation.mutate({ id: assessment._id, data: payload });
     },
   });
+
+  const programId = formik.values?.program || getRefId(assessment?.program);
+  const coursesForProgram = useMemo(
+    () =>
+      courseList.filter((c) =>
+        (c.programs || []).some((p) => (typeof p === 'object' ? p?._id : p) === programId)
+      ),
+    [courseList, programId]
+  );
 
   const modalStyle = {
     position: 'absolute',
@@ -148,26 +157,6 @@ const EditAssessment = ({ open, setOpen, assessment }) => {
           </Typography>
           <Box component="form" onSubmit={formik.handleSubmit}>
             <Stack spacing={2.5}>
-              <TextField
-                fullWidth
-                label="Name"
-                name="name"
-                value={formik.values.name}
-                onChange={formik.handleChange}
-                error={formik.touched.name && Boolean(formik.errors.name)}
-                helperText={formik.touched.name && formik.errors.name}
-              />
-              <TextField
-                fullWidth
-                label="Description"
-                name="description"
-                multiline
-                rows={2}
-                value={formik.values.description}
-                onChange={formik.handleChange}
-                error={formik.touched.description && Boolean(formik.errors.description)}
-                helperText={formik.touched.description && formik.errors.description}
-              />
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <CustomSelect
@@ -220,12 +209,22 @@ const EditAssessment = ({ open, setOpen, assessment }) => {
                 </Grid>
               </Grid>
               <CustomSelect
-                data={courseSelectOptions}
-                label="Courses (leave empty for global)"
-                name="courses"
+                data={sessionList.map((s) => ({ _id: s._id, name: s.name || s.code || s._id }))}
+                label="Session"
+                name="session"
                 formik={formik}
-                multiple
-                showSelectedCount
+              />
+              <CustomSelect
+                data={programList.map((p) => ({ _id: p._id, name: p.name || p.code || p._id }))}
+                label="Program"
+                name="program"
+                formik={formik}
+              />
+              <CustomSelect
+                data={coursesForProgram.map((c) => ({ _id: c._id, name: c.name || c.code || c._id }))}
+                label="Course"
+                name="course"
+                formik={formik}
               />
               <FormControlLabel
                 control={
@@ -245,7 +244,7 @@ const EditAssessment = ({ open, setOpen, assessment }) => {
                   loading={formik.isSubmitting}
                   variant="contained"
                   type="submit"
-                  disabled={!formik.values.name || !formik.values.type || !formik.values.maxScore}
+                  disabled={!formik.values.type || !formik.values.maxScore}
                 >
                   Update Assessment
                 </LoadingButton>
@@ -263,12 +262,12 @@ EditAssessment.propTypes = {
   setOpen: PropTypes.func.isRequired,
   assessment: PropTypes.shape({
     _id: PropTypes.string,
-    name: PropTypes.string,
-    description: PropTypes.string,
     type: PropTypes.string,
     maxScore: PropTypes.number,
     weight: PropTypes.number,
-    courses: PropTypes.array,
+    session: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
+    program: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
+    course: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
     dueDate: PropTypes.string,
     isActive: PropTypes.bool,
   }),

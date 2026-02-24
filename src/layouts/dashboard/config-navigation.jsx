@@ -138,6 +138,12 @@ const useNavConfig = () => {
       permission: 'view_assessment',
     },
     {
+      title: 'Score sheet',
+      path: '/assessment/scores',
+      icon: icon('ic_result'),
+      permission: 'view_assessment_scores',
+    },
+    {
       title: 'Templates',
       path: '/template',
       icon: icon('ic_settings'),

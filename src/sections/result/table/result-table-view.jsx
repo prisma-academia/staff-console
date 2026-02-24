@@ -349,9 +349,9 @@ export default function ResultTableView() {
                         key={assess.assessmentId}
                         align="center"
                         sx={{ ...STICKY_HEADER, minWidth: 72 }}
-                        title={`${assess.name || assess.type || '—'} / ${assess.maxScore ?? 100}`}
+                        title={`${assess.type || '—'} / ${assess.maxScore ?? 100}`}
                       >
-                        <Box sx={{ fontSize: '0.7rem', fontWeight: 600 }}>{assess.name || assess.type || '—'}</Box>
+                        <Box sx={{ fontSize: '0.7rem', fontWeight: 600 }}>{assess.type || '—'}</Box>
                         <Box sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>/ {assess.maxScore ?? 100}</Box>
                       </TableCell>
                     ))}

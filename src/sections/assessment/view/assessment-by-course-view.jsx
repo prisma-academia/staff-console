@@ -1,251 +1,130 @@
 import PropTypes from 'prop-types';
-import { useSnackbar } from 'notistack';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { Link as RouterLink } from 'react-router-dom';
 
-import {
-  Card,
-  Stack,
-  alpha,
-  Button,
-  Tooltip,
-  useTheme,
-  Container,
-  Typography,
-  IconButton,
-} from '@mui/material';
+import { Box, Button, MenuItem, Container, TextField, Typography } from '@mui/material';
 
-import { courseApi, AssessmentApi } from 'src/api';
+import { courseApi, SessionApi, programApi } from 'src/api';
 
-import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
-import { GenericTable } from 'src/components/generic-table';
 
-import EditAssessment from '../edit-assessment';
+import AssessmentsTable from './assessments-table';
 
-const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  try {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return 'N/A';
-  }
-};
-
-const formatCreatedBy = (createdBy) => {
-  if (!createdBy) return 'N/A';
-  if (typeof createdBy === 'object') {
-    const first = createdBy.firstName || '';
-    const last = createdBy.lastName || '';
-    return [first, last].filter(Boolean).join(' ') || createdBy.email || 'N/A';
-  }
-  return 'N/A';
-};
-
-const isAssessmentForCourse = (assessment, courseId) => {
-  if (courseId === 'global') {
-    return assessment.isGlobal === true || !(assessment.courses && assessment.courses.length);
-  }
-  const ids = (assessment.courses || []).map((c) => (typeof c === 'object' ? c?._id : c));
-  return ids.includes(courseId);
-};
+// ----------------------------------------------------------------------
 
 export default function AssessmentByCourseView({ courseId }) {
-  const navigate = useNavigate();
-  const theme = useTheme();
-  const queryClient = useQueryClient();
-  const { enqueueSnackbar } = useSnackbar();
-  const [editingAssessment, setEditingAssessment] = useState(null);
+  const [sessionId, setSessionId] = useState('');
+  const [programId, setProgramId] = useState('');
 
-  const { data: assessments } = useQuery({
-    queryKey: ['assessments'],
-    queryFn: () => AssessmentApi.getAssessments(),
+  const { data: sessions = [] } = useQuery({
+    queryKey: ['sessions'],
+    queryFn: () => SessionApi.getSessions(),
   });
-
-  const { data: courses } = useQuery({
+  const { data: programs = [] } = useQuery({
+    queryKey: ['programs'],
+    queryFn: () => programApi.getPrograms(),
+  });
+  const { data: courses = [] } = useQuery({
     queryKey: ['courses'],
     queryFn: courseApi.getCourses,
-    enabled: courseId !== 'global',
-  });
-  const course = useMemo(() => {
-    if (courseId === 'global' || !courses) return null;
-    const list = Array.isArray(courses) ? courses : [];
-    return list.find((c) => c._id === courseId) ?? null;
-  }, [courseId, courses]);
-
-  const filteredAssessments = useMemo(() => {
-    if (!assessments || !Array.isArray(assessments)) return [];
-    return assessments.filter((a) => isAssessmentForCourse(a, courseId));
-  }, [assessments, courseId]);
-
-  const deleteAssessmentMutation = useMutation({
-    mutationFn: AssessmentApi.deleteAssessment,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['assessments'] });
-      enqueueSnackbar('Assessment deleted successfully', { variant: 'success' });
-    },
-    onError: (error) => {
-      enqueueSnackbar(error.message || 'Failed to delete assessment', { variant: 'error' });
-    },
+    enabled: Boolean(courseId),
   });
 
-  const handleDelete = (assessmentId, e) => {
-    e?.stopPropagation?.();
-    if (window.confirm('Are you sure you want to delete this assessment? This action cannot be undone.')) {
-      deleteAssessmentMutation.mutate(assessmentId);
-    }
-  };
+  const sessionList = Array.isArray(sessions) ? sessions : [];
+  const programList = Array.isArray(programs) ? programs : [];
+  const courseList = useMemo(() => (Array.isArray(courses) ? courses : []), [courses]);
+  const course = useMemo(
+    () => (courseId ? courseList.find((c) => c._id === courseId) ?? null : null),
+    [courseId, courseList]
+  );
+  const title = course?.name || course?.code || 'Course assessments';
 
-  const handleEdit = (assessment, e) => {
-    e?.stopPropagation?.();
-    setEditingAssessment(assessment);
-  };
-
-  const handleRowClick = (row) => {
-    navigate(`/assessment/${row._id}/enter-scores`);
-  };
-
-  const columns = [
-    {
-      id: 'name',
-      label: 'Name',
-      align: 'left',
-      cellSx: { width: '20%' },
-      renderCell: (row) => (
-        <Typography variant="subtitle2" noWrap>
-          {row.name}
-        </Typography>
-      ),
-    },
-    {
-      id: 'type',
-      label: 'Type',
-      cellSx: { width: '10%' },
-      renderCell: (row) => (
-        <Label color="default" variant="soft">
-          {row.type}
-        </Label>
-      ),
-    },
-    {
-      id: 'maxScore',
-      label: 'Max Score',
-      cellSx: { width: '8%' },
-      renderCell: (row) => <Typography variant="body2">{row.maxScore}</Typography>,
-    },
-    {
-      id: 'weight',
-      label: 'Weight',
-      cellSx: { width: '8%' },
-      renderCell: (row) => (
-        <Typography variant="body2">{row.weight != null ? `${row.weight}%` : 'N/A'}</Typography>
-      ),
-    },
-    {
-      id: 'dueDate',
-      label: 'Due Date',
-      cellSx: { width: '14%' },
-      renderCell: (row) => formatDate(row.dueDate),
-    },
-    {
-      id: 'isActive',
-      label: 'Status',
-      cellSx: { width: '10%' },
-      renderCell: (row) => (
-        <Label color={row.isActive !== false ? 'success' : 'default'} variant="soft">
-          {row.isActive !== false ? 'Active' : 'Inactive'}
-        </Label>
-      ),
-    },
-    {
-      id: 'createdBy',
-      label: 'Created By',
-      cellSx: { width: '14%' },
-      renderCell: (row) => (
-        <Typography variant="body2" noWrap>
-          {formatCreatedBy(row.createdBy)}
-        </Typography>
-      ),
-    },
-    {
-      id: 'action',
-      label: '',
-      cellSx: { width: '16%' },
-      renderCell: (row) => (
-        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-          <Can do="edit_assessment">
-            <Tooltip title="Edit Assessment">
-              <IconButton onClick={(e) => handleEdit(row, e)} size="small">
-                <Iconify icon="eva:edit-fill" />
-              </IconButton>
-            </Tooltip>
-          </Can>
-          <Can do="delete_assessment">
-            <Tooltip title="Delete Assessment">
-              <IconButton onClick={(e) => handleDelete(row._id, e)} size="small" color="error">
-                <Iconify icon="eva:trash-2-fill" />
-              </IconButton>
-            </Tooltip>
-          </Can>
-        </Stack>
-      ),
-    },
-  ];
-
-  const pageTitle =
-    courseId === 'global' ? 'Global assessments' : (course?.name || course?.title || course?.code) || 'Course';
+  const hasContext = Boolean(sessionId && programId && courseId);
 
   return (
     <Container maxWidth="xl">
-      <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3, pt: 4 }}>
-        <Button
-          startIcon={<Iconify icon="eva:arrow-back-fill" />}
-          onClick={() => navigate('/assessment')}
-          variant="outlined"
-        >
-          Back to courses
-        </Button>
-        <Typography variant="h4" sx={{ flex: 1 }}>
-          {pageTitle}
+      <Box sx={{ pb: 5, pt: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <Button
+            component={RouterLink}
+            to="/assessment"
+            variant="outlined"
+            startIcon={<Iconify icon="eva:arrow-back-fill" />}
+          >
+            Back to assessments
+          </Button>
+          {hasContext && (
+            <Can do="view_assessment_scores">
+              <Button
+                component={RouterLink}
+                to={`/assessment/scores?courseId=${encodeURIComponent(courseId)}&sessionId=${encodeURIComponent(sessionId)}`}
+                variant="contained"
+                startIcon={<Iconify icon="eva:edit-2-fill" />}
+              >
+                Enter scores for this course
+              </Button>
+            </Can>
+          )}
+        </Box>
+
+        <Typography variant="h4" fontWeight={700} sx={{ mb: 3 }}>
+          {title}
         </Typography>
-      </Stack>
 
-      <Card
-        sx={{
-          boxShadow: `0 0 2px 0 ${alpha(theme.palette.grey[500], 0.2)}, 
-                      0 12px 24px -4px ${alpha(theme.palette.grey[500], 0.12)}`,
-          borderRadius: 2,
-        }}
-      >
-        <GenericTable
-          data={filteredAssessments}
-          columns={columns}
-          rowIdField="_id"
-          withCheckbox
-          withToolbar
-          withPagination
-          selectable
-          isLoading={!assessments}
-          emptyRowsHeight={53}
-          onRowClick={handleRowClick}
-          toolbarProps={{
-            searchPlaceholder: 'Search assessments...',
-            toolbarTitle: 'Assessments — click a row to enter scores',
-          }}
-        />
-      </Card>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+            Context
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+            <TextField
+              select
+              label="Session"
+              value={sessionId}
+              onChange={(e) => setSessionId(e.target.value)}
+              size="small"
+              sx={{ minWidth: 200 }}
+            >
+              <MenuItem value="">Select session</MenuItem>
+              {sessionList.map((s) => (
+                <MenuItem key={s._id} value={s._id}>
+                  {s.name || s.code || s._id}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Program"
+              value={programId}
+              onChange={(e) => setProgramId(e.target.value)}
+              size="small"
+              sx={{ minWidth: 200 }}
+            >
+              <MenuItem value="">Select program</MenuItem>
+              {programList.map((p) => (
+                <MenuItem key={p._id} value={p._id}>
+                  {p.name || p.code || p._id}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
+              Course: {course?.name || course?.code || courseId}
+            </Typography>
+          </Box>
+        </Box>
 
-      <EditAssessment
-        open={Boolean(editingAssessment)}
-        setOpen={() => setEditingAssessment(null)}
-        assessment={editingAssessment}
-      />
+        <Box>
+          <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+            Assessments list
+          </Typography>
+          <AssessmentsTable
+            sessionId={sessionId || undefined}
+            programId={programId || undefined}
+            courseId={courseId || undefined}
+          />
+        </Box>
+      </Box>
     </Container>
   );
 }

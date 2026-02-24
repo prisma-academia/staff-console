@@ -526,6 +526,12 @@ export const AssessmentApi = {
   createAssessment: (data) => apiClient.post('assessment', data),
   updateAssessment: (id, data) => apiClient.put(`assessment/${id}`, data),
   deleteAssessment: (id) => apiClient.delete(`assessment/${id}`),
+  getScoreSheet: (params) => {
+    const queryString = params ? buildQueryString(params) : '';
+    return apiClient.get(`assessment/score-sheet${queryString ? `?${queryString}` : ''}`);
+  },
+  saveScoreSheet: (body) => apiClient.put('assessment/score-sheet', body),
+  patchScoreSheetScore: (body) => apiClient.patch('assessment/score-sheet/score', body),
 };
 
 export const ScoreApi = {

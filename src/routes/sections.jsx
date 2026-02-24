@@ -35,7 +35,7 @@ const ResultPage = lazy(() => import('src/pages/result'));
 const AssessmentPage = lazy(() => import('src/pages/assessment'));
 const AssessmentCoursesPage = lazy(() => import('src/pages/assessment-courses'));
 const AssessmentCoursePage = lazy(() => import('src/pages/assessment-course'));
-const AssessmentEnterScoresPage = lazy(() => import('src/pages/assessment-enter-scores'));
+const AssessmentScoresPage = lazy(() => import('src/pages/assessment-scores'));
 const CoursePage = lazy(() => import('src/pages/course'));
 const ClassLevelPage = lazy(() => import('src/pages/classlevel'));
 const SessionPage = lazy(() => import('src/pages/session'));
@@ -253,6 +253,14 @@ export default function Router() {
           ),
         },
         {
+          path: 'assessment/scores',
+          element: (
+            <PrivateRoute>
+              <AssessmentScoresPage />
+            </PrivateRoute>
+          ),
+        },
+        {
           path: 'assessment/courses',
           element: (
             <PrivateRoute>
@@ -265,14 +273,6 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <AssessmentCoursePage />
-            </PrivateRoute>
-          ),
-        },
-        {
-          path: 'assessment/:assessmentId/enter-scores',
-          element: (
-            <PrivateRoute>
-              <AssessmentEnterScoresPage />
             </PrivateRoute>
           ),
         },
