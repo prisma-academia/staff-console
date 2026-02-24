@@ -40,7 +40,7 @@ const formatDate = (dateString) => {
 };
 
 const formatCreatedBy = (row) => {
-  const createdBy = row.createdBy;
+  const {createdBy} = row;
   if (!createdBy) return '—';
   if (typeof createdBy === 'object') {
     const name = [createdBy.firstName, createdBy.lastName].filter(Boolean).join(' ');

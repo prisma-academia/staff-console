@@ -15,14 +15,15 @@ import {
   Button,
   Backdrop,
   useTheme,
+  Checkbox,
   TextField,
   Typography,
   useMediaQuery,
   FormControlLabel,
-  Checkbox,
 } from '@mui/material';
 
 import { SessionApi } from 'src/api';
+
 import CustomSelect from 'src/components/select';
 
 const SEMESTER_OPTIONS = [
