@@ -1,152 +1,145 @@
 import { useMemo } from 'react';
 
-import config from 'src/config';
-
-import SvgColor from 'src/components/svg-color';
+import Iconify from 'src/components/iconify';
 
 const useNavConfig = () => {
-  const icon = (name) => {
-    const iconPath = config.utils.buildImageUrl(config.assets.icons.navbar, `${name}.svg`);
-    return <SvgColor src={iconPath} sx={{ width: 1, height: 1 }} />;
-  };
-
   const navConfig = useMemo(() => [
     {
       title: 'Dashboard',
       path: '/',
-      icon: icon('ic_analytics'),
+      icon: <Iconify icon="eva:pie-chart-2-fill" width={24} />,
       permission: 'view_dashboard',
     },
     {
       title: 'Users',
       path: '/user',
-      icon: icon('ic_person'),
+      icon: <Iconify icon="eva:people-fill" width={24} />,
       permission: 'view_user',
     },
     {
       title: 'User Groups',
       path: '/groups',
-      icon: icon('ic_person'),
+      icon: <Iconify icon="mdi:account-group" width={24} />,
       permission: 'view_user_group',
     },
     {
       title: 'Role Permissions',
       path: '/role-permission',
-      icon: icon('ic_settings'),
+      icon: <Iconify icon="eva:shield-fill" width={24} />,
       permission: 'view_role_permission',
     },
     {
       title: 'Audit Logs',
       path: '/audit',
-      icon: icon('ic_settings'),
+      icon: <Iconify icon="mdi:history" width={24} />,
       permission: 'view_audit',
     },
     {
       title: 'Application Settings',
       path: '/app-settings',
-      icon: icon('ic_settings'),
+      icon: <Iconify icon="eva:settings-2-fill" width={24} />,
       permission: 'view_settings',
     },
     {
       title: 'Application',
       path: '/application',
-      icon: icon('ic_admission'),
+      icon: <Iconify icon="mdi:form-select" width={24} />,
       permission: 'view_application',
     },
     {
       title: 'Admission',
       path: '/admission',
-      icon: icon('ic_admission'),
+      icon: <Iconify icon="eva:person-add-fill" width={24} />,
       permission: 'view_admission',
     },
     {
       title: 'Student',
       path: '/student',
-      icon: icon('ic_student'),
+      icon: <Iconify icon="mdi:school" width={24} />,
       permission: 'view_student',
     },
     {
       title: 'Programs',
       path: '/program',
-      icon: icon('ic_program'),
+      icon: <Iconify icon="eva:book-fill" width={24} />,
       permission: 'view_program',
     },
     {
       title: 'Payments',
       path: '/payment',
-      icon: icon('ic_payment'),
+      icon: <Iconify icon="eva:credit-card-fill" width={24} />,
       permission: 'view_payment',
     },
     {
       title: 'Preference',
       path: '/preference',
-      icon: icon('ic_settings'),
+      icon: <Iconify icon="eva:options-2-fill" width={24} />,
       permission: 'view_preference',
     },
     {
       title: 'Memos',
       path: '/memo',
-      icon: icon('ic_memo'),
+      icon: <Iconify icon="eva:message-square-fill" width={24} />,
       permission: 'view_memo',
     },
     {
       title: 'Fees',
       path: '/fee',
-      icon: icon('ic_fee'),
+      icon: <Iconify icon="eva:wallet-fill" width={24} />,
       permission: 'view_fee',
     },
     {
       title: 'Documents',
       path: '/document',
-      icon: icon('ic_document'),
+      icon: <Iconify icon="eva:file-fill" width={24} />,
       permission: 'view_document',
     },
     {
       title: 'Courses',
       path: '/course',
-      icon: icon('ic_course'),
+      icon: <Iconify icon="eva:book-open-fill" width={24} />,
       permission: 'view_course',
     },
     {
       title: 'Class Levels',
       path: '/classlevel',
-      icon: icon('ic_program'),
+      icon: <Iconify icon="eva:layers-fill" width={24} />,
       permission: 'view_classlevel',
     },
     {
       title: 'Sessions',
       path: '/session',
-      icon: icon('ic_calendar'),
+      icon: <Iconify icon="eva:calendar-fill" width={24} />,
       permission: 'view_session',
     },
     {
       title: 'Calendar',
       path: '/calender',
-      icon: icon('ic_calendar'),
+      icon: <Iconify icon="eva:calendar-outline" width={24} />,
       permission: 'view_calendar',
     },
     {
       title: 'Results',
       path: '/result',
-      icon: icon('ic_result'),
+      icon: <Iconify icon="eva:clipboard-fill" width={24} />,
       permission: 'view_result',
     },
     {
       title: 'Assessments',
       path: '/assessment',
-      icon: icon('ic_result'),
+      icon: <Iconify icon="mdi:clipboard-check" width={24} />,
       permission: 'view_assessment',
     },
     {
       title: 'Score sheet',
       path: '/assessment/scores',
-      icon: icon('ic_result'),
+      icon: <Iconify icon="mdi:table" width={24} />,
       permission: 'view_assessment_scores',
     },
     {
       title: 'Templates',
       path: '/template',
-      icon: icon('ic_settings'),
+      icon: <Iconify icon="mdi:file-document-multiple" width={24} />,
       permission: 'view_template',
     },
   ], []);

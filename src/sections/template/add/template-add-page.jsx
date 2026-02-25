@@ -28,6 +28,7 @@ import {
   FormControlLabel,
 } from '@mui/material';
 
+import config from 'src/config';
 import { TemplateApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -124,7 +125,7 @@ export default function TemplateAddPage() {
   return (
     <>
       <Helmet>
-        <title> Add New Template | Template Management </title>
+        <title>Add New Template | {config.appName}</title>
       </Helmet>
 
       <Container maxWidth="xl">

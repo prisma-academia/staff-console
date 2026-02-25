@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 
 import { Box, Container, Typography } from '@mui/material';
 
+import config from 'src/config';
+
 import Can from 'src/components/permission/can';
 
 import { ScoreSheetView } from 'src/sections/assessment/view';
@@ -17,7 +19,7 @@ export default function AssessmentScoresPage() {
   return (
     <>
       <Helmet>
-        <title>Score sheet | AB NAIBI Admission</title>
+        <title>Score sheet | {config.appName}</title>
       </Helmet>
       <Can
         do="view_assessment_scores"

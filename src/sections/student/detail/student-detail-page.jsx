@@ -302,7 +302,7 @@ export default function StudentDetailPage() {
   return (
     <>
       <Helmet>
-        <title> {fullName} | Student Management </title>
+        <title>{fullName} | {config.appName}</title>
       </Helmet>
 
       <Container maxWidth="xl">

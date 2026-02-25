@@ -38,6 +38,7 @@ import {
   FormControlLabel,
 } from '@mui/material';
 
+import config from 'src/config';
 import { TemplateApi } from 'src/api';
 
 import Label from 'src/components/label';
@@ -270,7 +271,7 @@ export default function TemplateDetailPage() {
   return (
     <>
       <Helmet>
-        <title> Template Details | Template Management </title>
+        <title>Template Details | {config.appName}</title>
       </Helmet>
 
       <Container maxWidth="xl">

@@ -3,6 +3,8 @@ import { Link as RouterLink } from 'react-router-dom';
 
 import { Box, Button } from '@mui/material';
 
+import config from 'src/config';
+
 import Iconify from 'src/components/iconify';
 
 import { AssessmentCoursesView } from 'src/sections/assessment/view';
@@ -13,7 +15,7 @@ export default function AssessmentCoursesPage() {
   return (
     <>
       <Helmet>
-        <title>Manage assessments by course | AB NAIBI Admission</title>
+        <title>Manage assessments by course | {config.appName}</title>
       </Helmet>
       <Box sx={{ mb: 2 }}>
         <Button

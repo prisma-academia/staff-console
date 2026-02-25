@@ -22,6 +22,7 @@ import {
   LinearProgress,
 } from '@mui/material';
 
+import config from 'src/config';
 import { UserApi, AuditApi, RolePermissionApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -234,7 +235,7 @@ export default function UserDetailPage() {
   return (
     <>
       <Helmet>
-        <title> {fullName} | User Management </title>
+        <title>{fullName} | {config.appName}</title>
       </Helmet>
 
       <Container maxWidth="xl">

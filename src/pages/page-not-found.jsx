@@ -1,5 +1,7 @@
 import { Helmet } from 'react-helmet-async';
 
+import config from 'src/config';
+
 import { NotFoundView } from 'src/sections/error';
 
 // ----------------------------------------------------------------------
@@ -8,7 +10,7 @@ export default function NotFoundPage() {
   return (
     <>
       <Helmet>
-        <title> NDE Profiler 404 || Page Not Found </title>
+        <title>Page Not Found | {config.appName}</title>
       </Helmet>
 
       <NotFoundView />

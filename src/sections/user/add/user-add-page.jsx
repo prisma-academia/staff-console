@@ -18,6 +18,7 @@ import {
   IconButton,
 } from '@mui/material';
 
+import config from 'src/config';
 import { UserApi, RolePermissionApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -162,7 +163,7 @@ export default function UserAddPage() {
   return (
     <>
       <Helmet>
-        <title> Add New User | User Management </title>
+        <title>Add New User | {config.appName}</title>
       </Helmet>
 
       <Container maxWidth="xl">
