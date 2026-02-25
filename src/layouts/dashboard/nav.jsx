@@ -91,11 +91,15 @@ export default function Nav({ openNav, onCloseNav }) {
         MAIN MENU
       </Typography>
       
-      {navConfig.map((item) => (
-        <Can key={item.title} do={item.permission}>
-          <NavItem item={item} />
-        </Can>
-      ))}
+      {navConfig.map((item) =>
+        item.public ? (
+          <NavItem key={item.title} item={item} />
+        ) : (
+          <Can key={item.title} do={item.permission}>
+            <NavItem item={item} />
+          </Can>
+        )
+      )}
     </Stack>
   );
 

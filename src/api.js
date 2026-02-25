@@ -182,14 +182,57 @@ export const apiClient = {
 export const UserApi = {
   login: (data) => apiClient.post('user/login', data),
   register: (data) => apiClient.post('user/register', data),
+  getMe: () => apiClient.get('user/profile/me'),
   getUsers: (params = '') => apiClient.get(`user${params ? `?${params}` : ''}`),
   getUserById: (id) => apiClient.get(`user/${id}`),
   updateUser: (id, data) => apiClient.put(`user/${id}`, data),
+  updateMyProfile: (data) => apiClient.patch('user/profile/me', data),
   deleteUser: (id) => apiClient.delete(`user/${id}`),
   adminResetPassword: (userId, data) => apiClient.post(`user/admin/reset-password/${userId}`, data),
   forgotPassword: (data) => apiClient.post('user/forgot-password', data),
   changePassword: (data) => apiClient.post('user/reset-password', data),
   checkPermission: (action) => apiClient.post('user/check-permission', { action }),
+  uploadProfilePicture: async (file) => {
+    const { token } = useAuthStore.getState();
+    const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
+    const url = `${config.baseUrl}${apiVersion}/user/profile/me/picture`;
+
+    const formData = new FormData();
+    formData.append('picture', file);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.ok) {
+      const errorMessage = result.message || result.error || 'Failed to upload picture';
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      error.data = result;
+      if (response.status === 403) {
+        useErrorStore.getState().showPermissionError({
+          title: 'Access Denied',
+          message: errorMessage,
+          details: result,
+        });
+      } else if (response.status >= 500) {
+        useErrorStore.getState().showError({
+          title: 'Server Error',
+          message: errorMessage,
+          details: result,
+        });
+      }
+      throw error;
+    }
+
+    return result.data;
+  },
 };
 
 export const programApi = {
@@ -318,6 +361,10 @@ export const AuditApi = {
   getAuditLogs: (params) => {
     const queryString = params ? buildQueryString(params) : '';
     return apiClient.get(`audit${queryString ? `?${queryString}` : ''}`);
+  },
+  getMyAuditLogs: (params) => {
+    const queryString = params ? buildQueryString(params) : '';
+    return apiClient.get(`audit/me${queryString ? `?${queryString}` : ''}`);
   },
   getAuditLogById: (id) => apiClient.get(`audit/${id}`),
   getAuditLogsByEntity: (entityType, entityId, params) => {

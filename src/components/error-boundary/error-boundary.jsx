@@ -3,6 +3,8 @@ import PropTypes from 'prop-types';
 
 import { Box, Stack, Button, Typography } from '@mui/material';
 
+import { useAuthStore } from 'src/store';
+
 import Iconify from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
@@ -27,6 +29,13 @@ class ErrorBoundary extends React.Component {
 
   handleReset = () => {
     this.setState({ hasError: false, error: null });
+  };
+
+  // Used as onClick handler; bound to instance
+  // eslint-disable-next-line class-methods-use-this
+  handleLogout = () => {
+    useAuthStore.getState().logOut();
+    window.location.href = '/auth/login';
   };
 
   render() {
@@ -86,7 +95,17 @@ class ErrorBoundary extends React.Component {
                  : 'An unexpected error occurred. Please try again.')}
             </Typography>
 
-            <Stack direction="row" spacing={2}>
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              {isPermissionError && (
+                <Button
+                  variant="contained"
+                  color="inherit"
+                  onClick={this.handleLogout}
+                  startIcon={<Iconify icon="eva:log-out-fill" />}
+                >
+                  Logout
+                </Button>
+              )}
               <Button
                 variant="outlined"
                 onClick={() => window.location.reload()}

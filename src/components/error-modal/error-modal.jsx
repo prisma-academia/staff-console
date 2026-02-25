@@ -15,6 +15,7 @@ import {
   DialogActions,
 } from '@mui/material';
 
+import { useAuthStore } from 'src/store';
 import { useErrorStore } from 'src/store/error-store';
 
 import Iconify from 'src/components/iconify';
@@ -24,6 +25,7 @@ import Iconify from 'src/components/iconify';
 export default function ErrorModal() {
   const theme = useTheme();
   const { isOpen, type, title, message, details, retry, onClose, hideError } = useErrorStore();
+  const logOut = useAuthStore((state) => state.logOut);
   const [showDetails, setShowDetails] = useState(false);
 
   const handleClose = () => {
@@ -32,6 +34,14 @@ export default function ErrorModal() {
     }
     hideError();
     setShowDetails(false);
+  };
+
+  const handleLogout = () => {
+    if (onClose) onClose();
+    hideError();
+    setShowDetails(false);
+    logOut();
+    window.location.href = '/auth/login';
   };
 
   const handleRetry = () => {
@@ -171,6 +181,17 @@ export default function ErrorModal() {
 
       <DialogActions sx={{ p: 2.5, bgcolor: theme.palette.grey[50] }}>
         <Stack direction="row" spacing={1.5} width="100%" justifyContent="flex-end">
+          {isPermission && (
+            <Button
+              variant="outlined"
+              color="inherit"
+              onClick={handleLogout}
+              startIcon={<Iconify icon="eva:log-out-fill" />}
+              sx={{ borderRadius: 1.5, px: 3 }}
+            >
+              Logout
+            </Button>
+          )}
           {retry && (
             <Button
               variant="outlined"

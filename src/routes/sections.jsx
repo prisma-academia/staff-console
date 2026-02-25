@@ -13,7 +13,8 @@ import { ResetPasswordView } from 'src/sections/reset-password';
 import { ForgotPasswordView } from 'src/sections/forget-password';
 
 
-const IndexPage = lazy(() => import('src/pages/app'));
+const HomePage = lazy(() => import('src/pages/home'));
+const DashboardPage = lazy(() => import('src/pages/app'));
 const UserPage = lazy(() => import('src/pages/user'));
 const UserDetailPage = lazy(() => import('src/sections/user/detail/user-detail-page'));
 const UserAddPage = lazy(() => import('src/sections/user/add/user-add-page'));
@@ -79,10 +80,18 @@ export default function Router() {
         {
           element: (
             <PrivateRoute>
-              <IndexPage />
+              <HomePage />
             </PrivateRoute>
           ),
           index: true,
+        },
+        {
+          path: 'dashboard',
+          element: (
+            <PrivateRoute>
+              <DashboardPage />
+            </PrivateRoute>
+          ),
         },
         {
           path: 'user',

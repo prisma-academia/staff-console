@@ -31,7 +31,7 @@ export default function Header({ onOpenNav }) {
   // Get current page title from pathname
   const getPageTitle = () => {
     const path = pathname.split('/')[1];
-    if (!path) return 'Dashboard';
+    if (!path) return 'Home';
     return path.charAt(0).toUpperCase() + path.slice(1);
   };
 

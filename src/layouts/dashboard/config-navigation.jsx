@@ -5,8 +5,15 @@ import Iconify from 'src/components/iconify';
 const useNavConfig = () => {
   const navConfig = useMemo(() => [
     {
-      title: 'Dashboard',
+      title: 'Home',
       path: '/',
+      icon: <Iconify icon="eva:home-fill" width={24} />,
+      permission: null,
+      public: true,
+    },
+    {
+      title: 'Dashboard',
+      path: '/dashboard',
       icon: <Iconify icon="eva:pie-chart-2-fill" width={24} />,
       permission: 'view_dashboard',
     },
