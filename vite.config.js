@@ -6,6 +6,7 @@ import checker from 'vite-plugin-checker';
 // ----------------------------------------------------------------------
 
 export default defineConfig(({ mode }) => {
+  // Load env from .env (defaults) and .env.local (local overrides); .env.local takes precedence
   const env = loadEnv(mode, process.cwd(), '');
 
   const manifestPlugin = () => {
