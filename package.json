@@ -9,7 +9,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "start": "vite preview",
+    "start": "serve dist -s -l 3000",
+    "preview": "vite preview",
     "build": "vite build",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "lint:fix": "eslint --fix \"src/**/*.{js,jsx,ts,tsx}\"",
@@ -55,7 +56,8 @@
     "react-router-dom": "^6.16.0",
     "simplebar-react": "^3.2.4",
     "yup": "^1.4.0",
-    "zustand": "^4.5.2"
+    "zustand": "^4.5.2",
+    "serve": "^14.2.4"
   },
   "devDependencies": {
     "@vitejs/plugin-react-swc": "^3.4.0",

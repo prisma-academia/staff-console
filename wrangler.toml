@@ -1,0 +1,4 @@
+# Cloudflare Pages – use dashboard for build command (e.g. npm run build)
+# https://developers.cloudflare.com/pages/configuration/build-configuration/
+name = "staff-console"
+pages_build_output_dir = "./dist"

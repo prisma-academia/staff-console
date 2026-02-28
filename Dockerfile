@@ -8,17 +8,19 @@ COPY . .
 # .env.production is included so build loads from env file (see .dockerignore)
 RUN npm run build 
 
-# Stage 2: Serve the app with NGINX
-FROM nginx:stable-perl
+# Stage 2: Serve the app with Node (serve)
+FROM node:21.7.1-alpine
 
-# Copy the build output to NGINX's web root
-COPY --from=build /app/dist/ /usr/share/nginx/html
+WORKDIR /app
 
-# Copy custom NGINX configuration template
-COPY nginx.conf.template /etc/nginx/nginx.conf.template
+# Install serve for production static serving (SPA support, gzip, caching)
+RUN npm install -g serve@14
 
-# Expose port 80
-EXPOSE 80
+# Copy the build output from build stage
+COPY --from=build /app/dist ./dist
 
-# Start NGINX with environment variable substitution
-CMD ["/bin/sh", "-c", "envsubst < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"]
+ENV PORT=3000
+EXPOSE 3000
+
+# -s = SPA mode (all routes → index.html), -l = listen port
+CMD ["sh", "-c", "serve dist -s -l ${PORT}"]
