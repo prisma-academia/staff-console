@@ -5,6 +5,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+# .env.production is included so build loads from env file (see .dockerignore)
 RUN npm run build 
 
 # Stage 2: Serve the app with NGINX

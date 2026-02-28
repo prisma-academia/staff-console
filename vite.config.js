@@ -6,8 +6,16 @@ import checker from 'vite-plugin-checker';
 // ----------------------------------------------------------------------
 
 export default defineConfig(({ mode }) => {
-  // Load env from .env (defaults) and .env.local (local overrides); .env.local takes precedence
+  // Load env from .env (defaults) and .env.local (local overrides) only
   const env = loadEnv(mode, process.cwd(), '');
+
+  /** Replaces %VITE_*% placeholders in index.html so build never sees invalid URIs (e.g. in href) */
+  const htmlEnvPlugin = () => ({
+    name: 'html-env',
+    transformIndexHtml(html) {
+      return html.replace(/%VITE_([A-Z_]+)%/g, (_, key) => env[`VITE_${key}`] ?? '');
+    }
+  });
 
   const manifestPlugin = () => {
     return {
@@ -70,6 +78,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [
+      htmlEnvPlugin(),
       react(),
       checker({
         eslint: {
