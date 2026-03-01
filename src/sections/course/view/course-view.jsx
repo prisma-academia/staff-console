@@ -185,7 +185,7 @@ export default function CoursePage() {
       <AddCourseModal open={open} setOpen={setOpen} />
       <EditCourseModal
         open={!!editingCourse}
-        setOpen={(open) => !open && setEditingCourse(null)}
+        setOpen={(isOpen) => !isOpen && setEditingCourse(null)}
         course={editingCourse}
       />
     </Container>

@@ -36,19 +36,6 @@ import Scrollbar from 'src/components/scrollbar';
 
 import EditAssessment from '../edit-assessment';
 
-const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  try {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return 'N/A';
-  }
-};
-
 const formatCreatedBy = (createdBy) => {
   if (!createdBy) return 'N/A';
   if (typeof createdBy === 'object') {
