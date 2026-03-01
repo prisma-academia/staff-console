@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
-import { 
-  Card, 
-  Stack, 
-  alpha, 
+import {
+  Card,
+  Stack,
+  alpha,
   Button,
   useTheme,
   Container,
-  Typography
+  Typography,
+  IconButton,
 } from '@mui/material';
 
 import { courseApi } from 'src/api';
@@ -18,69 +19,107 @@ import Iconify from 'src/components/iconify';
 import { GenericTable } from 'src/components/generic-table';
 
 import AddCourseModal from '../add-course';
-
-const columns = [
-  { 
-    id: 'title', 
-    label: 'Title', 
-    align: 'left', 
-    cellSx: { width: '20%' },
-    renderCell: (row) => (
-      <Typography variant="subtitle2" noWrap>
-        {row.title}
-      </Typography>
-    )
-  },
-  { 
-    id: 'code', 
-    label: 'Code', 
-    cellSx: { width: '15%' },
-    renderCell: (row) => (
-      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-        {row.code}
-      </Typography>
-    )
-  },
-  { 
-    id: 'program', 
-    label: 'Programs', 
-    cellSx: { width: '20%' },
-    renderCell: (row) => (
-      <Typography variant="body2" noWrap>
-        {row.programs?.map((prog) => prog.code).join(', ') || 'N/A'}
-      </Typography>
-    )
-  },
-  { 
-    id: 'classLevel', 
-    label: 'Class Levels', 
-    cellSx: { width: '15%' },
-    renderCell: (row) => (
-      <Typography variant="body2">
-        {row.classLevel?.name || 'N/A'}
-      </Typography>
-    )
-  },
-  { 
-    id: 'semester', 
-    label: 'Semester', 
-    cellSx: { width: '10%' } 
-  },
-  { 
-    id: 'credit', 
-    label: 'Credit', 
-    cellSx: { width: '10%' } 
-  },
-];
+import EditCourseModal from '../edit-course';
 
 export default function CoursePage() {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
+  const [editingCourse, setEditingCourse] = useState(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['courses'],
     queryFn: courseApi.getCourses,
   });
+
+  const columns = [
+    {
+      id: 'name',
+      label: 'Title',
+      align: 'left',
+      cellSx: { width: '18%' },
+      renderCell: (row) => (
+        <Typography variant="subtitle2" noWrap>
+          {row.name}
+        </Typography>
+      ),
+    },
+    {
+      id: 'code',
+      label: 'Code',
+      cellSx: { width: '10%' },
+      renderCell: (row) => (
+        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+          {row.code}
+        </Typography>
+      ),
+    },
+    {
+      id: 'program',
+      label: 'Programs',
+      cellSx: { width: '14%' },
+      renderCell: (row) => (
+        <Typography variant="body2" noWrap>
+          {row.programs?.map((prog) => prog.code).join(', ') || 'N/A'}
+        </Typography>
+      ),
+    },
+    {
+      id: 'classLevel',
+      label: 'Class Level',
+      cellSx: { width: '10%' },
+      renderCell: (row) => (
+        <Typography variant="body2">
+          {row.classLevel?.name || 'N/A'}
+        </Typography>
+      ),
+    },
+    {
+      id: 'semester',
+      label: 'Semester',
+      cellSx: { width: '10%' },
+    },
+    {
+      id: 'credit',
+      label: 'Credit',
+      cellSx: { width: '8%' },
+    },
+    {
+      id: 'instructors',
+      label: 'Instructors',
+      cellSx: { width: '18%' },
+      renderCell: (row) => (
+        <Typography variant="body2" noWrap>
+          {row.instructors?.length
+            ? row.instructors
+                .map((i) =>
+                  i.firstName && i.lastName ? `${i.firstName} ${i.lastName}` : i.email
+                )
+                .join(', ')
+            : '—'}
+        </Typography>
+      ),
+    },
+    {
+      id: 'actions',
+      label: 'Actions',
+      align: 'right',
+      sortable: false,
+      cellSx: { width: '12%' },
+      renderCell: (row) => (
+        <IconButton
+          size="small"
+          color="inherit"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditingCourse(row);
+          }}
+          aria-label="Edit course"
+        >
+          <Iconify icon="solar:pen-bold" />
+        </IconButton>
+      ),
+    },
+  ];
 
   return (
     <Container maxWidth="xl">
@@ -134,6 +173,7 @@ export default function CoursePage() {
             selectable
             isLoading={isLoading}
             emptyRowsHeight={53}
+            initialSort={{ orderBy: 'name', order: 'asc' }}
             toolbarProps={{
               searchPlaceholder: 'Search courses...',
               toolbarTitle: 'Courses List',
@@ -142,7 +182,12 @@ export default function CoursePage() {
         </Card>
       </Box>
 
-      <AddCourseModal open={open} setOpen={setOpen}/>
+      <AddCourseModal open={open} setOpen={setOpen} />
+      <EditCourseModal
+        open={!!editingCourse}
+        setOpen={(open) => !open && setEditingCourse(null)}
+        course={editingCourse}
+      />
     </Container>
   );
 }

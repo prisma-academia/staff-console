@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import { useSnackbar } from 'notistack';
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import LoadingButton from '@mui/lab/LoadingButton';
@@ -68,23 +68,6 @@ export default function BulkUploadModal({ open, setOpen }) {
     queryKey: ['classLevels'],
     queryFn: classLevelApi.getClassLevels,
   });
-
-  useEffect(() => {
-    if (!validationResults?.students?.length || programmeId || classId) return;
-    const first = validationResults.students[0];
-    const firstProgramId = first.program?._id ?? first.program;
-    const firstClassId = first.classLevel?._id ?? first.classLevel;
-    if (!firstProgramId || !firstClassId) return;
-    const allSame = validationResults.students.every((s) => {
-      const pId = s.program?._id ?? s.program;
-      const cId = s.classLevel?._id ?? s.classLevel;
-      return pId === firstProgramId && cId === firstClassId;
-    });
-    if (allSame) {
-      setProgrammeId(firstProgramId);
-      setClassId(firstClassId);
-    }
-  }, [validationResults, programmeId, classId]);
 
   const { mutate: downloadTemplate, isPending: isDownloading } = useMutation({
     mutationFn: async () => {
@@ -256,7 +239,7 @@ export default function BulkUploadModal({ open, setOpen }) {
                   Bulk upload students
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-                  Upload CSV or Excel and assign program & class
+                  Upload CSV or Excel, then assign program & class for the batch
                 </Typography>
               </Box>
             </Stack>

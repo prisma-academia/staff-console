@@ -1,9 +1,7 @@
-import Lottie from 'lottie-react';
 import PropTypes from 'prop-types';
 
 import Box from '@mui/material/Box';
-
-import animationData from '../../assets/animation.json';
+import CircularProgress from '@mui/material/CircularProgress';
 
 // ----------------------------------------------------------------------
 
@@ -11,19 +9,18 @@ export default function Loader({ sx, ...other }) {
   return (
     <Box
       sx={{
+        flex: 1,
+        minHeight: 0,
         width: 1,
-        height: '100vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        alignSelf: 'stretch',
         ...sx,
       }}
       {...other}
     >
-      <Lottie
-        animationData={animationData}
-        style={{ width: 200, height: 200 }}
-      />
+      <CircularProgress size={48} />
     </Box>
   );
 }
@@ -31,4 +28,3 @@ export default function Loader({ sx, ...other }) {
 Loader.propTypes = {
   sx: PropTypes.object,
 };
-

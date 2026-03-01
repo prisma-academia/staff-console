@@ -20,7 +20,7 @@ import {
   FormControlLabel,
 } from '@mui/material';
 
-import { courseApi, SessionApi, programApi, AssessmentApi } from 'src/api';
+import { courseApi, programApi, AssessmentApi } from 'src/api';
 
 import CustomSelect from 'src/components/select';
 
@@ -30,10 +30,6 @@ const AddAssessment = ({ open, setOpen, sessionId, programId, courseId }) => {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
 
-  const { data: sessions = [] } = useQuery({
-    queryKey: ['sessions'],
-    queryFn: () => SessionApi.getSessions(),
-  });
   const { data: programs = [] } = useQuery({
     queryKey: ['programs'],
     queryFn: () => programApi.getPrograms(),
@@ -43,7 +39,6 @@ const AddAssessment = ({ open, setOpen, sessionId, programId, courseId }) => {
     queryFn: () => courseApi.getCourses(),
   });
 
-  const sessionList = Array.isArray(sessions) ? sessions : [];
   const programList = Array.isArray(programs) ? programs : [];
   const courseList = useMemo(() => (Array.isArray(courses) ? courses : []), [courses]);
 
@@ -75,9 +70,7 @@ const AddAssessment = ({ open, setOpen, sessionId, programId, courseId }) => {
       .nullable()
       .min(0, 'Must be between 0 and 100')
       .max(100, 'Must be between 0 and 100'),
-    dueDate: Yup.date().nullable(),
     isActive: Yup.boolean(),
-    session: Yup.string().required('Session is required'),
     program: Yup.string().required('Program is required'),
     course: Yup.string().required('Course is required'),
   });
@@ -88,30 +81,25 @@ const AddAssessment = ({ open, setOpen, sessionId, programId, courseId }) => {
       type: '',
       maxScore: '',
       weight: '',
-      dueDate: '',
       isActive: true,
-      session: sessionId || '',
       program: programId || '',
       course: courseId || '',
     },
     validationSchema,
     onSubmit: (values) => {
-      const session = values.session || sessionId;
       const program = values.program || programId;
       const course = values.course || courseId;
-      if (!session || !program || !course) {
-        enqueueSnackbar('Session, program, and course are required', { variant: 'error' });
+      if (!program || !course) {
+        enqueueSnackbar('Program and course are required', { variant: 'error' });
         return;
       }
       formik.setSubmitting(true);
       const payload = {
-        session,
         program,
         course,
         type: values.type,
         maxScore: Number(values.maxScore),
         weight: values.weight ? Number(values.weight) : undefined,
-        dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : undefined,
         isActive: values.isActive,
       };
       createMutation.mutate(payload);
@@ -197,27 +185,6 @@ const AddAssessment = ({ open, setOpen, sessionId, programId, courseId }) => {
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Due Date"
-                  name="dueDate"
-                  type="datetime-local"
-                  InputLabelProps={{ shrink: true }}
-                  value={formik.values.dueDate}
-                  onChange={formik.handleChange}
-                  error={formik.touched.dueDate && Boolean(formik.errors.dueDate)}
-                  helperText={formik.touched.dueDate && formik.errors.dueDate}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <CustomSelect
-                  data={sessionList.map((s) => ({ _id: s._id, name: s.name || s.code || s._id }))}
-                  label="Session"
-                  name="session"
-                  formik={formik}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
                 <CustomSelect
                   data={programList.map((p) => ({ _id: p._id, name: p.name || p.code || p._id }))}
                   label="Program"
@@ -255,7 +222,6 @@ const AddAssessment = ({ open, setOpen, sessionId, programId, courseId }) => {
                     variant="contained"
                     type="submit"
                     disabled={
-                      !formik.values.session ||
                       !formik.values.program ||
                       !formik.values.course ||
                       !formik.values.type ||

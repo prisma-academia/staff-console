@@ -22,6 +22,19 @@
   <meta name="description" content="%VITE_APP_DESCRIPTION%" />
   <meta name="keywords" content="%VITE_APP_KEYWORDS%" />
   <meta name="author" content="%VITE_APP_AUTHOR%" />
+  <style>
+    @keyframes fallback-spinner {
+      to { transform: rotate(360deg); }
+    }
+    #fallback-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(0, 0, 0, 0.12);
+      border-top-color: #1976d2;
+      border-radius: 50%;
+      animation: fallback-spinner 0.8s linear infinite;
+    }
+  </style>
 </head>
 
 <body>
@@ -29,27 +42,17 @@
     <!-- Fallback UI -->
     <div id="fallback-ui" style="display: flex; align-items: center; justify-content: center; height: 100vh; font-family: 'Public Sans', sans-serif;">
       <div style="text-align: center;">
-        <div id="lottie-container" style="margin-bottom: 20px; width: 200px; height: 200px;"></div>
+        <div id="fallback-spinner" style="margin: 0 auto 20px;"></div>
         <p>Loading, please wait...</p>
       </div>
     </div>
   </div>
 
-  <!-- Lottie Animation Script -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.9.6/lottie.min.js"></script>
   <script>
-    // Load Lottie animation
-    const animation = lottie.loadAnimation({
-      container: document.getElementById('lottie-container'), // the DOM element to contain the animation
-      renderer: 'svg',
-      loop: true,
-      autoplay: true,
-      path: '/animation.json' // replace with your Lottie JSON file path
-    });
-
     // Hide the fallback UI once the JS bundle has loaded
     window.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('fallback-ui').style.display = 'none';
+      const el = document.getElementById('fallback-ui');
+      if (el) el.style.display = 'none';
     });
   </script>
 

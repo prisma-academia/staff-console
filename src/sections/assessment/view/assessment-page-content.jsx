@@ -31,7 +31,7 @@ export default function AssessmentPageContent() {
     if (c) setCourseId(c);
   }, [searchParams]);
 
-  const hasContext = Boolean(sessionId && programId && courseId);
+  const hasContext = Boolean(programId && courseId);
   const handleLoad = () => {
     if (hasContext) {
       setAppliedSessionId(sessionId);
@@ -74,7 +74,7 @@ export default function AssessmentPageContent() {
               Assessments
             </Typography>
             <Typography variant="body2" color="text.secondary" mt={1}>
-              Select session, program, and course to view and manage assessments.
+              Select program and course to view and manage assessment definitions.
             </Typography>
           </Box>
           <Button
@@ -120,7 +120,7 @@ export default function AssessmentPageContent() {
               }}
               size="small"
               sx={{ minWidth: 200 }}
-              disabled={!sessionId}
+              disabled={false}
             >
               <MenuItem value="">Select program</MenuItem>
               {programList.map((p) => (

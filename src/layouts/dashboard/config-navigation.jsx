@@ -92,7 +92,7 @@ const useNavConfig = () => {
     {
       title: 'Fees',
       path: '/fee',
-      icon: <Iconify icon="eva:wallet-fill" width={24} />,
+      icon: <Iconify icon="mdi:receipt" width={24} />,
       permission: 'view_fee',
     },
     {

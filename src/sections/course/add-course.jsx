@@ -23,7 +23,7 @@ import { useAuthStore } from 'src/store';
 
 import CustomSelect from 'src/components/select';
 
-import { programApi, classLevelApi } from '../../api';
+import { programApi, classLevelApi, InstructorApi } from '../../api';
 
 const semesterOptions = [
   {
@@ -51,10 +51,10 @@ const AddCourseModal = ({ open, setOpen }) => {
     queryFn: classLevelApi.getClassLevels,
   });
 
-  // const { data: instructorOptions } = useQuery({
-  //   queryKey: ['instructors'],
-  //   queryFn: instructorApi.getInstructors,
-  // });
+  const { data: instructorOptions } = useQuery({
+    queryKey: ['instructors'],
+    queryFn: InstructorApi.getInstructors,
+  });
 
   const addCourse = async (courseData) => {
     const response = await fetch(`${config.baseUrl}/api/v1/course`, {
@@ -232,13 +232,13 @@ const AddCourseModal = ({ open, setOpen }) => {
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    {/* <CustomSelect
+                    <CustomSelect
                       data={instructorOptions}
                       multiple
                       label="Instructors"
                       name="instructors"
                       formik={formik}
-                    /> */}
+                    />
                   </Grid>
                 </Grid>
                 <Stack direction="row" justifyContent="flex-end" spacing={2} mt={4}>

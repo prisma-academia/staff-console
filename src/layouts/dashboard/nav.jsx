@@ -111,10 +111,11 @@ export default function Nav({ openNav, onCloseNav }) {
           height: 1,
           display: 'flex',
           flexDirection: 'column',
+          paddingBottom: 24,
         },
       }}
     >
-      <Box sx={{ pt: 3, pb: 2, px: 2.5, display: 'inline-flex' }}>
+      <Box sx={{ pt: 3, pb: 2, px: 2.5, display: 'inline-flex', '& img': { height: 66 } }}>
         <Logo />
       </Box>
 

@@ -83,6 +83,8 @@ export const PERMISSION_CATEGORIES = [
       { id: 'delete_result', label: 'Delete Result' },
       { id: 'view_result', label: 'View Result' },
       { id: 'view_result_template', label: 'View Result Template' },
+      { id: 'build_result', label: 'Build Result' },
+      { id: 'export_result', label: 'Export Result' },
     ],
   },
   {
@@ -127,6 +129,8 @@ export const PERMISSION_CATEGORIES = [
       { id: 'edit_user', label: 'Edit User' },
       { id: 'delete_user', label: 'Delete User' },
       { id: 'view_user', label: 'View User' },
+      { id: 'reset_user_password', label: 'Reset User Password' },
+      { id: 'assign_admin_role', label: 'Assign Admin Role' },
     ],
   },
   {
@@ -136,6 +140,59 @@ export const PERMISSION_CATEGORIES = [
       { id: 'edit_user_group', label: 'Edit User Group' },
       { id: 'delete_user_group', label: 'Delete User Group' },
       { id: 'view_user_group', label: 'View User Group' },
+    ],
+  },
+  {
+    label: 'Role Permission Management',
+    permissions: [
+      { id: 'add_role_permission', label: 'Add Role Permission' },
+      { id: 'edit_role_permission', label: 'Edit Role Permission' },
+      { id: 'delete_role_permission', label: 'Delete Role Permission' },
+      { id: 'view_role_permission', label: 'View Role Permission' },
+    ],
+  },
+  {
+    label: 'Settings',
+    permissions: [
+      { id: 'view_settings', label: 'View Settings' },
+      { id: 'edit_settings', label: 'Edit Settings' },
+      { id: 'reset_settings', label: 'Reset Settings' },
+    ],
+  },
+  {
+    label: 'Audit',
+    permissions: [
+      { id: 'view_audit', label: 'View Audit' },
+      { id: 'delete_audit', label: 'Delete Audit' },
+    ],
+  },
+  {
+    label: 'Assessment Management',
+    permissions: [
+      { id: 'add_assessment', label: 'Add Assessment' },
+      { id: 'edit_assessment', label: 'Edit Assessment' },
+      { id: 'delete_assessment', label: 'Delete Assessment' },
+      { id: 'view_assessment', label: 'View Assessment' },
+      { id: 'view_assessment_scores', label: 'View Assessment Scores' },
+      { id: 'edit_assessment_scores', label: 'Edit Assessment Scores' },
+    ],
+  },
+  {
+    label: 'Score Management',
+    permissions: [
+      { id: 'add_score', label: 'Add Score' },
+      { id: 'edit_score', label: 'Edit Score' },
+      { id: 'delete_score', label: 'Delete Score' },
+      { id: 'view_score', label: 'View Score' },
+    ],
+  },
+  {
+    label: 'Template Management',
+    permissions: [
+      { id: 'add_template', label: 'Add Template' },
+      { id: 'edit_template', label: 'Edit Template' },
+      { id: 'delete_template', label: 'Delete Template' },
+      { id: 'view_template', label: 'View Template' },
     ],
   },
 ];

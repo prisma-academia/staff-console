@@ -68,11 +68,11 @@ export default function AssessmentsTable({ sessionId, programId, courseId, addOp
   const [editingAssessment, setEditingAssessment] = useState(null);
   const [globalFilter, setGlobalFilter] = useState('');
 
-  const hasContext = Boolean(sessionId && programId && courseId);
+  const hasContext = Boolean(programId && courseId);
 
   const { data: assessmentsResponse, isLoading } = useQuery({
-    queryKey: ['assessments', sessionId, programId, courseId],
-    queryFn: () => AssessmentApi.getAssessments({ sessionId, programId, courseId }),
+    queryKey: ['assessments', programId, courseId],
+    queryFn: () => AssessmentApi.getAssessments({ programId, courseId }),
     enabled: hasContext,
   });
 
@@ -85,7 +85,7 @@ export default function AssessmentsTable({ sessionId, programId, courseId, addOp
   const deleteMutation = useMutation({
     mutationFn: AssessmentApi.deleteAssessment,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['assessments', sessionId, programId, courseId] });
+      queryClient.invalidateQueries({ queryKey: ['assessments', programId, courseId] });
       enqueueSnackbar('Assessment deleted successfully', { variant: 'success' });
     },
     onError: (error) => {
@@ -146,17 +146,6 @@ export default function AssessmentsTable({ sessionId, programId, courseId, addOp
         header: 'Context',
         columns: [
           {
-            id: 'session',
-            accessorFn: (row) => (row.session && (typeof row.session === 'object' ? row.session.name : row.session)) || '—',
-            header: 'Session',
-            size: 120,
-            cell: ({ row }) => (
-              <Typography variant="body2" noWrap sx={{ maxWidth: 120 }}>
-                {row.original.session && (typeof row.original.session === 'object' ? row.original.session.name : row.original.session) || '—'}
-              </Typography>
-            ),
-          },
-          {
             id: 'program',
             accessorFn: (row) => (row.program && (typeof row.program === 'object' ? row.program.name : row.program)) || '—',
             header: 'Program',
@@ -176,14 +165,6 @@ export default function AssessmentsTable({ sessionId, programId, courseId, addOp
               <Typography variant="body2" noWrap sx={{ maxWidth: 120 }}>
                 {row.original.course && typeof row.original.course === 'object' && row.original.course.semester || '—'}
               </Typography>
-            ),
-          },
-          {
-            accessorKey: 'dueDate',
-            header: 'Due Date',
-            size: 110,
-            cell: ({ getValue }) => (
-              <Typography variant="body2">{formatDate(getValue())}</Typography>
             ),
           },
           {
@@ -274,7 +255,7 @@ export default function AssessmentsTable({ sessionId, programId, courseId, addOp
       >
         <Stack alignItems="center" justifyContent="center" sx={{ py: 6 }}>
           <Typography variant="body2" color="text.secondary">
-            Select session, program, and course above to view assessments.
+            Select program and course above to view assessment definitions.
           </Typography>
         </Stack>
       </Card>
@@ -311,7 +292,7 @@ export default function AssessmentsTable({ sessionId, programId, courseId, addOp
               onClick={() => setAddOpen(true)}
               disabled={!hasContext}
               sx={{ bgcolor: 'primary.lighter', '&:hover': { bgcolor: 'primary.light' } }}
-              title={!hasContext ? 'Select session, program, and course to add an assessment' : 'Add assessment'}
+              title={!hasContext ? 'Select program and course to add an assessment' : 'Add assessment'}
             >
               <Iconify icon="eva:plus-fill" />
             </IconButton>
@@ -324,7 +305,7 @@ export default function AssessmentsTable({ sessionId, programId, courseId, addOp
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => {
-                    const isLeftAlign = ['name', 'session', 'program', 'semester', 'createdBy', 'action'].includes(header.column.id);
+                    const isLeftAlign = ['name', 'program', 'semester', 'createdBy', 'action'].includes(header.column.id);
                     return (
                     <TableCell
                       key={header.id}
@@ -375,7 +356,7 @@ export default function AssessmentsTable({ sessionId, programId, courseId, addOp
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
                         key={cell.id}
-                        align={cell.column.id === 'name' || cell.column.id === 'session' || cell.column.id === 'program' || cell.column.id === 'semester' || cell.column.id === 'createdBy' || cell.column.id === 'action' ? 'left' : 'center'}
+                        align={cell.column.id === 'name' || cell.column.id === 'program' || cell.column.id === 'semester' || cell.column.id === 'createdBy' || cell.column.id === 'action' ? 'left' : 'center'}
                         sx={{
                           borderBottom: '1px solid',
                           borderColor: 'divider',

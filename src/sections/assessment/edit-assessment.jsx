@@ -20,7 +20,7 @@ import {
   FormControlLabel,
 } from '@mui/material';
 
-import { courseApi, SessionApi, programApi, AssessmentApi } from 'src/api';
+import { courseApi, programApi, AssessmentApi } from 'src/api';
 
 import CustomSelect from 'src/components/select';
 
@@ -32,10 +32,6 @@ const EditAssessment = ({ open, setOpen, assessment }) => {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
 
-  const { data: sessions = [] } = useQuery({
-    queryKey: ['sessions'],
-    queryFn: () => SessionApi.getSessions(),
-  });
   const { data: programs = [] } = useQuery({
     queryKey: ['programs'],
     queryFn: () => programApi.getPrograms(),
@@ -45,7 +41,6 @@ const EditAssessment = ({ open, setOpen, assessment }) => {
     queryFn: () => courseApi.getCourses(),
   });
 
-  const sessionList = Array.isArray(sessions) ? sessions : [];
   const programList = Array.isArray(programs) ? programs : [];
   const courseList = useMemo(() => (Array.isArray(courses) ? courses : []), [courses]);
 
@@ -76,7 +71,6 @@ const EditAssessment = ({ open, setOpen, assessment }) => {
       .nullable()
       .min(0, 'Must be between 0 and 100')
       .max(100, 'Must be between 0 and 100'),
-    dueDate: Yup.date().nullable(),
     isActive: Yup.boolean(),
   });
 
@@ -86,12 +80,8 @@ const EditAssessment = ({ open, setOpen, assessment }) => {
       type: assessment?.type ?? '',
       maxScore: assessment?.maxScore ?? '',
       weight: assessment?.weight ?? '',
-      session: getRefId(assessment?.session),
       program: getRefId(assessment?.program),
       course: getRefId(assessment?.course),
-      dueDate: assessment?.dueDate
-        ? new Date(assessment.dueDate).toISOString().slice(0, 16)
-        : '',
       isActive: assessment?.isActive !== false,
     },
     validationSchema,
@@ -101,10 +91,8 @@ const EditAssessment = ({ open, setOpen, assessment }) => {
         type: values.type,
         maxScore: Number(values.maxScore),
         weight: values.weight ? Number(values.weight) : undefined,
-        session: values.session || undefined,
         program: values.program || undefined,
         course: values.course || undefined,
-        dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : undefined,
         isActive: values.isActive,
       };
       updateMutation.mutate({ id: assessment._id, data: payload });
@@ -194,26 +182,7 @@ const EditAssessment = ({ open, setOpen, assessment }) => {
                     helperText={formik.touched.weight && formik.errors.weight}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Due Date"
-                    name="dueDate"
-                    type="datetime-local"
-                    InputLabelProps={{ shrink: true }}
-                    value={formik.values.dueDate}
-                    onChange={formik.handleChange}
-                    error={formik.touched.dueDate && Boolean(formik.errors.dueDate)}
-                    helperText={formik.touched.dueDate && formik.errors.dueDate}
-                  />
-                </Grid>
               </Grid>
-              <CustomSelect
-                data={sessionList.map((s) => ({ _id: s._id, name: s.name || s.code || s._id }))}
-                label="Session"
-                name="session"
-                formik={formik}
-              />
               <CustomSelect
                 data={programList.map((p) => ({ _id: p._id, name: p.name || p.code || p._id }))}
                 label="Program"
@@ -265,10 +234,8 @@ EditAssessment.propTypes = {
     type: PropTypes.string,
     maxScore: PropTypes.number,
     weight: PropTypes.number,
-    session: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
     program: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
     course: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
-    dueDate: PropTypes.string,
     isActive: PropTypes.bool,
   }),
 };
