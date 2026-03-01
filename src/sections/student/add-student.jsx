@@ -14,8 +14,10 @@ import {
   Stack,
   alpha,
   Button,
+  Checkbox,
   Divider,
   Backdrop,
+  FormControlLabel,
   useTheme,
   MenuItem,
   TextField,
@@ -26,9 +28,16 @@ import {
   CircularProgress,
 } from '@mui/material';
 
-import { UserApi, StudentApi, programApi, classLevelApi } from 'src/api';
+import { StudentApi, programApi, classLevelApi } from 'src/api';
+import { stateList } from 'src/assets/state-list';
 
 import Iconify from 'src/components/iconify';
+
+// State -> LGAs map (FCT maps to Federal Capital Territory in state-list)
+const stateToLgaMap = stateList.reduce((acc, obj) => ({ ...acc, ...obj }), {});
+if (stateToLgaMap['Federal Capital Territory']) {
+  stateToLgaMap['FCT'] = stateToLgaMap['Federal Capital Territory'];
+}
 
 const style = {
   position: 'absolute',
@@ -103,6 +112,9 @@ export default function AddStudent({ open, setOpen }) {
         lga: '',
       },
       enrollmentDate: new Date().toISOString().split('T')[0],
+      status: 'pending',
+      sendEmail: false,
+      sendSMS: false,
       program: '',
       classLevel: '',
       guardianInfo: {
@@ -142,6 +154,7 @@ export default function AddStudent({ open, setOpen }) {
   const bloodGroupOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
   const allergyOptions = ['None', 'Peanuts', 'Lactose', 'Gluten', 'Other'];
   const guardianRelationshipOptions = ['Parent', 'Sibling', 'Uncle/Aunt', 'Other'];
+  const emergencyContactRelationshipOptions = ['Parent', 'Sibling', 'Uncle/Aunt', 'Spouse', 'Guardian', 'Other'];
   const stateOptions = [
     'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
     'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'FCT', 'Gombe', 'Imo',
@@ -150,10 +163,14 @@ export default function AddStudent({ open, setOpen }) {
     'Yobe', 'Zamfara'
   ];
 
-  // API mutation for adding student
+  // API mutation for adding student (payload includes top-level email for backend)
   const addStudent = async (credentials) => {
     try {
-      return await UserApi.register(credentials);
+      const payload = {
+        ...credentials,
+        email: credentials.contactInfo?.email ?? credentials.email,
+      };
+      return await StudentApi.register(payload);
     } catch (error) {
       throw new Error(error.message || 'Failed to add student');
     }
@@ -177,6 +194,15 @@ export default function AddStudent({ open, setOpen }) {
     setIsGeneratingRegNumber(false);
     setOpen(false);
   };
+
+  const handleStateChange = (e) => {
+    const selectedState = e.target.value;
+    formik.setFieldValue('contactInfo.state', selectedState);
+    formik.setFieldValue('contactInfo.lga', '');
+  };
+
+  const selectedStateKey = formik.values.contactInfo.state === 'FCT' ? 'FCT' : formik.values.contactInfo.state;
+  const lgaOptions = (stateToLgaMap[selectedStateKey] || []);
 
   const handleGenerateRegNumber = async () => {
     if (!formik.values.program) {
@@ -378,18 +404,44 @@ export default function AddStudent({ open, setOpen }) {
                         fullWidth
                         size="small"
                         select
-                        value="active"
-                        disabled
+                        value={formik.values.status}
+                        onChange={formik.handleChange}
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Iconify icon="mdi:check-circle" color="success.main" />
+                              <Iconify icon="mdi:account-clock" />
                             </InputAdornment>
                           ),
                         }}
                       >
+                        <MenuItem value="pending">Pending</MenuItem>
                         <MenuItem value="active">Active</MenuItem>
+                        <MenuItem value="disable">Disable</MenuItem>
                       </TextField>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Stack direction="row" spacing={3} flexWrap="wrap">
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={formik.values.sendEmail}
+                              onChange={(e) => formik.setFieldValue('sendEmail', e.target.checked)}
+                              name="sendEmail"
+                            />
+                          }
+                          label="Send login credentials by email"
+                        />
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={formik.values.sendSMS}
+                              onChange={(e) => formik.setFieldValue('sendSMS', e.target.checked)}
+                              name="sendSMS"
+                            />
+                          }
+                          label="Send login credentials by SMS"
+                        />
+                      </Stack>
                     </Grid>
                   </Grid>
                 </Box>
@@ -587,7 +639,7 @@ export default function AddStudent({ open, setOpen }) {
                           size="small"
                           select
                           value={formik.values.contactInfo.state}
-                          onChange={formik.handleChange}
+                          onChange={handleStateChange}
                           error={
                             formik.touched.contactInfo?.state &&
                             Boolean(formik.errors.contactInfo?.state)
@@ -609,13 +661,22 @@ export default function AddStudent({ open, setOpen }) {
                           label="LGA"
                           fullWidth
                           size="small"
+                          select
                           value={formik.values.contactInfo.lga}
                           onChange={formik.handleChange}
                           error={
                             formik.touched.contactInfo?.lga && Boolean(formik.errors.contactInfo?.lga)
                           }
                           helperText={formik.touched.contactInfo?.lga && formik.errors.contactInfo?.lga}
-                        />
+                          disabled={!formik.values.contactInfo.state}
+                        >
+                          <MenuItem value="">Select LGA</MenuItem>
+                          {lgaOptions.map((lga) => (
+                            <MenuItem key={lga} value={lga}>
+                              {lga}
+                            </MenuItem>
+                          ))}
+                        </TextField>
                       </Grid>
                     </Grid>
                   </Box>
@@ -815,6 +876,7 @@ export default function AddStudent({ open, setOpen }) {
                           label="Relationship"
                           fullWidth
                           size="small"
+                          select
                           value={formik.values.medicalInfo.emergencyContact.relationship}
                           onChange={formik.handleChange}
                           error={
@@ -825,7 +887,14 @@ export default function AddStudent({ open, setOpen }) {
                             formik.touched.medicalInfo?.emergencyContact?.relationship &&
                             formik.errors.medicalInfo?.emergencyContact?.relationship
                           }
-                        />
+                        >
+                          <MenuItem value="">Select relationship</MenuItem>
+                          {emergencyContactRelationshipOptions.map((option) => (
+                            <MenuItem key={option} value={option}>
+                              {option}
+                            </MenuItem>
+                          ))}
+                        </TextField>
                       </Grid>
                       <Grid item xs={12} sm={4}>
                         <TextField

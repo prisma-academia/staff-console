@@ -22,13 +22,25 @@ import {
   useMediaQuery,
 } from '@mui/material';
 
-import config from 'src/config';
-import { useAuthStore } from 'src/store';
+import { StudentApi, programApi, classLevelApi } from '../../api';
+import { stateList } from '../../assets/state-list';
 
-import { programApi, classLevelApi } from '../../api';
+const stateToLgaMap = stateList.reduce((acc, obj) => ({ ...acc, ...obj }), {});
+if (stateToLgaMap['Federal Capital Territory']) {
+  stateToLgaMap['FCT'] = stateToLgaMap['Federal Capital Territory'];
+}
+
+const stateOptions = [
+  'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
+  'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'FCT', 'Gombe', 'Imo',
+  'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos', 'Nasarawa',
+  'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers', 'Sokoto', 'Taraba',
+  'Yobe', 'Zamfara',
+];
+
+const emergencyContactRelationshipOptions = ['Parent', 'Sibling', 'Uncle/Aunt', 'Spouse', 'Guardian', 'Other'];
 
 const AddStudentModal = ({ open, handleClose, object }) => {
-  const token = useAuthStore((store) => store.token);
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
@@ -86,7 +98,11 @@ const AddStudentModal = ({ open, handleClose, object }) => {
       },
       enrollmentDate: object.offerDate
         ? new Date(object.offerDate).toISOString().split('T')[0]
-        : '',
+        : new Date().toISOString().split('T')[0],
+      status: 'pending',
+      sendEmail: false,
+      sendSMS: false,
+      regNumber: '',
       program: object.programme || '',
       classLevel: '',
       guardianInfo: {
@@ -129,26 +145,20 @@ const AddStudentModal = ({ open, handleClose, object }) => {
   });
 
   const addStudent = async (credentials) => {
-    const response = await fetch(`${config.baseUrl}/api/v1/user/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(credentials),
-    });
-
-    if (!response.ok) {
-      const errorMessage = await response.text();
-      formik.setSubmitting(false);
-      throw new Error(errorMessage);
+    let payload = {
+      ...credentials,
+      email: credentials.contactInfo?.email ?? credentials.email,
+    };
+    if (!payload.regNumber && payload.program) {
+      try {
+        const res = await StudentApi.generateRegNumber(payload.program);
+        payload.regNumber = res?.regNumber ?? res ?? '';
+      } catch {
+        formik.setSubmitting(false);
+        throw new Error('Could not generate registration number. Please try again.');
+      }
     }
-
-    const result = await response.json();
-    if (result.ok) {
-      return result.data;
-    }
-    throw new Error(result.message);
+    return await StudentApi.register(payload);
   };
   const { mutate } = useMutation({
     mutationFn: addStudent,
@@ -166,8 +176,11 @@ const AddStudentModal = ({ open, handleClose, object }) => {
   const handleStateChange = (e) => {
     const selectedState = e.target.value;
     formik.setFieldValue('contactInfo.state', selectedState);
-    // fetchLgaByState(selectedState).then((lgas) => setLgaOptions(lgas));
+    formik.setFieldValue('contactInfo.lga', '');
   };
+
+  const selectedStateKey = formik.values.contactInfo.state === 'FCT' ? 'FCT' : formik.values.contactInfo.state;
+  const lgaOptions = stateToLgaMap[selectedStateKey] || [];
 
   const modalStyle = {
     position: 'absolute',
@@ -345,7 +358,7 @@ const AddStudentModal = ({ open, handleClose, object }) => {
                       name="contactInfo.state"
                       label="State"
                       fullWidth
-                      disabled
+                      select
                       value={formik.values.contactInfo.state}
                       onChange={handleStateChange}
                       error={
@@ -355,21 +368,36 @@ const AddStudentModal = ({ open, handleClose, object }) => {
                       helperText={
                         formik.touched.contactInfo?.state && formik.errors.contactInfo?.state
                       }
-                    />
+                    >
+                      <MenuItem value="">Select state</MenuItem>
+                      {stateOptions.map((option) => (
+                        <MenuItem key={option} value={option}>
+                          {option}
+                        </MenuItem>
+                      ))}
+                    </TextField>
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <TextField
                       name="contactInfo.lga"
                       label="LGA"
                       fullWidth
-                      disabled
+                      select
                       value={formik.values.contactInfo.lga}
                       onChange={formik.handleChange}
                       error={
                         formik.touched.contactInfo?.lga && Boolean(formik.errors.contactInfo?.lga)
                       }
                       helperText={formik.touched.contactInfo?.lga && formik.errors.contactInfo?.lga}
-                    />
+                      disabled={!formik.values.contactInfo.state}
+                    >
+                      <MenuItem value="">Select LGA</MenuItem>
+                      {lgaOptions.map((lga) => (
+                        <MenuItem key={lga} value={lga}>
+                          {lga}
+                        </MenuItem>
+                      ))}
+                    </TextField>
                   </Grid>
                 </Grid>
               </Box>
@@ -573,6 +601,7 @@ const AddStudentModal = ({ open, handleClose, object }) => {
                       name="medicalInfo.emergencyContact.relationship"
                       label="Emergency Contact Relationship"
                       fullWidth
+                      select
                       value={formik.values.medicalInfo.emergencyContact.relationship}
                       onChange={formik.handleChange}
                       error={
@@ -583,7 +612,14 @@ const AddStudentModal = ({ open, handleClose, object }) => {
                         formik.touched.medicalInfo?.emergencyContact?.relationship &&
                         formik.errors.medicalInfo?.emergencyContact?.relationship
                       }
-                    />
+                    >
+                      <MenuItem value="">Select relationship</MenuItem>
+                      {emergencyContactRelationshipOptions.map((option) => (
+                        <MenuItem key={option} value={option}>
+                          {option}
+                        </MenuItem>
+                      ))}
+                    </TextField>
                   </Grid>
                   <Grid item xs={12} sm={4}>
                     <TextField
