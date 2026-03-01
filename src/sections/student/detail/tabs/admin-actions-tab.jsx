@@ -77,12 +77,7 @@ export default function AdminActionsTab({ studentId, studentStatus, studentEmail
         ? `Password reset successfully. ${messages.join('. ')}.`
         : 'Password reset successfully.';
       enqueueSnackbar(message, { variant: 'success' });
-      if (response?.tempPassword) {
-        // Show dialog with temporary password
-        setTimeout(() => {
-          setOpenResetPassword(false);
-        }, 2000);
-      } else {
+      if (!response?.tempPassword) {
         setOpenResetPassword(false);
       }
     },
@@ -241,12 +236,27 @@ export default function AdminActionsTab({ studentId, studentStatus, studentEmail
                   mb: 2,
                 }}
               >
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Temporary Password:
-                </Typography>
-                <Typography variant="h6" fontWeight={600} sx={{ fontFamily: 'monospace' }}>
-                  {tempPassword}
-                </Typography>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Temporary Password (view once):
+                    </Typography>
+                    <Typography variant="h6" fontWeight={600} sx={{ fontFamily: 'monospace' }}>
+                      {tempPassword}
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<Iconify icon="eva:copy-fill" />}
+                    onClick={() => {
+                      navigator.clipboard.writeText(tempPassword);
+                      enqueueSnackbar('Password copied to clipboard', { variant: 'success' });
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </Stack>
               </Box>
               <Alert severity="warning">
                 Please save this password securely. The student will be required to change it on their next login.

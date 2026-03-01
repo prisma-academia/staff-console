@@ -99,8 +99,8 @@ const AddStudentModal = ({ open, handleClose, object }) => {
       enrollmentDate: object.offerDate
         ? new Date(object.offerDate).toISOString().split('T')[0]
         : new Date().toISOString().split('T')[0],
-      status: 'pending',
-      sendEmail: false,
+      status: 'setup',
+      sendEmail: true,
       sendSMS: false,
       regNumber: '',
       program: object.programme || '',

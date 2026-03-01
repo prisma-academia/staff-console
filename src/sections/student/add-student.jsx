@@ -112,8 +112,8 @@ export default function AddStudent({ open, setOpen }) {
         lga: '',
       },
       enrollmentDate: new Date().toISOString().split('T')[0],
-      status: 'pending',
-      sendEmail: false,
+      status: 'setup',
+      sendEmail: true,
       sendSMS: false,
       program: '',
       classLevel: '',
@@ -406,6 +406,8 @@ export default function AddStudent({ open, setOpen }) {
                         select
                         value={formik.values.status}
                         onChange={formik.handleChange}
+                        disabled
+                        helperText="Status is fixed to setup on student creation"
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
@@ -414,9 +416,7 @@ export default function AddStudent({ open, setOpen }) {
                           ),
                         }}
                       >
-                        <MenuItem value="pending">Pending</MenuItem>
-                        <MenuItem value="active">Active</MenuItem>
-                        <MenuItem value="disable">Disable</MenuItem>
+                        <MenuItem value="setup">Setup</MenuItem>
                       </TextField>
                     </Grid>
                     <Grid item xs={12}>
@@ -425,11 +425,12 @@ export default function AddStudent({ open, setOpen }) {
                           control={
                             <Checkbox
                               checked={formik.values.sendEmail}
-                              onChange={(e) => formik.setFieldValue('sendEmail', e.target.checked)}
+                              onChange={() => formik.setFieldValue('sendEmail', true)}
                               name="sendEmail"
+                              disabled
                             />
                           }
-                          label="Send login credentials by email"
+                          label="Send login credentials by email (required)"
                         />
                         <FormControlLabel
                           control={
