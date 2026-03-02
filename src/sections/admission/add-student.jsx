@@ -22,12 +22,12 @@ import {
   useMediaQuery,
 } from '@mui/material';
 
-import { StudentApi, programApi, classLevelApi } from '../../api';
 import { stateList } from '../../assets/state-list';
+import { StudentApi, programApi, classLevelApi } from '../../api';
 
 const stateToLgaMap = stateList.reduce((acc, obj) => ({ ...acc, ...obj }), {});
 if (stateToLgaMap['Federal Capital Territory']) {
-  stateToLgaMap['FCT'] = stateToLgaMap['Federal Capital Territory'];
+  stateToLgaMap.FCT = stateToLgaMap['Federal Capital Territory'];
 }
 
 const stateOptions = [
@@ -145,7 +145,7 @@ const AddStudentModal = ({ open, handleClose, object }) => {
   });
 
   const addStudent = async (credentials) => {
-    let payload = {
+    const payload = {
       ...credentials,
       email: credentials.contactInfo?.email ?? credentials.email,
     };
@@ -158,7 +158,7 @@ const AddStudentModal = ({ open, handleClose, object }) => {
         throw new Error('Could not generate registration number. Please try again.');
       }
     }
-    return await StudentApi.register(payload);
+    return StudentApi.register(payload);
   };
   const { mutate } = useMutation({
     mutationFn: addStudent,

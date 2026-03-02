@@ -14,10 +14,9 @@ import {
   Stack,
   alpha,
   Button,
-  Checkbox,
   Divider,
+  Checkbox,
   Backdrop,
-  FormControlLabel,
   useTheme,
   MenuItem,
   TextField,
@@ -25,18 +24,19 @@ import {
   IconButton,
   useMediaQuery,
   InputAdornment,
+  FormControlLabel,
   CircularProgress,
 } from '@mui/material';
 
-import { StudentApi, programApi, classLevelApi } from 'src/api';
 import { stateList } from 'src/assets/state-list';
+import { StudentApi, programApi, classLevelApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
 
 // State -> LGAs map (FCT maps to Federal Capital Territory in state-list)
 const stateToLgaMap = stateList.reduce((acc, obj) => ({ ...acc, ...obj }), {});
 if (stateToLgaMap['Federal Capital Territory']) {
-  stateToLgaMap['FCT'] = stateToLgaMap['Federal Capital Territory'];
+  stateToLgaMap.FCT = stateToLgaMap['Federal Capital Territory'];
 }
 
 const style = {
