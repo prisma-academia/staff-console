@@ -108,7 +108,7 @@ export default function AdmissionPage() {
   };
 
   async function getAdmissions() {
-    const response = await fetch(`https://api.application.abnacnm.edu.ng/api/v1/admission`, {
+    const response = await fetch(`${import.meta.env.VITE_API_APPLICATION_BASE_URL}/api/v1/admission`, {
       headers: {
         'Content-Type': 'application/json',
         authorization: `Bearer ${token}`,

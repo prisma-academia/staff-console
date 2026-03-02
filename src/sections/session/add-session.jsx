@@ -40,6 +40,7 @@ const AddSession = ({ open, setOpen }) => {
     mutationFn: SessionApi.createSession,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['session', 'current'] });
       enqueueSnackbar('Session created successfully', { variant: 'success' });
       formik.resetForm();
       setOpen(false);

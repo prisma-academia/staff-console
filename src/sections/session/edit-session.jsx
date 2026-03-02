@@ -59,6 +59,7 @@ const EditSession = ({ open, setOpen, session }) => {
     mutationFn: ({ id, data }) => SessionApi.updateSession(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['session', 'current'] });
       enqueueSnackbar('Session updated successfully', { variant: 'success' });
       setOpen(false);
     },
@@ -197,7 +198,7 @@ const EditSession = ({ open, setOpen, session }) => {
                         onChange={formik.handleChange}
                       />
                     }
-                    label="Set as current session"
+                    label="Set as current session (only one can be current at a time)"
                   />
                 </Grid>
               </Grid>
