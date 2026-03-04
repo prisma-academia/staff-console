@@ -19,11 +19,7 @@ import { AuditApi } from 'src/api';
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
-
-import BeforeAfterComparison from '../before-after-comparison';
 import { formatActor, formatEntityId, isFailedOperation } from '../utils';
-
-// ----------------------------------------------------------------------
 
 export default function AuditDetailView() {
   const { id } = useParams();
@@ -304,10 +300,24 @@ export default function AuditDetailView() {
           {/* Before/After Comparison Card */}
           <Card sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Changes
+              Changes (raw)
             </Typography>
             <Divider sx={{ mb: 3, mt: 1 }} />
-            <BeforeAfterComparison before={auditLog.before} after={auditLog.after} />
+            <Box
+              component="pre"
+              sx={{
+                p: 2,
+                bgcolor: 'background.neutral',
+                borderRadius: 1,
+                fontFamily: 'monospace',
+                fontSize: '0.875rem',
+                overflow: 'auto',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+              }}
+            >
+              {JSON.stringify({ before: auditLog.before, after: auditLog.after }, null, 2)}
+            </Box>
           </Card>
 
           {/* Metadata Card */}
