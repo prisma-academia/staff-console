@@ -1,15 +1,26 @@
-import PropTypes from 'prop-types';
-import { useSnackbar } from 'notistack';
-import { useMemo, useState, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   flexRender,
-  useReactTable,
   getCoreRowModel,
+  useReactTable,
 } from '@tanstack/react-table';
+import { useSnackbar } from 'notistack';
+import PropTypes from 'prop-types';
+import { useCallback, useMemo, useState } from 'react';
 
-import { courseApi, SessionApi, AssessmentApi } from 'src/api';
+import { AssessmentApi, courseApi, SessionApi } from 'src/api';
 
+import LoadingButton from '@mui/lab/LoadingButton';
+import {
+  Box,
+  Card,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Stack,
+} from '@mui/material';
+import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
 
 function buildRowsFromResponse(students) {
@@ -25,40 +36,64 @@ function buildRowsFromResponse(students) {
       regNumber: s.regNumber || '',
       name: s.name || '—',
       scores: scoresMap,
+      grade: s.grade || '',
+      position: s.position || '',
     };
   });
 }
 
 const tableStyles = {
   table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    tableLayout: 'fixed',
+    borderCollapse: 'separate',
+    borderSpacing: 0,
+    width: 'max-content',
+    minWidth: '100%',
     fontSize: '0.8125rem',
   },
   th: {
-    border: '1px solid #e0e0e0',
-    padding: '6px 8px',
+    borderRight: '1px solid #d4d4d4',
+    borderBottom: '1px solid #d4d4d4',
+    borderTop: '1px solid #d4d4d4',
+    padding: '8px 12px',
     fontWeight: 600,
     textAlign: 'left',
-    backgroundColor: '#f5f5f5',
-  },
-  td: {
-    border: '1px solid #e0e0e0',
-    padding: '6px 8px',
-    backgroundColor: '#fff',
-  },
-  thCenter: { textAlign: 'center' },
-  tdCenter: { textAlign: 'center' },
-  input: {
-    width: 72,
-    padding: '4px 6px',
-    fontSize: '0.8125rem',
-    border: '1px solid #ccc',
-    borderRadius: 4,
+    backgroundColor: '#f3f2f1',
+    color: '#323130',
     boxSizing: 'border-box',
   },
+  td: {
+    borderRight: '1px solid #d4d4d4',
+    borderBottom: '1px solid #d4d4d4',
+    padding: '0',
+    backgroundColor: '#fff',
+    boxSizing: 'border-box',
+  },
+  tdText: {
+    padding: '6px 12px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    width: '100%',
+    boxSizing: 'border-box',
+  },
+  thCenter: { textAlign: 'center', padding: '4px 2px' },
+  tdCenter: { textAlign: 'center' },
+  input: {
+    width: '100%',
+    height: '100%',
+    minHeight: 32,
+    padding: '0',
+    margin: 0,
+    fontSize: '0.8125rem',
+    border: 'none',
+    outline: 'none',
+    boxSizing: 'border-box',
+    backgroundColor: 'transparent',
+    textAlign: 'center',
+    display: 'block',
+  },
   button: {
+    margin: '4px',
     padding: '6px 12px',
     fontSize: '0.8125rem',
     border: '1px solid #1976d2',
@@ -66,14 +101,15 @@ const tableStyles = {
     backgroundColor: '#1976d2',
     color: '#fff',
     cursor: 'pointer',
+    width: 'calc(100% - 8px)',
+    boxSizing: 'border-box',
   },
   buttonDisabled: { opacity: 0.6, cursor: 'not-allowed' },
   headingBlock: { marginBottom: 16, textAlign: 'left' },
   heading: { margin: 0, fontSize: '1.25rem', fontWeight: 600 },
   subheading: { margin: '4px 0 0 0', fontSize: '0.875rem', color: '#666' },
   toolbar: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginBottom: 16 },
-  wrap: { padding: 16 },
-  scrollWrap: { overflow: 'auto', maxHeight: 'calc(100vh - 380px)', border: '1px solid #e0e0e0', borderRadius: 4 },
+  scrollWrap: { overflow: 'auto', maxHeight: 'calc(100vh - 380px)', borderLeft: '1px solid #d4d4d4', borderRadius: 4 },
   empty: { padding: 32, textAlign: 'center', color: '#666', fontSize: '0.875rem' },
 };
 
@@ -178,12 +214,12 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
   const assessments = useMemo(() => sheetData?.assessments ?? [], [sheetData?.assessments]);
 
   const columns = useMemo(() => {
-    const base = [
+    const studentInfoCols = [
       {
         accessorKey: 'regNumber',
         header: 'Reg No',
         size: 120,
-        cell: ({ getValue }) => getValue() || '—',
+        cell: ({ getValue }) => <div style={tableStyles.tdText}>{getValue() || '—'}</div>,
       },
       {
         accessorKey: 'name',
@@ -191,7 +227,11 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
         size: 180,
         cell: ({ getValue }) => {
           const v = getValue() || '—';
-          return v.length > 24 ? `${v.slice(0, 24)}…` : v;
+          return (
+            <div style={tableStyles.tdText}>
+              {v.length > 24 ? `${v.slice(0, 24)}…` : v}
+            </div>
+          );
         },
       },
     ];
@@ -202,14 +242,21 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
       return {
         id,
         accessorFn: (row) => row.scores?.[id] ?? '',
-        header: `${a.type || '—'} / ${maxScore}`,
-        size: 100,
+        header: () => (
+          <div style={{ fontSize: '0.75rem', lineHeight: 1.2 }}>
+            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={a.type || '—'}>
+              {a.type || '—'}
+            </div>
+          </div>
+        ),
+        size: 50,
         meta: { maxScore },
         cell: ({ row, column }) => {
           const assessmentId = column.id;
           const max = column.columnDef.meta?.maxScore ?? 100;
           return (
             <input
+              title={`Max score: ${max}`}
               type="number"
               min={0}
               max={max}
@@ -217,12 +264,34 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
               value={row.original.scores?.[assessmentId] ?? ''}
               onChange={(e) => handleCellChange(row.index, assessmentId, e.target.value)}
               onClick={(e) => e.stopPropagation()}
-              style={tableStyles.input}
+              style={{ ...tableStyles.input }}
+              onFocus={(e) => {
+                e.target.style.outline = '2px solid #107c41';
+                e.target.style.outlineOffset = '-2px';
+              }}
+              onBlur={(e) => {
+                e.target.style.outline = 'none';
+              }}
             />
           );
         },
       };
     });
+
+    const gradePositionCols = [
+      {
+        accessorKey: 'grade',
+        header: 'Grade',
+        size: 80,
+        cell: ({ getValue }) => <div style={tableStyles.tdText}>{getValue() || '—'}</div>,
+      },
+      {
+        accessorKey: 'position',
+        header: 'Position',
+        size: 80,
+        cell: ({ getValue }) => <div style={tableStyles.tdText}>{getValue() || '—'}</div>,
+      },
+    ];
 
     const saveCol = {
       id: 'save',
@@ -246,21 +315,53 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
       },
     };
 
-    return [...base, ...scoreCols, saveCol];
+    return [
+      {
+        id: 'studentInfo',
+        header: 'Student Information',
+        columns: studentInfoCols,
+      },
+      {
+        id: 'subjectScore',
+        header: 'Subject Score',
+        columns: scoreCols.length ? scoreCols : [{ id: 'noScores', header: '—', size: 50 }],
+      },
+      {
+        id: 'gradePosition',
+        header: 'Grade and position',
+        columns: gradePositionCols,
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        columns: [saveCol],
+      },
+    ];
   }, [assessments, handleCellChange, handleSaveRow, savingStudentId]);
 
   const table = useReactTable({
     data: rows,
     columns,
+    state: {
+      columnPinning: {
+        left: ['studentInfo'],
+      },
+    },
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.studentId?.toString?.() ?? String(rows.indexOf(row)),
   });
 
   const getHeaderStyle = (header) => {
     const id = header.column.id;
+    const isGroup = header.subHeaders && header.subHeaders.length > 0;
     const base = { ...tableStyles.th };
-    if (id === 'regNumber' || id === 'name') return base;
-    return { ...base, ...tableStyles.thCenter };
+
+    if (isGroup) {
+      return { ...base, ...tableStyles.thCenter };
+    }
+
+    if (id === 'regNumber' || id === 'name' || id === 'save' || id === 'grade' || id === 'position') return base;
+    return { ...base, ...tableStyles.thCenter, padding: '2px' };
   };
 
   const getCellStyle = (column) => {
@@ -268,6 +369,22 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
     const base = { ...tableStyles.td };
     if (id === 'regNumber' || id === 'name') return base;
     return { ...base, ...tableStyles.tdCenter };
+  };
+
+  const getCommonPinningStyles = (column, isHeader = false) => {
+    const isPinned = column.getIsPinned();
+    if (!isPinned) return {};
+
+    const isLeft = isPinned === 'left';
+    const isLastLeftPinnedColumn = isLeft && (column.id === 'name' || column.id === 'studentInfo');
+
+    return {
+      position: 'sticky',
+      left: isLeft ? `${column.getStart('left')}px` : undefined,
+      zIndex: isHeader ? 3 : 1,
+      backgroundColor: isHeader ? '#f3f2f1' : '#fff',
+      ...(isLastLeftPinnedColumn && { boxShadow: '2px 0 4px -2px rgba(0,0,0,0.15)' })
+    };
   };
 
   return (
@@ -281,48 +398,53 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
         )}
       </div>
 
-      <div style={tableStyles.toolbar}>
-        <label>
-          Session
-          <select
-            value={sessionId}
-            onChange={(e) => setSessionId(e.target.value)}
-            style={{ marginLeft: 8, minWidth: 200, padding: '6px 8px' }}
-          >
-            <option value="">Current / latest</option>
-            {sessions.map((s) => (
-              <option key={s._id} value={s._id}>
-                {s.name || s.code || s._id}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Course
-          <select
-            value={courseId}
-            onChange={(e) => setCourseId(e.target.value)}
-            style={{ marginLeft: 8, minWidth: 220, padding: '6px 8px' }}
-          >
-            <option value="">Select course</option>
-            {courses.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.name || c.code || c._id}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Can do="view_assessment_scores">
-          <button
-            type="button"
-            style={tableStyles.button}
-            onClick={loadSheet}
-            disabled={!canLoad || loadState === 'loading'}
-          >
-            {loadState === 'loading' ? 'Loading…' : 'Load'}
-          </button>
-        </Can>
-      </div>
+      <Card sx={{ p: 2, mb: 2 }}>
+        <Stack direction="row" flexWrap="wrap" alignItems="center" gap={2}>
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Session</InputLabel>
+            <Select
+              value={sessionId}
+              onChange={(e) => setSessionId(e.target.value)}
+              label="Session"
+            >
+              <MenuItem value="">Current / latest</MenuItem>
+              {sessions.map((s) => (
+                <MenuItem key={s._id} value={s._id}>
+                  {s.name || s.code || s._id}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 220 }}>
+            <InputLabel>Course</InputLabel>
+            <Select
+              value={courseId}
+              onChange={(e) => setCourseId(e.target.value)}
+              label="Course"
+            >
+              <MenuItem value="">Select course</MenuItem>
+              {courses.map((c) => (
+                <MenuItem key={c._id} value={c._id}>
+                  {c.name || c.code || c._id}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Box sx={{ ml: 'auto' }}>
+            <Can do="view_assessment_scores">
+              <LoadingButton
+                variant="contained"
+                onClick={loadSheet}
+                loading={loadState === 'loading'}
+                disabled={!canLoad}
+                startIcon={<Iconify icon="eva:refresh-fill" />}
+              >
+                Load
+              </LoadingButton>
+            </Can>
+          </Box>
+        </Stack>
+      </Card>
 
       {rows.length > 0 && (
         <div style={tableStyles.scrollWrap}>
@@ -336,8 +458,10 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
                       colSpan={header.colSpan}
                       style={{
                         ...getHeaderStyle(header),
-                        minWidth: header.column.getSize?.() ?? 80,
-                        width: header.colSpan === 1 ? header.getSize() : undefined,
+                        width: header.getSize(),
+                        minWidth: header.getSize(),
+                        maxWidth: header.getSize(),
+                        ...getCommonPinningStyles(header.column, true),
                       }}
                     >
                       {header.isPlaceholder
@@ -358,6 +482,8 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
                         ...getCellStyle(cell.column),
                         minWidth: cell.column.getSize?.() ?? 80,
                         width: cell.column.getSize?.(),
+                        maxWidth: cell.column.getSize?.(),
+                        ...getCommonPinningStyles(cell.column, false),
                       }}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -373,8 +499,8 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
       {(!rows || rows.length === 0) && loadState !== 'loading' && (
         <div style={tableStyles.empty}>
           {canLoad
-            ? 'Click Load to fetch students and assessments for the selected course.'
-            : 'Select course (and optionally session), then click Load.'}
+            ? 'Clickss Load to fetch students and assessments for the selected course.'
+            : 'Selecssst course (and optionally session), then click Load.'}
         </div>
       )}
     </div>

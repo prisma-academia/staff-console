@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useMemo, useState, useEffect } from 'react';
 
-import { Box, Button, MenuItem, Container, TextField, Typography } from '@mui/material';
+import { Box, Button, Card, Container, MenuItem, Stack, TextField, Typography } from '@mui/material';
 
-import { courseApi, SessionApi, programApi } from 'src/api';
+import { courseApi, programApi, SessionApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
 
@@ -86,11 +86,8 @@ export default function AssessmentPageContent() {
           </Button>
         </Box>
 
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
-            Context
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+        <Card sx={{ p: 2, mb: 3 }}>
+          <Stack direction="row" flexWrap="wrap" gap={2} alignItems="center">
             <TextField
               select
               label="Session"
@@ -145,16 +142,18 @@ export default function AssessmentPageContent() {
                 </MenuItem>
               ))}
             </TextField>
-            <Button
-              variant="contained"
-              onClick={handleLoad}
-              disabled={!hasContext}
-              startIcon={<Iconify icon="eva:refresh-fill" />}
-            >
-              Load
-            </Button>
-          </Box>
-        </Box>
+            <Box sx={{ ml: 'auto' }}>
+              <Button
+                variant="contained"
+                onClick={handleLoad}
+                disabled={!hasContext}
+                startIcon={<Iconify icon="eva:refresh-fill" />}
+              >
+                Load
+              </Button>
+            </Box>
+          </Stack>
+        </Card>
 
         <Box>
           <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
