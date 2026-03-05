@@ -19,6 +19,7 @@ import { AuditApi } from 'src/api';
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
+
 import { formatActor, formatEntityId, isFailedOperation } from '../utils';
 
 export default function AuditDetailView() {

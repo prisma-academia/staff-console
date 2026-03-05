@@ -48,16 +48,46 @@ const useNavConfig = () => {
       permission: 'view_settings',
     },
     {
-      title: 'Application',
-      path: '/application',
+      title: 'Applications & admissions',
       icon: <Iconify icon="mdi:form-select" width={24} />,
-      permission: 'view_application',
-    },
-    {
-      title: 'Admission',
-      path: '/admission',
-      icon: <Iconify icon="eva:person-add-fill" width={24} />,
-      permission: 'view_admission',
+      children: [
+        {
+          title: 'Application',
+          path: '/application',
+          icon: <Iconify icon="mdi:form-select" width={24} />,
+          permission: 'view_application',
+        },
+        {
+          title: 'Admission',
+          path: '/admission',
+          icon: <Iconify icon="eva:person-add-fill" width={24} />,
+          permission: 'view_admission',
+        },
+        {
+          title: 'Preference',
+          path: '/preference',
+          icon: <Iconify icon="eva:options-2-fill" width={24} />,
+          permission: 'view_preference',
+        },
+        {
+          title: 'Session',
+          path: '/application/sessions',
+          icon: <Iconify icon="eva:calendar-fill" width={24} />,
+          permission: 'view_app_session',
+        },
+        {
+          title: 'Programme',
+          path: '/application/programmes',
+          icon: <Iconify icon="eva:book-fill" width={24} />,
+          permission: 'view_app_programme',
+        },
+        {
+          title: 'Analytics',
+          path: '/application/analytics',
+          icon: <Iconify icon="eva:bar-chart-fill" width={24} />,
+          permission: 'view_analytics',
+        },
+      ],
     },
     {
       title: 'Student',
@@ -76,12 +106,6 @@ const useNavConfig = () => {
       path: '/payment',
       icon: <Iconify icon="eva:credit-card-fill" width={24} />,
       permission: 'view_payment',
-    },
-    {
-      title: 'Preference',
-      path: '/preference',
-      icon: <Iconify icon="eva:options-2-fill" width={24} />,
-      permission: 'view_preference',
     },
     {
       title: 'Memos',

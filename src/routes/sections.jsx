@@ -32,6 +32,9 @@ const MemoPage = lazy(() => import('src/pages/memo'));
 const DocumentPage = lazy(() => import('src/pages/document'));
 const CalenderPage = lazy(() => import('src/pages/calender'));
 const PreferencePage = lazy(() => import('src/pages/preference'));
+const ApplicationSessionsPage = lazy(() => import('../pages/application-sessions'));
+const ApplicationProgrammesPage = lazy(() => import('../pages/application-programmes'));
+const ApplicationAnalyticsPage = lazy(() => import('../pages/application-analytics'));
 const ResultPage = lazy(() => import('src/pages/result'));
 const AssessmentPage = lazy(() => import('src/pages/assessment'));
 const AssessmentCoursesPage = lazy(() => import('src/pages/assessment-courses'));
@@ -178,6 +181,30 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <PreferencePage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'application/sessions',
+          element: (
+            <PrivateRoute>
+              <ApplicationSessionsPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'application/programmes',
+          element: (
+            <PrivateRoute>
+              <ApplicationProgrammesPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'application/analytics',
+          element: (
+            <PrivateRoute>
+              <ApplicationAnalyticsPage />
             </PrivateRoute>
           ),
         },

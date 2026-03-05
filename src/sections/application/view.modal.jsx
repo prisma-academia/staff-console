@@ -22,7 +22,9 @@ export default function ViewModal({ open, onClose, data }) {
     ? `${data.firstName || ''} ${data.lastName || ''}`.trim()
     : 'N/A';
 
-  const status = data.status?.toLowerCase() === 'paid' ? 'paid' : 'not paid';
+  const statusRaw = (data.status || '').toLowerCase();
+  const statusByRaw = { paid: 'paid', rejected: 'rejected' };
+  const status = statusByRaw[statusRaw] ?? 'not paid';
 
   return (
     <Dialog 
@@ -86,7 +88,7 @@ export default function ViewModal({ open, onClose, data }) {
               <Grid item xs={12} sm={6}>
                 <Stack spacing={1}>
                   <Typography variant="subtitle2" color="text.secondary">
-                    Admission Number
+                    Application Number
                   </Typography>
                   <Typography variant="body2">
                     {data.number || 'N/A'}
@@ -151,7 +153,7 @@ export default function ViewModal({ open, onClose, data }) {
                     Programme
                   </Typography>
                   <Typography variant="body2">
-                    {data.programme || 'N/A'}
+                    {data.programme?.name ?? data.programme ?? 'N/A'}
                   </Typography>
                 </Stack>
               </Grid>
@@ -161,13 +163,14 @@ export default function ViewModal({ open, onClose, data }) {
                   <Typography variant="subtitle2" color="text.secondary">
                     Status
                   </Typography>
-                  <Typography variant="body2" 
-                    sx={{ 
-                      color: status === 'paid' ? 'success.main' : 'error.main',
-                      fontWeight: 'bold'
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: { paid: 'success.main', rejected: 'error.main' }[status] ?? 'warning.main',
+                      fontWeight: 'bold',
                     }}
                   >
-                    {status === 'paid' ? 'Paid' : 'Not Paid'}
+                    {({ paid: 'Paid', rejected: 'Rejected' }[status] ?? 'Not Paid')}
                   </Typography>
                 </Stack>
               </Grid>

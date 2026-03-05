@@ -3,7 +3,7 @@ import Papa from "papaparse";
 import PropTypes from "prop-types";
 import React, { useState } from "react";
 import { useSnackbar } from "notistack";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import LoadingButton from "@mui/lab/LoadingButton";
 import {
@@ -29,9 +29,7 @@ import {
   TableContainer,
 } from "@mui/material";
 
-import config from "src/config";
-import { programApi } from "src/api";
-import { useAuthStore } from "src/store";
+import { listSessions, listProgrammes, createBatchAdmissions } from "src/api/adminApplicationApi";
 
 import Iconify from "src/components/iconify";
 
@@ -42,6 +40,7 @@ const validationSchema = Yup.object().shape({
 });
 
 const AddAdmission = ({ open, setOpen }) => {
+  const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
   const [rows, setRows] = useState([]);
   const [newRow, setNewRow] = useState({
@@ -49,15 +48,23 @@ const AddAdmission = ({ open, setOpen }) => {
     email: "",
     programme: "",
   });
+  const [sessionId, setSessionId] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [apiErrors, setApiErrors] = useState([]);
-  const { token } = useAuthStore.getState();
 
-  // Fetch program options
-  const { data: programs, isLoading: isLoadingPrograms } = useQuery({
-    queryKey: ['programs'],
-    queryFn: programApi.getPrograms,
+  const { data: programmesResult } = useQuery({
+    queryKey: ['admin-programmes'],
+    queryFn: () => listProgrammes(),
+    enabled: open,
   });
+  const { data: sessionsResult } = useQuery({
+    queryKey: ['admin-sessions'],
+    queryFn: () => listSessions(),
+    enabled: open,
+  });
+  const programmes = programmesResult?.data ?? [];
+  const sessions = sessionsResult?.data ?? [];
+  const isLoadingPrograms = !programmesResult;
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
@@ -90,51 +97,45 @@ const AddAdmission = ({ open, setOpen }) => {
     }
   };
 
-  const addAdmission = async (dataObj) => {
-    const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
-    const response = await fetch(
-      `${config.applicationBaseUrl}${apiVersion}/admission/batch`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(dataObj),
-      }
-    );
-  
-    const result = await response.json();
-  
-    if (!response.ok) {
-      // Check if the API returned an errors array and handle it
-      if (Array.isArray(result.errors) && result.errors.length > 0) {
-        throw new Error(
-          `The following errors occurred:\n${result.errors
-            .map((err, i) => `${i + 1}. ${err}`)
-            .join("\n")}`
-        );
-      }
-  
-      throw new Error(result.message || "An error occurred while publishing.");
+  const submitBatch = async (admissionsList) => {
+    const body = {
+      admissions: admissionsList.map((row) => ({
+        number: row.number,
+        email: row.email,
+        programme: row.programme,
+      })),
+    };
+    if (sessionId) body.sessionId = sessionId;
+    const result = await createBatchAdmissions(body);
+    if (!result.ok) {
+      const err = new Error(result.message || "An error occurred while publishing.");
+      err.errors = result.errors;
+      throw err;
     }
-  
     return result;
   };
-  
+
   const { mutate, isLoading } = useMutation({
-    mutationFn: addAdmission,
+    mutationFn: submitBatch,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admissions'] });
       enqueueSnackbar("Data published successfully", { variant: "success" });
       setRows([]);
       setIsProcessing(false);
       setOpen(false);
-      setApiErrors([])
+      setApiErrors([]);
     },
     onError: (error) => {
-      console.log({error})
-      setApiErrors([error.message]);
-      enqueueSnackbar(error.message, { variant: "error" });
+      let messages;
+      if (Array.isArray(error?.data?.errors) && error.data.errors.length > 0) {
+        messages = error.data.errors;
+      } else if (Array.isArray(error.errors) && error.errors.length > 0) {
+        messages = error.errors;
+      } else {
+        messages = [error.message];
+      }
+      setApiErrors(messages);
+      enqueueSnackbar(messages[0] || error.message, { variant: "error" });
       setIsProcessing(false);
     },
   });
@@ -150,6 +151,9 @@ const AddAdmission = ({ open, setOpen }) => {
     }
     mutate(validData);
   };
+
+  const programmeOptions = programmes || [];
+  const programmeIdOrName = (p) => p._id || p.id || p.name;
 
   const handleAddRow = () => {
     try {
@@ -224,6 +228,23 @@ const AddAdmission = ({ open, setOpen }) => {
                   <input type="file" accept=".csv" hidden onChange={handleFileUpload} />
                 </Button>
               </Stack>
+
+              {/* Session (optional) */}
+              <FormControl fullWidth size="small" sx={{ maxWidth: 320 }}>
+                <InputLabel>Session (optional)</InputLabel>
+                <Select
+                  value={sessionId}
+                  onChange={(e) => setSessionId(e.target.value)}
+                  label="Session (optional)"
+                >
+                  <MenuItem value="">Use default session</MenuItem>
+                  {(sessions || []).map((session) => (
+                    <MenuItem key={session._id || session.id} value={session._id || session.id}>
+                      {session.name || session._id || session.id}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
               
               {/* Error Display */}
               {apiErrors.length > 0 && (
@@ -239,8 +260,8 @@ const AddAdmission = ({ open, setOpen }) => {
                   <Typography variant="subtitle1" color="error.main" fontWeight={600} gutterBottom>
                     Errors Found:
                   </Typography>
-                  <Typography variant="body2" color="error.dark">
-                    {apiErrors}
+                  <Typography component="pre" variant="body2" color="error.dark" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {apiErrors.join('\n')}
                   </Typography>
                 </Box>
               )}
@@ -282,8 +303,8 @@ const AddAdmission = ({ open, setOpen }) => {
                       label="Programme"
                       disabled={isLoadingPrograms}
                     >
-                      {(programs || []).map((program) => (
-                        <MenuItem key={program._id} value={program._id}>
+                      {programmeOptions.map((program) => (
+                        <MenuItem key={programmeIdOrName(program)} value={programmeIdOrName(program)}>
                           {program.name}
                         </MenuItem>
                       ))}

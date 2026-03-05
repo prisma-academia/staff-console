@@ -1,11 +1,12 @@
-import { useEffect } from 'react';
 import PropTypes from 'prop-types';
+import { useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Badge from '@mui/material/Badge';
 import Drawer from '@mui/material/Drawer';
 import Divider from '@mui/material/Divider';
+import Collapse from '@mui/material/Collapse';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
 import ListItemButton from '@mui/material/ListItemButton';
@@ -16,6 +17,7 @@ import { RouterLink } from 'src/routes/components';
 import { useResponsive } from 'src/hooks/use-responsive';
 
 import Logo from 'src/components/logo';
+import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
 import Scrollbar from 'src/components/scrollbar';
 
@@ -25,6 +27,8 @@ import useNavConfig from './config-navigation';
 
 // ----------------------------------------------------------------------
 
+const APPLICATION_GROUP_PATHS = ['/application', '/admission', '/preference', '/application/sessions', '/application/programmes', '/application/analytics'];
+
 export default function Nav({ openNav, onCloseNav }) {
   const pathname = usePathname();
   const navConfig = useNavConfig();
@@ -32,11 +36,23 @@ export default function Nav({ openNav, onCloseNav }) {
 
   const upLg = useResponsive('up', 'lg');
 
+  const [openGroup, setOpenGroup] = useState(() =>
+    APPLICATION_GROUP_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+      ? 'Applications & admissions'
+      : null
+  );
+
   useEffect(() => {
     if (openNav) {
       onCloseNav();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  useEffect(() => {
+    if (APPLICATION_GROUP_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+      setOpenGroup('Applications & admissions');
+    }
   }, [pathname]);
 
   // const renderAccount = (
@@ -91,15 +107,29 @@ export default function Nav({ openNav, onCloseNav }) {
         MAIN MENU
       </Typography>
       
-      {navConfig.map((item) =>
-        item.public ? (
-          <NavItem key={item.title} item={item} />
-        ) : (
+      {navConfig.map((item) => {
+        if (item.children) {
+          const childPermissions = item.children.map((c) => c.permission);
+          return (
+            <Can key={item.title} anyOf={childPermissions}>
+              <NavGroup
+                item={item}
+                openGroup={openGroup}
+                setOpenGroup={setOpenGroup}
+                pathname={pathname}
+              />
+            </Can>
+          );
+        }
+        if (item.public) {
+          return <NavItem key={item.title} item={item} />;
+        }
+        return (
           <Can key={item.title} do={item.permission}>
             <NavItem item={item} />
           </Can>
-        )
-      )}
+        );
+      })}
     </Stack>
   );
 
@@ -274,4 +304,84 @@ function NavItem({ item }) {
 
 NavItem.propTypes = {
   item: PropTypes.object,
+};
+
+// ----------------------------------------------------------------------
+
+function NavGroup({ item, openGroup, setOpenGroup, pathname }) {
+  const theme = useTheme();
+  const expanded = openGroup === item.title;
+  const childPaths = item.children.map((c) => c.path);
+  const isActive = childPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const collapseId = `nav-group-${item.title.replace(/\s+/g, '-').toLowerCase()}`;
+
+  return (
+    <Box sx={{ mb: 0.5 }}>
+      <ListItemButton
+        onClick={() => setOpenGroup(expanded ? null : item.title)}
+        aria-expanded={expanded}
+        aria-controls={collapseId}
+        sx={{
+          minHeight: 48,
+          borderRadius: 1,
+          typography: 'body2',
+          color: 'text.secondary',
+          textTransform: 'capitalize',
+          fontWeight: 'medium',
+          ...(isActive && {
+            color: 'primary.main',
+            bgcolor: alpha(theme.palette.primary.main, 0.08),
+            '&:before': {
+              content: '""',
+              width: 4,
+              height: 24,
+              borderRadius: '0 4px 4px 0',
+              bgcolor: 'primary.main',
+              position: 'absolute',
+              left: 0,
+            },
+          }),
+        }}
+      >
+        <Box component="span" sx={{ width: 24, height: 24, mr: 2, display: 'flex' }}>
+          {item.icon}
+        </Box>
+        <Box component="span" sx={{ flexGrow: 1 }}>
+          {item.title}
+        </Box>
+        <Iconify
+          icon={expanded ? 'eva:arrow-ios-downward-fill' : 'eva:arrow-ios-forward-fill'}
+          width={20}
+          sx={{ flexShrink: 0 }}
+        />
+      </ListItemButton>
+      <Collapse in={expanded} id={collapseId}>
+        <Stack component="nav" spacing={0.5} sx={{ pl: 3, pr: 2, py: 0.5 }}>
+          {item.children.map((child) => (
+            <Can key={child.path} do={child.permission}>
+              <NavItem item={child} />
+            </Can>
+          ))}
+        </Stack>
+      </Collapse>
+    </Box>
+  );
+}
+
+NavGroup.propTypes = {
+  item: PropTypes.shape({
+    title: PropTypes.string,
+    icon: PropTypes.node,
+    children: PropTypes.arrayOf(
+      PropTypes.shape({
+        title: PropTypes.string,
+        path: PropTypes.string,
+        icon: PropTypes.node,
+        permission: PropTypes.string,
+      })
+    ),
+  }).isRequired,
+  openGroup: PropTypes.string,
+  setOpenGroup: PropTypes.func.isRequired,
+  pathname: PropTypes.string.isRequired,
 };

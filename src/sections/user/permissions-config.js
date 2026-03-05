@@ -30,6 +30,32 @@ export const PERMISSION_CATEGORIES = [
     ],
   },
   {
+    label: 'Application & Admission Management',
+    permissions: [
+      { id: 'view_application', label: 'View Application' },
+      { id: 'edit_application', label: 'Edit Application' },
+      { id: 'export_application', label: 'Export Application' },
+      { id: 'view_admission', label: 'View Admission' },
+      { id: 'add_admission', label: 'Add Admission' },
+      { id: 'edit_admission', label: 'Edit Admission' },
+      { id: 'view_preference', label: 'View Preference' },
+      { id: 'edit_preference', label: 'Edit Preference' },
+    ],
+  },
+  {
+    label: 'Application Sessions & Programmes',
+    permissions: [
+      { id: 'view_app_session', label: 'View App Session' },
+      { id: 'add_app_session', label: 'Add App Session' },
+      { id: 'edit_app_session', label: 'Edit App Session' },
+      { id: 'delete_app_session', label: 'Delete App Session' },
+      { id: 'view_app_programme', label: 'View App Programme' },
+      { id: 'add_app_programme', label: 'Add App Programme' },
+      { id: 'edit_app_programme', label: 'Edit App Programme' },
+      { id: 'delete_app_programme', label: 'Delete App Programme' },
+    ],
+  },
+  {
     label: 'Program Management',
     permissions: [
       { id: 'add_program', label: 'Add Program' },

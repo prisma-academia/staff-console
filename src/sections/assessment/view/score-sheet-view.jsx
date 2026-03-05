@@ -1,25 +1,26 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import PropTypes from 'prop-types';
+import { useSnackbar } from 'notistack';
+import { useMemo, useState, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   flexRender,
-  getCoreRowModel,
   useReactTable,
+  getCoreRowModel,
 } from '@tanstack/react-table';
-import { useSnackbar } from 'notistack';
-import PropTypes from 'prop-types';
-import { useCallback, useMemo, useState } from 'react';
-
-import { AssessmentApi, courseApi, SessionApi } from 'src/api';
 
 import LoadingButton from '@mui/lab/LoadingButton';
 import {
   Box,
   Card,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
   Stack,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
 } from '@mui/material';
+
+import { courseApi, SessionApi, AssessmentApi } from 'src/api';
+
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
 
@@ -189,7 +190,7 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
         enqueueSnackbar('Load data first and ensure session and course are set', { variant: 'warning' });
         return;
       }
-      const assessments = sheetData.assessments;
+      const {assessments} = sheetData;
       const payload = {
         sessionId: sid,
         courseId,
@@ -352,7 +353,7 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
   });
 
   const getHeaderStyle = (header) => {
-    const id = header.column.id;
+    const {id} = header.column;
     const isGroup = header.subHeaders && header.subHeaders.length > 0;
     const base = { ...tableStyles.th };
 
@@ -365,7 +366,7 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
   };
 
   const getCellStyle = (column) => {
-    const id = column.id;
+    const {id} = column;
     const base = { ...tableStyles.td };
     if (id === 'regNumber' || id === 'name') return base;
     return { ...base, ...tableStyles.tdCenter };

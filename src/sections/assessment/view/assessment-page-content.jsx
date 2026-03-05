@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useMemo, useState, useEffect } from 'react';
 
-import { Box, Button, Card, Container, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { Box, Card, Stack, Button, MenuItem, Container, TextField, Typography } from '@mui/material';
 
 import { courseApi, programApi, SessionApi } from 'src/api';
 

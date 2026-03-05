@@ -65,6 +65,10 @@ All configuration values can be set using environment variables in a `.env` file
 - **Default**: `30000`
 - **Example**: `VITE_API_TIMEOUT=60000`
 
+#### `VITE_ADMIN_API_KEY`
+- **Description**: Admin API key for the application/admission API. Required for Application and Admission admin features in the staff console (e.g. listing/exporting applications, listing/creating admissions). Sent as `X-API-Key` or `Authorization: ApiKey` header. Ensure the application-api server has the same key configured via `ADMIN_API_KEY`.
+- **Example**: `VITE_ADMIN_API_KEY=your-admin-api-key`
+
 ### Authentication & Storage
 
 #### `VITE_STORAGE_PREFIX`

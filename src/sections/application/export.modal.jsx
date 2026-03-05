@@ -2,13 +2,13 @@ import PropTypes from 'prop-types';
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { 
-  Info, 
-  Close, 
-  School, 
-  Download, 
-  DateRange, 
-  CalendarMonth 
+import {
+  Info,
+  Close,
+  Event,
+  Download,
+  DateRange,
+  CalendarMonth,
 } from '@mui/icons-material';
 import {
   Box,
@@ -34,116 +34,73 @@ import {
   CircularProgress,
 } from '@mui/material';
 
-import config from 'src/config';
-import { useAuthStore } from 'src/store';
-
-import { programApi } from '../../api';
+import { listSessions, exportApplicationsCsv } from 'src/api/adminApplicationApi';
 
 export default function ExportModal({ open, onClose }) {
   const theme = useTheme();
-  const token = useAuthStore((state) => state.token);
+  const [sessionId, setSessionId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [selectedProgramme, setSelectedProgramme] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState('');
 
-  // Get programs using the API
-  const { data: programmeOptions, isLoading: programsLoading } = useQuery({
-    queryKey: ['programs'],
-    queryFn: programApi.getPrograms,
-    enabled: open, // Only fetch when modal is open
+  const { data: sessionsResult, isLoading: sessionsLoading } = useQuery({
+    queryKey: ['admin-sessions'],
+    queryFn: () => listSessions(),
+    enabled: open,
   });
 
-  // Reset form when modal opens
+  const sessions = sessionsResult?.data ?? [];
+
   useEffect(() => {
     if (open) {
+      setSessionId('');
       setStartDate('');
       setEndDate('');
-      setSelectedProgramme('');
       setIsExporting(false);
       setError('');
     }
   }, [open]);
 
   const handleExport = async () => {
-    // Validate form
-    if (!startDate) {
-      setError('Please select a start date');
+    if (!sessionId) {
+      setError('Please select a session');
       return;
     }
-    
-    if (!endDate) {
-      setError('Please select an end date');
-      return;
-    }
-    
-    if (!selectedProgramme) {
-      setError('Please select a programme');
-      return;
-    }
-    
-    // Validate date range
-    if (new Date(startDate) > new Date(endDate)) {
+    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
       setError('Start date cannot be after end date');
       return;
     }
 
     setError('');
-    
     try {
       setIsExporting(true);
-      
-      // Create export URL with query parameters
-      const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
-      const exportUrl = `${config.applicationBaseUrl}${apiVersion}/application/export-csv?startDate=${startDate}&endDate=${endDate}&programme=${encodeURIComponent(selectedProgramme)}`;
-      
-      // Fetch the export data
-      const response = await fetch(exportUrl, {
-        headers: {
-          'Content-Type': 'application/json',
-          authorization: `Bearer ${token}`,
-        },
-      });
+      const params = { sessionId };
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      const { blob, filename } = await exportApplicationsCsv(params);
 
-      if (!response.ok) {
-        throw new Error('Failed to export data');
-      }
-
-      // Get the blob from the response
-      const blob = await response.blob();
-      
-      // Create a download link
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      
-      // Get the filename from the content-disposition header or use a default
-      const contentDisposition = response.headers.get('content-disposition');
-      const filename = contentDisposition
-        ? contentDisposition.split('filename=')[1].replace(/"/g, '')
-        : `applications_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
-        
-      a.download = filename;
+      a.download = filename || `applications_export_${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(a);
       a.click();
-      
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
       onClose();
     } catch (err) {
-      console.error('Export error:', err.message);
-      setError('Failed to export data. Please try again.');
+      console.error('Export error:', err);
+      setError(err.message || 'Failed to export data. Please try again.');
     } finally {
       setIsExporting(false);
     }
   };
 
   return (
-    <Dialog 
-      open={open} 
+    <Dialog
+      open={open}
       onClose={onClose}
       fullWidth
       maxWidth="sm"
@@ -151,17 +108,16 @@ export default function ExportModal({ open, onClose }) {
       transitionDuration={300}
       PaperProps={{
         elevation: 6,
-        sx: {
-          borderRadius: 2,
-          overflow: 'hidden',
-        }
+        sx: { borderRadius: 2, overflow: 'hidden' },
       }}
     >
-      <DialogTitle sx={{ 
-        p: 2.5, 
-        bgcolor: theme.palette.primary.main,
-        color: 'white'
-      }}>
+      <DialogTitle
+        sx={{
+          p: 2.5,
+          bgcolor: theme.palette.primary.main,
+          color: 'white',
+        }}
+      >
         <Stack direction="row" alignItems="center" justifyContent="space-between">
           <Stack direction="row" spacing={1.5} alignItems="center">
             <DateRange />
@@ -177,63 +133,97 @@ export default function ExportModal({ open, onClose }) {
 
       <DialogContent sx={{ p: 3 }}>
         <Box sx={{ pt: 1, pb: 2 }}>
-          <Paper 
-            elevation={0} 
-            sx={{ 
-              bgcolor: theme.palette.grey[50], 
-              p: 2, 
+          <Paper
+            elevation={0}
+            sx={{
+              bgcolor: theme.palette.grey[50],
+              p: 2,
               borderRadius: 1.5,
               border: `1px solid ${theme.palette.divider}`,
-              mb: 3
+              mb: 3,
             }}
           >
             <Stack direction="row" spacing={1.5} alignItems="flex-start">
               <Info color="primary" sx={{ mt: 0.2 }} />
               <Typography variant="body2" color="text.secondary">
-                Export applications data by selecting a date range and programme. Only records matching your criteria will be included in the export file.
+                Export applications as CSV by selecting a session. Optionally filter by date range (created date).
               </Typography>
             </Stack>
           </Paper>
-          
+
           {error && (
-            <Alert 
-              severity="error" 
-              sx={{ mb: 3 }}
-              onClose={() => setError('')}
-            >
+            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
               {error}
             </Alert>
           )}
-          
+
           <Stack spacing={3.5}>
             <Box>
-              <Typography 
-                variant="subtitle2" 
-                color="text.primary" 
-                sx={{ 
-                  mb: 1.5, 
-                  display: 'flex', 
-                  alignItems: 'center',
-                  '& svg': { mr: 1 }
-                }}
+              <Typography
+                variant="subtitle2"
+                color="text.primary"
+                sx={{ mb: 1.5, display: 'flex', alignItems: 'center', '& svg': { mr: 1 } }}
               >
-                <CalendarMonth fontSize="small" /> Date Range
+                <Event fontSize="small" /> Session (required)
               </Typography>
-              <Stack 
-                direction={{ xs: 'column', sm: 'row' }} 
+              <FormControl fullWidth required>
+                <InputLabel id="session-select-label">Session</InputLabel>
+                <Select
+                  labelId="session-select-label"
+                  value={sessionId}
+                  onChange={(e) => setSessionId(e.target.value)}
+                  label="Session (required)"
+                  disabled={sessionsLoading}
+                  sx={{
+                    borderRadius: 1.5,
+                    transition: 'all 0.2s',
+                    '&:hover': { borderColor: theme.palette.primary.main },
+                  }}
+                >
+                  {sessionsLoading ? (
+                    <MenuItem value="">
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <CircularProgress size={20} />
+                        <Typography>Loading sessions...</Typography>
+                      </Stack>
+                    </MenuItem>
+                  ) : (
+                    <>
+                      <MenuItem value="">
+                        <em>Select session</em>
+                      </MenuItem>
+                      {(sessions || []).map((session) => (
+                        <MenuItem key={session._id || session.id} value={session._id || session.id}>
+                          {session.name || session._id || session.id}
+                        </MenuItem>
+                      ))}
+                    </>
+                  )}
+                </Select>
+              </FormControl>
+            </Box>
+
+            <Divider sx={{ opacity: 0.5 }} />
+
+            <Box>
+              <Typography
+                variant="subtitle2"
+                color="text.primary"
+                sx={{ mb: 1.5, display: 'flex', alignItems: 'center', '& svg': { mr: 1 } }}
+              >
+                <CalendarMonth fontSize="small" /> Date range (optional)
+              </Typography>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
                 spacing={2}
                 sx={{
                   '& .MuiTextField-root': {
                     transition: 'all 0.2s',
-                    '&:hover': {
-                      '& .MuiOutlinedInput-root': {
-                        borderColor: theme.palette.primary.main,
-                      }
-                    }
-                  }
+                    '&:hover': { '& .MuiOutlinedInput-root': { borderColor: theme.palette.primary.main } },
+                  },
                 }}
               >
-                <Tooltip title="Select start date" arrow placement="top">
+                <Tooltip title="Filter by start date" arrow placement="top">
                   <TextField
                     fullWidth
                     label="Start Date"
@@ -241,12 +231,10 @@ export default function ExportModal({ open, onClose }) {
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                     InputLabelProps={{ shrink: true }}
-                    InputProps={{
-                      sx: { borderRadius: 1.5 }
-                    }}
+                    InputProps={{ sx: { borderRadius: 1.5 } }}
                   />
                 </Tooltip>
-                <Tooltip title="Select end date" arrow placement="top">
+                <Tooltip title="Filter by end date" arrow placement="top">
                   <TextField
                     fullWidth
                     label="End Date"
@@ -254,69 +242,10 @@ export default function ExportModal({ open, onClose }) {
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     InputLabelProps={{ shrink: true }}
-                    InputProps={{
-                      sx: { borderRadius: 1.5 }
-                    }}
+                    InputProps={{ sx: { borderRadius: 1.5 } }}
                   />
                 </Tooltip>
               </Stack>
-            </Box>
-            
-            <Divider sx={{ opacity: 0.5 }} />
-            
-            <Box>
-              <Typography 
-                variant="subtitle2" 
-                color="text.primary" 
-                sx={{ 
-                  mb: 1.5,
-                  display: 'flex', 
-                  alignItems: 'center',
-                  '& svg': { mr: 1 }
-                }}
-              >
-                <School fontSize="small" /> Programme Selection
-              </Typography>
-              <FormControl fullWidth>
-                <InputLabel id="programme-select-label">Programme</InputLabel>
-                <Select
-                  labelId="programme-select-label"
-                  value={selectedProgramme}
-                  onChange={(e) => setSelectedProgramme(e.target.value)}
-                  label="Programme"
-                  disabled={programsLoading}
-                  sx={{ 
-                    borderRadius: 1.5,
-                    transition: 'all 0.2s',
-                    '&:hover': {
-                      borderColor: theme.palette.primary.main,
-                    }
-                  }}
-                >
-                  {programsLoading ? (
-                    <MenuItem value="">
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <CircularProgress size={20} />
-                        <Typography>Loading programmes...</Typography>
-                      </Stack>
-                    </MenuItem>
-                  ) : [
-                    // Show "No programmes available" message when array is empty
-                    ...(programmeOptions?.length === 0 ? [
-                      <MenuItem key="no-programs" value="" disabled>
-                        No programmes available
-                      </MenuItem>
-                    ] : []),
-                    
-                    // Map program options to MenuItems
-                    ...(programmeOptions || []).map((program) => (
-                      <MenuItem key={program.id} value={program.name}>
-                        {program.name}
-                      </MenuItem>
-                    ))
-                  ]}
-                </Select>
-              </FormControl>
             </Box>
           </Stack>
         </Box>
@@ -324,37 +253,31 @@ export default function ExportModal({ open, onClose }) {
 
       <DialogActions sx={{ p: 2.5, bgcolor: theme.palette.grey[50] }}>
         <Stack direction="row" spacing={1.5} width="100%" justifyContent="flex-end">
-          <Button 
-            onClick={onClose} 
-            color="inherit" 
+          <Button
+            onClick={onClose}
+            color="inherit"
             variant="outlined"
             disabled={isExporting}
-            sx={{ 
+            sx={{
               borderRadius: 1.5,
               px: 3,
               borderColor: theme.palette.divider,
-              '&:hover': {
-                borderColor: theme.palette.text.secondary,
-                bgcolor: 'rgba(0,0,0,0.02)'
-              }
+              '&:hover': { borderColor: theme.palette.text.secondary, bgcolor: 'rgba(0,0,0,0.02)' },
             }}
           >
             Cancel
           </Button>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             onClick={handleExport}
-            disabled={!startDate || !endDate || !selectedProgramme || isExporting}
+            disabled={!sessionId || isExporting}
             startIcon={isExporting ? <CircularProgress size={20} color="inherit" /> : <Download />}
-            sx={{ 
+            sx={{
               borderRadius: 1.5,
               px: 3,
               boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
               transition: 'all 0.2s',
-              '&:hover': {
-                boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
-                transform: 'translateY(-1px)'
-              }
+              '&:hover': { boxShadow: '0 6px 16px rgba(0,0,0,0.12)', transform: 'translateY(-1px)' },
             }}
           >
             {isExporting ? 'Exporting...' : 'Export'}
@@ -368,4 +291,4 @@ export default function ExportModal({ open, onClose }) {
 ExportModal.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-}; 
+};

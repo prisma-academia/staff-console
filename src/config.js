@@ -62,6 +62,8 @@ const config = {
   applicationBaseUrl: import.meta.env.VITE_API_APPLICATION_BASE_URL,
   apiVersion: import.meta.env.VITE_API_VERSION,
   apiTimeout: parseNumber(import.meta.env.VITE_API_TIMEOUT),
+  /** Admin API key for application-api (X-API-Key / Authorization: ApiKey). Required for application/admission admin features. */
+  adminApiKey: import.meta.env.VITE_ADMIN_API_KEY,
   
   // Legacy support - maintain backward compatibility
   baseUrl: import.meta.env.VITE_API_BASE_URL,

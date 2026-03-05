@@ -15,6 +15,10 @@
 - [Login Page](https://minimal-kit-react.vercel.app/login)
 - [Not Found Page](https://minimal-kit-react.vercel.app/404)
 
+## Configuration
+
+For **Application** and **Admission** admin features (applications list/export, admissions list/batch create), set `VITE_API_APPLICATION_BASE_URL` and `VITE_ADMIN_API_KEY` in your environment. See [CONFIGURATION.md](CONFIGURATION.md) for details.
+
 ## Quick start
 
 - [Download from Github](https://github.com/minimal-ui-kit/material-kit-react/archive/refs/heads/main.zip) or clone the repo : `git clone https://github.com/minimal-ui-kit/material-kit-react.git`
