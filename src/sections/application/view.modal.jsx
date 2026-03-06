@@ -1,4 +1,7 @@
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import { useSnackbar } from 'notistack';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { Close } from '@mui/icons-material';
 import {
@@ -13,18 +16,50 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  CircularProgress,
 } from '@mui/material';
 
+import { validateApplicationPayment } from 'src/api/adminApplicationApi';
+
 export default function ViewModal({ open, onClose, data }) {
+  const { enqueueSnackbar } = useSnackbar();
+  const queryClient = useQueryClient();
+  const [displayData, setDisplayData] = useState(data);
+  const [validating, setValidating] = useState(false);
+
+  useEffect(() => {
+    if (data) setDisplayData(data);
+  }, [data]);
+
   if (!data) return null;
 
-  const fullName = data.firstName || data.lastName 
-    ? `${data.firstName || ''} ${data.lastName || ''}`.trim()
+  const fullName = displayData.firstName || displayData.lastName
+    ? `${displayData.firstName || ''} ${displayData.lastName || ''}`.trim()
     : 'N/A';
 
-  const statusRaw = (data.status || '').toLowerCase();
+  const statusRaw = (displayData.status || '').toLowerCase();
   const statusByRaw = { paid: 'paid', rejected: 'rejected' };
   const status = statusByRaw[statusRaw] ?? 'not paid';
+  const canValidate = status !== 'paid' && displayData.payment?.reference;
+
+  const handleValidatePayment = async () => {
+    if (!displayData._id || validating) return;
+    setValidating(true);
+    try {
+      const result = await validateApplicationPayment(displayData._id);
+      if (result.ok && result.data) {
+        setDisplayData(result.data);
+        queryClient.invalidateQueries({ queryKey: ['applications'] });
+        enqueueSnackbar(result.message || 'Payment validated successfully', { variant: 'success' });
+      } else {
+        enqueueSnackbar(result.message || 'Validation failed', { variant: 'error' });
+      }
+    } catch (err) {
+      enqueueSnackbar(err?.message || err?.data?.message || 'Failed to validate payment', { variant: 'error' });
+    } finally {
+      setValidating(false);
+    }
+  };
 
   return (
     <Dialog 
@@ -69,7 +104,7 @@ export default function ViewModal({ open, onClose, data }) {
                     Email
                   </Typography>
                   <Typography variant="body2">
-                    {data.email || 'N/A'}
+                    {displayData.email || 'N/A'}
                   </Typography>
                 </Stack>
               </Grid>
@@ -80,7 +115,7 @@ export default function ViewModal({ open, onClose, data }) {
                     Phone Number
                   </Typography>
                   <Typography variant="body2">
-                    {data.phoneNumber || 'N/A'}
+                    {displayData.phoneNumber || 'N/A'}
                   </Typography>
                 </Stack>
               </Grid>
@@ -91,7 +126,7 @@ export default function ViewModal({ open, onClose, data }) {
                     Application Number
                   </Typography>
                   <Typography variant="body2">
-                    {data.number || 'N/A'}
+                    {displayData.number || 'N/A'}
                   </Typography>
                 </Stack>
               </Grid>
@@ -111,7 +146,7 @@ export default function ViewModal({ open, onClose, data }) {
                     State of Origin
                   </Typography>
                   <Typography variant="body2">
-                    {data.stateOfOrigin || 'N/A'}
+                    {displayData.stateOfOrigin || 'N/A'}
                   </Typography>
                 </Stack>
               </Grid>
@@ -122,7 +157,7 @@ export default function ViewModal({ open, onClose, data }) {
                     LGA of Origin
                   </Typography>
                   <Typography variant="body2">
-                    {data.lgaOfOrigin || 'N/A'}
+                    {displayData.lgaOfOrigin || 'N/A'}
                   </Typography>
                 </Stack>
               </Grid>
@@ -133,7 +168,7 @@ export default function ViewModal({ open, onClose, data }) {
                     Home Address
                   </Typography>
                   <Typography variant="body2">
-                    {data.address || 'N/A'}
+                    {displayData.address || 'N/A'}
                   </Typography>
                 </Stack>
               </Grid>
@@ -153,7 +188,7 @@ export default function ViewModal({ open, onClose, data }) {
                     Programme
                   </Typography>
                   <Typography variant="body2">
-                    {data.programme?.name ?? data.programme ?? 'N/A'}
+                    {displayData.programme?.name ?? displayData.programme ?? 'N/A'}
                   </Typography>
                 </Stack>
               </Grid>
@@ -181,8 +216,8 @@ export default function ViewModal({ open, onClose, data }) {
                     Application Date
                   </Typography>
                   <Typography variant="body2">
-                    {data.createdAt 
-                      ? new Date(data.createdAt).toLocaleDateString('en-US', {
+                    {displayData.createdAt
+                      ? new Date(displayData.createdAt).toLocaleDateString('en-US', {
                           day: 'numeric',
                           month: 'long',
                           year: 'numeric'
@@ -201,9 +236,20 @@ export default function ViewModal({ open, onClose, data }) {
         <Button onClick={onClose} color="inherit">
           Close
         </Button>
-        <Button variant="contained" onClick={onClose}>
-          {status === 'paid' ? 'Print Receipt' : 'Process Payment'}
-        </Button>
+        {canValidate ? (
+          <Button
+            variant="contained"
+            onClick={handleValidatePayment}
+            disabled={validating}
+            startIcon={validating ? <CircularProgress size={16} color="inherit" /> : null}
+          >
+            {validating ? 'Validating…' : 'Validate payment'}
+          </Button>
+        ) : (
+          <Button variant="contained" onClick={onClose}>
+            {status === 'paid' ? 'Print Receipt' : 'Process Payment'}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

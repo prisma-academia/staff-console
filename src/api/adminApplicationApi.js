@@ -144,6 +144,11 @@ export const updateApplication = async (id, body) => {
   return result;
 };
 
+export const validateApplicationPayment = async (id) => {
+  const result = await adminPost(`application/${id}/validate-payment`, {});
+  return result;
+};
+
 // --- Admissions ---
 
 export const listAdmissions = async (params = {}) => {
@@ -216,6 +221,7 @@ export default {
   listApplications,
   exportApplicationsCsv,
   updateApplication,
+  validateApplicationPayment,
   listAdmissions,
   createAdmission,
   createBatchAdmissions,
