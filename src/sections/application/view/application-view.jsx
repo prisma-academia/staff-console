@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
@@ -9,7 +10,6 @@ import { listApplications } from 'src/api/adminApplicationApi';
 
 import { GenericTable } from 'src/components/generic-table';
 
-import ViewModal from '../view.modal';
 import ExportModal from '../export.modal';
 
 const columns = [
@@ -54,8 +54,7 @@ const columns = [
 
 export default function ApplicationPage() {
   const theme = useTheme();
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [openViewModal, setOpenViewModal] = useState(false);
+  const navigate = useNavigate();
   const [openExportModal, setOpenExportModal] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -87,12 +86,7 @@ export default function ApplicationPage() {
   };
 
   const handleRowClick = (row) => {
-    setSelectedRow(row);
-    setOpenViewModal(true);
-  };
-
-  const handleCloseViewModal = () => {
-    setOpenViewModal(false);
+    navigate(`/application/${row._id}`);
   };
 
   const handleOpenExportModal = () => {
@@ -122,7 +116,7 @@ export default function ApplicationPage() {
             size="small"
             onClick={(e) => {
               e.stopPropagation();
-              handleRowClick(row);
+              navigate(`/application/${row._id}`);
             }}
           >
             <Visibility />
@@ -189,8 +183,6 @@ export default function ApplicationPage() {
           />
         </Card>
       </Box>
-
-      <ViewModal open={openViewModal} onClose={handleCloseViewModal} data={selectedRow} />
 
       <ExportModal open={openExportModal} onClose={handleCloseExportModal} />
     </Container>

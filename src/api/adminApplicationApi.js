@@ -137,6 +137,16 @@ export const listApplications = async (params = {}) => {
   return result;
 };
 
+export const getApplicationById = async (id) => {
+  const result = await adminGet(`application/${id}`);
+  return result;
+};
+
+export const getApplicationReceiptPdf = async (id) => {
+  const result = await adminGetBlob(`application/${id}/receipt-pdf`);
+  return result;
+};
+
 export const exportApplicationsCsv = async (params) => adminGetBlob('application/export-csv', params);
 
 export const updateApplication = async (id, body) => {
@@ -219,6 +229,8 @@ export const deleteProgramme = async (id) => {
 
 export default {
   listApplications,
+  getApplicationById,
+  getApplicationReceiptPdf,
   exportApplicationsCsv,
   updateApplication,
   validateApplicationPayment,

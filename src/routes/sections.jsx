@@ -50,6 +50,7 @@ const RolePermissionPage = lazy(() => import('src/pages/role-permission'));
 const TemplatePage = lazy(() => import('src/pages/template'));
 const TemplateAddPage = lazy(() => import('src/sections/template/add/template-add-page'));
 const TemplateDetailPage = lazy(() => import('src/sections/template/detail/template-detail-page'));
+const ApplicationDetailPage = lazy(() => import('src/sections/application/detail/application-detail-page'));
 const Page404 = lazy(() => import('src/pages/page-not-found'));
 
 // PrivateRoute Component
@@ -133,6 +134,14 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <ApplicationPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'application/:id',
+          element: (
+            <PrivateRoute>
+              <ApplicationDetailPage />
             </PrivateRoute>
           ),
         },
