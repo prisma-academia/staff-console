@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { useSnackbar } from 'notistack';
 import { Helmet } from 'react-helmet-async';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSnackbar } from 'notistack';
 
 import {
   Box,
@@ -11,16 +11,16 @@ import {
   Stack,
   Avatar,
   Button,
-  Typography,
   Container,
-  CircularProgress,
+  Typography,
   LinearProgress,
+  CircularProgress,
 } from '@mui/material';
 
-import Iconify from 'src/components/iconify';
 import config from 'src/config';
-
 import { getApplicationById, getApplicationReceiptPdf, validateApplicationPayment } from 'src/api/adminApplicationApi';
+
+import Iconify from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
@@ -194,7 +194,7 @@ export default function ApplicationDetailPage() {
               >
                 Back
               </Button>
-              {canValidate ? (
+              {canValidate && (
                 <Button
                   variant="contained"
                   onClick={handleValidatePayment}
@@ -203,7 +203,8 @@ export default function ApplicationDetailPage() {
                 >
                   {validating ? 'Validating…' : 'Validate payment'}
                 </Button>
-              ) : status === 'paid' ? (
+              )}
+              {!canValidate && status === 'paid' && (
                 <Button
                   variant="contained"
                   onClick={handlePrintReceipt}
@@ -212,7 +213,8 @@ export default function ApplicationDetailPage() {
                 >
                   {printingReceipt ? 'Loading…' : 'Print Receipt'}
                 </Button>
-              ) : (
+              )}
+              {!canValidate && status !== 'paid' && (
                 <Button variant="contained" onClick={handleBack}>
                   Process Payment
                 </Button>
