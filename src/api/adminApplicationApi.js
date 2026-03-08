@@ -142,8 +142,11 @@ export const getApplicationById = async (id) => {
   return result;
 };
 
+/**
+ * GET application receipt PDF (admin only). Returns { blob, filename } for opening or downloading.
+ */
 export const getApplicationReceiptPdf = async (id) => {
-  const result = await adminGetBlob(`application/${id}/receipt-pdf`);
+  const result = await adminGetBlob(`application/${id}/receipt`);
   return result;
 };
 

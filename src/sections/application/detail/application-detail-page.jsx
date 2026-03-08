@@ -20,7 +20,7 @@ import {
 import Iconify from 'src/components/iconify';
 import config from 'src/config';
 
-import { getApplicationById, validateApplicationPayment, getApplicationReceiptPdf } from 'src/api/adminApplicationApi';
+import { getApplicationById, getApplicationReceiptPdf, validateApplicationPayment } from 'src/api/adminApplicationApi';
 
 // ----------------------------------------------------------------------
 
@@ -65,11 +65,20 @@ export default function ApplicationDetailPage() {
     if (!id || printingReceipt) return;
     setPrintingReceipt(true);
     try {
-      const { blob } = await getApplicationReceiptPdf(id);
+      const { blob, filename } = await getApplicationReceiptPdf(id);
       const url = window.URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener,noreferrer');
+      const w = window.open(url, '_blank');
+      if (w) w.focus();
+      else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'application-receipt.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
       window.URL.revokeObjectURL(url);
-      enqueueSnackbar('Receipt opened in new tab', { variant: 'success' });
+      enqueueSnackbar('Receipt opened in new tab. Use the browser print option to print.', { variant: 'info' });
     } catch (err) {
       enqueueSnackbar(err?.message || err?.data?.message || 'Failed to load receipt', { variant: 'error' });
     } finally {
@@ -125,18 +134,6 @@ export default function ApplicationDetailPage() {
       })
     : 'N/A';
 
-  const photoSrc = application.photo
-    ? (config.utils.isAbsoluteUrl(application.photo)
-        ? application.photo
-        : config.utils.buildImageUrl(config.applicationBaseUrl || config.upload?.baseUrl, application.photo))
-    : undefined;
-
-  const getInitials = () => {
-    const first = (application.firstName || '').charAt(0);
-    const last = (application.lastName || '').charAt(0);
-    return (first + last).toUpperCase() || '?';
-  };
-
   return (
     <>
       <Helmet>
@@ -164,19 +161,20 @@ export default function ApplicationDetailPage() {
             <Typography color="text.primary">Application Details</Typography>
           </Stack>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
             <Stack direction="row" spacing={3} alignItems="center">
               <Avatar
-                src={photoSrc}
+                src={application.photo}
+                alt={fullName}
                 sx={{
                   width: 80,
                   height: 80,
-                  bgcolor: 'primary.main',
-                  fontSize: 32,
+                  bgcolor: 'grey.300',
+                  fontSize: 28,
                   fontWeight: 600,
                 }}
               >
-                {!photoSrc ? getInitials() : null}
+                {!application.photo && fullName !== 'N/A' ? fullName.split(/\s+/).map((s) => s[0]).join('').slice(0, 2).toUpperCase() : null}
               </Avatar>
               <Box>
                 <Typography variant="h4" color="text.primary" fontWeight="700">
@@ -210,7 +208,7 @@ export default function ApplicationDetailPage() {
                   variant="contained"
                   onClick={handlePrintReceipt}
                   disabled={printingReceipt}
-                  startIcon={printingReceipt ? <CircularProgress size={16} color="inherit" /> : null}
+                  startIcon={printingReceipt ? <CircularProgress size={16} color="inherit" /> : <Iconify icon="eva:printer-fill" />}
                 >
                   {printingReceipt ? 'Loading…' : 'Print Receipt'}
                 </Button>
