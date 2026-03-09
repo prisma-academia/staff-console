@@ -27,7 +27,7 @@ import useNavConfig from './config-navigation';
 
 // ----------------------------------------------------------------------
 
-const APPLICATION_GROUP_PATHS = ['/application', '/admission', '/preference', '/application/sessions', '/application/programmes', '/application/analytics'];
+const APPLICATION_GROUP_PATHS = ['/application', '/admission', '/application/sessions', '/application/programmes', '/application/analytics'];
 
 export default function Nav({ openNav, onCloseNav }) {
   const pathname = usePathname();

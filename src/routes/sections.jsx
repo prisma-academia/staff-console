@@ -31,7 +31,6 @@ const InstructorPage = lazy(() => import('src/pages/instructor'));
 const MemoPage = lazy(() => import('src/pages/memo'));
 const DocumentPage = lazy(() => import('src/pages/document'));
 const CalenderPage = lazy(() => import('src/pages/calender'));
-const PreferencePage = lazy(() => import('src/pages/preference'));
 const ApplicationSessionsPage = lazy(() => import('../pages/application-sessions'));
 const ApplicationProgrammesPage = lazy(() => import('../pages/application-programmes'));
 const ApplicationAnalyticsPage = lazy(() => import('../pages/application-analytics'));
@@ -182,14 +181,6 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <PaymentPage />
-            </PrivateRoute>
-          ),
-        },
-        {
-          path: 'preference',
-          element: (
-            <PrivateRoute>
-              <PreferencePage />
             </PrivateRoute>
           ),
         },

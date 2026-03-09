@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState, useEffect } from 'react';
 
 import { Box } from '@mui/system';
 import { Visibility, FileDownload } from '@mui/icons-material';
@@ -8,20 +8,20 @@ import {
   Chip,
   Card,
   alpha,
+  Stack,
   Button,
+  Select,
   useTheme,
+  MenuItem,
   Container,
+  TextField,
   IconButton,
   Typography,
-  Stack,
-  MenuItem,
-  Select,
-  TextField,
-  FormControl,
   InputLabel,
+  FormControl,
 } from '@mui/material';
 
-import { listApplications, listSessions, listProgrammes } from 'src/api/adminApplicationApi';
+import { listSessions, listProgrammes, listApplications } from 'src/api/adminApplicationApi';
 
 import { GenericTable } from 'src/components/generic-table';
 

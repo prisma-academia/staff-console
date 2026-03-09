@@ -38,8 +38,6 @@ export const PERMISSION_CATEGORIES = [
       { id: 'view_admission', label: 'View Admission' },
       { id: 'add_admission', label: 'Add Admission' },
       { id: 'edit_admission', label: 'Edit Admission' },
-      { id: 'view_preference', label: 'View Preference' },
-      { id: 'edit_preference', label: 'Edit Preference' },
     ],
   },
   {

@@ -5,7 +5,6 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Info,
   Close,
-  Event,
   Download,
   DateRange,
   CalendarMonth,
@@ -53,7 +52,7 @@ export default function ExportModal({ open, onClose }) {
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState('');
 
-  const { data: sessionsResult, isLoading: sessionsLoading } = useQuery({
+  const { data: sessionsResult } = useQuery({
     queryKey: ['admin-sessions'],
     queryFn: () => listSessions(),
     enabled: open,
@@ -178,12 +177,8 @@ export default function ExportModal({ open, onClose }) {
 
           <Stack spacing={3.5}>
             <Box>
-              <Typography
-                variant="subtitle2"
-                color="text.primary"
-                sx={{ mb: 1.5, display: 'flex', alignItems: 'center', '& svg': { mr: 1 } }}
-              >
-                <Event fontSize="small" /> Session (required)
+              <Typography variant="subtitle2" color="text.primary" sx={{ mb: 1.5 }}>
+                Session (required)
               </Typography>
               <FormControl fullWidth required>
                 <InputLabel id="session-select-label">Session</InputLabel>
@@ -191,33 +186,27 @@ export default function ExportModal({ open, onClose }) {
                   labelId="session-select-label"
                   value={sessionId}
                   onChange={(e) => setSessionId(e.target.value)}
-                  label="Session (required)"
-                  disabled={sessionsLoading}
-                  sx={{
-                    borderRadius: 1.5,
-                    transition: 'all 0.2s',
-                    '&:hover': { borderColor: theme.palette.primary.main },
+                  label="Session"
+                  // disabled={sessionsLoading}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: { zIndex: theme.zIndex.modal + 1 },
+                    },
                   }}
+                  sx={{ borderRadius: 1.5 }}
                 >
-                  {sessionsLoading ? (
-                    <MenuItem value="">
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <CircularProgress size={20} />
-                        <Typography>Loading sessions...</Typography>
-                      </Stack>
-                    </MenuItem>
-                  ) : (
+                  {
                     <>
-                      <MenuItem value="">
+                      {/* <MenuItem value="">
                         <em>Select session</em>
-                      </MenuItem>
+                      </MenuItem> */}
                       {(sessions || []).map((session) => (
                         <MenuItem key={session._id || session.id} value={session._id || session.id}>
-                          {session.name || session._id || session.id}
+                          {session.name}
                         </MenuItem>
                       ))}
                     </>
-                  )}
+                  }
                 </Select>
               </FormControl>
             </Box>
@@ -235,6 +224,11 @@ export default function ExportModal({ open, onClose }) {
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
                   label="Status"
+                  MenuProps={{
+                    PaperProps: {
+                      sx: { zIndex: theme.zIndex.modal + 1 },
+                    },
+                  }}
                   sx={{ borderRadius: 1.5 }}
                 >
                   {EXPORT_STATUS_OPTIONS.map((opt) => (
@@ -257,6 +251,11 @@ export default function ExportModal({ open, onClose }) {
                   value={programme}
                   onChange={(e) => setProgramme(e.target.value)}
                   label="Programme"
+                  MenuProps={{
+                    PaperProps: {
+                      sx: { zIndex: theme.zIndex.modal + 1 },
+                    },
+                  }}
                   sx={{ borderRadius: 1.5 }}
                 >
                   <MenuItem value="">

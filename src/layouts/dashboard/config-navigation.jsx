@@ -64,12 +64,6 @@ const useNavConfig = () => {
           permission: 'view_admission',
         },
         {
-          title: 'Preference',
-          path: '/preference',
-          icon: <Iconify icon="eva:options-2-fill" width={24} />,
-          permission: 'view_preference',
-        },
-        {
           title: 'Session',
           path: '/application/sessions',
           icon: <Iconify icon="eva:calendar-fill" width={24} />,
