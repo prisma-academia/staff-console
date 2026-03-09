@@ -34,11 +34,20 @@ import {
   CircularProgress,
 } from '@mui/material';
 
-import { listSessions, exportApplicationsCsv } from 'src/api/adminApplicationApi';
+import { listSessions, listProgrammes, exportApplicationsCsv } from 'src/api/adminApplicationApi';
+
+const EXPORT_STATUS_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'not paid', label: 'Not paid' },
+  { value: 'paid', label: 'Paid' },
+  { value: 'rejected', label: 'Rejected' },
+];
 
 export default function ExportModal({ open, onClose }) {
   const theme = useTheme();
   const [sessionId, setSessionId] = useState('');
+  const [status, setStatus] = useState('');
+  const [programme, setProgramme] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isExporting, setIsExporting] = useState(false);
@@ -49,12 +58,20 @@ export default function ExportModal({ open, onClose }) {
     queryFn: () => listSessions(),
     enabled: open,
   });
+  const { data: programmesResult } = useQuery({
+    queryKey: ['admin-programmes'],
+    queryFn: () => listProgrammes(),
+    enabled: open,
+  });
 
   const sessions = sessionsResult?.data ?? [];
+  const programmes = programmesResult?.data ?? [];
 
   useEffect(() => {
     if (open) {
       setSessionId('');
+      setStatus('');
+      setProgramme('');
       setStartDate('');
       setEndDate('');
       setIsExporting(false);
@@ -76,6 +93,8 @@ export default function ExportModal({ open, onClose }) {
     try {
       setIsExporting(true);
       const params = { sessionId };
+      if (status) params.status = status;
+      if (programme) params.programme = programme;
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
       const { blob, filename } = await exportApplicationsCsv(params);
@@ -146,7 +165,7 @@ export default function ExportModal({ open, onClose }) {
             <Stack direction="row" spacing={1.5} alignItems="flex-start">
               <Info color="primary" sx={{ mt: 0.2 }} />
               <Typography variant="body2" color="text.secondary">
-                Export applications as CSV by selecting a session. Optionally filter by date range (created date).
+                Export applications as CSV by selecting a session. Optionally filter by status, programme, and date range (created date).
               </Typography>
             </Stack>
           </Paper>
@@ -199,6 +218,55 @@ export default function ExportModal({ open, onClose }) {
                       ))}
                     </>
                   )}
+                </Select>
+              </FormControl>
+            </Box>
+
+            <Divider sx={{ opacity: 0.5 }} />
+
+            <Box>
+              <Typography variant="subtitle2" color="text.primary" sx={{ mb: 1.5 }}>
+                Status (optional)
+              </Typography>
+              <FormControl fullWidth>
+                <InputLabel id="export-status-label">Status</InputLabel>
+                <Select
+                  labelId="export-status-label"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  label="Status"
+                  sx={{ borderRadius: 1.5 }}
+                >
+                  {EXPORT_STATUS_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value || 'all'} value={opt.value}>
+                      {opt.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle2" color="text.primary" sx={{ mb: 1.5 }}>
+                Programme (optional)
+              </Typography>
+              <FormControl fullWidth>
+                <InputLabel id="export-programme-label">Programme</InputLabel>
+                <Select
+                  labelId="export-programme-label"
+                  value={programme}
+                  onChange={(e) => setProgramme(e.target.value)}
+                  label="Programme"
+                  sx={{ borderRadius: 1.5 }}
+                >
+                  <MenuItem value="">
+                    <em>All</em>
+                  </MenuItem>
+                  {(programmes || []).map((p) => (
+                    <MenuItem key={p._id || p.id} value={p._id || p.id}>
+                      {p.name || p._id || p.id}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Box>
