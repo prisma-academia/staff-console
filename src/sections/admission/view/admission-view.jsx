@@ -12,9 +12,13 @@ import {
   Container,
   IconButton,
   Typography,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 
-import { listAdmissions } from 'src/api/adminApplicationApi';
+import { listAdmissions, listSessions, listProgrammes } from 'src/api/adminApplicationApi';
 
 import Iconify from 'src/components/iconify';
 import { GenericTable } from 'src/components/generic-table';
@@ -94,12 +98,49 @@ export default function AdmissionPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortBy] = useState('createdAt');
   const [sortOrder] = useState('desc');
+  const [filterSession, setFilterSession] = useState('');
+  const [filterProgramme, setFilterProgramme] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
 
   const queryParams = {
     page: page + 1,
     limit: rowsPerPage,
     sortBy,
     sortOrder,
+    ...(filterSession ? { session: filterSession } : {}),
+    ...(filterProgramme ? { programme: filterProgramme } : {}),
+    ...(filterStatus ? { status: filterStatus } : {}),
+  };
+
+  const { data: sessionsResult } = useQuery({
+    queryKey: ['admin-sessions'],
+    queryFn: () => listSessions(),
+  });
+  const { data: programmesResult } = useQuery({
+    queryKey: ['admin-programmes'],
+    queryFn: () => listProgrammes(),
+  });
+  const sessions = sessionsResult?.data ?? [];
+  const programmes = programmesResult?.data ?? [];
+  const hasActiveFilters = Boolean(filterSession || filterProgramme || filterStatus);
+
+  const handleFilterSession = (event) => {
+    setFilterSession(event.target.value);
+    setPage(0);
+  };
+  const handleFilterProgramme = (event) => {
+    setFilterProgramme(event.target.value);
+    setPage(0);
+  };
+  const handleFilterStatus = (event) => {
+    setFilterStatus(event.target.value);
+    setPage(0);
+  };
+  const handleClearFilters = () => {
+    setFilterSession('');
+    setFilterProgramme('');
+    setFilterStatus('');
+    setPage(0);
   };
 
   const { data, isLoading } = useQuery({
@@ -197,6 +238,70 @@ export default function AdmissionPage() {
             </Button>
           </Stack>
         </Box>
+
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          sx={{ mb: 2 }}
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+          flexWrap="wrap"
+        >
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>Session</InputLabel>
+            <Select
+              value={filterSession}
+              onChange={handleFilterSession}
+              label="Session"
+            >
+              <MenuItem value="">All sessions</MenuItem>
+              {sessions.map((session) => (
+                <MenuItem key={session._id || session.id} value={session._id || session.id}>
+                  {session.name || session._id || session.id}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>Programme</InputLabel>
+            <Select
+              value={filterProgramme}
+              onChange={handleFilterProgramme}
+              label="Programme"
+            >
+              <MenuItem value="">All programmes</MenuItem>
+              {programmes.map((prog) => (
+                <MenuItem key={prog._id || prog.id} value={prog._id || prog.id}>
+                  {prog.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={filterStatus}
+              onChange={handleFilterStatus}
+              label="Status"
+            >
+              <MenuItem value="">All statuses</MenuItem>
+              <MenuItem value="pending">Pending</MenuItem>
+              <MenuItem value="offered">Offered</MenuItem>
+              <MenuItem value="accepted">Accepted</MenuItem>
+              <MenuItem value="declined">Declined</MenuItem>
+            </Select>
+          </FormControl>
+          {hasActiveFilters && (
+            <Button
+              variant="outlined"
+              color="inherit"
+              size="small"
+              onClick={handleClearFilters}
+              sx={{ alignSelf: { sm: 'center' } }}
+            >
+              Clear filters
+            </Button>
+          )}
+        </Stack>
 
         <Card
           sx={{
