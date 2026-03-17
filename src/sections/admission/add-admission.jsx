@@ -63,7 +63,8 @@ const AddAdmission = ({ open, setOpen }) => {
     enabled: open,
   });
   const programmes = programmesResult?.data ?? [];
-  const sessions = sessionsResult?.data ?? [];
+  const allSessions = sessionsResult?.data ?? [];
+  const activeSessions = allSessions.filter((s) => (s.status || "").toLowerCase() === "active");
   const isLoadingPrograms = !programmesResult;
 
   const handleFileUpload = (event) => {
@@ -98,14 +99,19 @@ const AddAdmission = ({ open, setOpen }) => {
   };
 
   const submitBatch = async (admissionsList) => {
+    if (!sessionId) {
+      const err = new Error("Please select a session.");
+      err.errors = ["sessionId is required"];
+      throw err;
+    }
     const body = {
+      sessionId,
       admissions: admissionsList.map((row) => ({
         number: row.number,
         email: row.email,
         programme: row.programme,
       })),
     };
-    if (sessionId) body.sessionId = sessionId;
     const result = await createBatchAdmissions(body);
     if (!result.ok) {
       const err = new Error(result.message || "An error occurred while publishing.");
@@ -142,6 +148,10 @@ const AddAdmission = ({ open, setOpen }) => {
 
   const handlePublish = () => {
     setApiErrors([]);
+    if (!sessionId) {
+      enqueueSnackbar("Please select a session.", { variant: "error" });
+      return;
+    }
     setIsProcessing(true);
     const validData = rows.filter((row) => !row._error);
     if (validData.length === 0) {
@@ -229,20 +239,25 @@ const AddAdmission = ({ open, setOpen }) => {
                 </Button>
               </Stack>
 
-              {/* Session (optional) */}
-              <FormControl fullWidth size="small" sx={{ maxWidth: 320 }}>
-                <InputLabel>Session (optional)</InputLabel>
+              {/* Session (required; only active sessions) */}
+              <FormControl fullWidth size="small" sx={{ maxWidth: 320 }} required>
+                <InputLabel>Session</InputLabel>
                 <Select
                   value={sessionId}
                   onChange={(e) => setSessionId(e.target.value)}
-                  label="Session (optional)"
+                  label="Session"
                 >
-                  <MenuItem value="">Use default session</MenuItem>
-                  {(sessions || []).map((session) => (
-                    <MenuItem key={session._id || session.id} value={session._id || session.id}>
-                      {session.name || session._id || session.id}
+                  {activeSessions.length === 0 ? (
+                    <MenuItem value="" disabled>
+                      No active session
                     </MenuItem>
-                  ))}
+                  ) : (
+                    activeSessions.map((session) => (
+                      <MenuItem key={session._id || session.id} value={session._id || session.id}>
+                        {session.name || session._id || session.id}
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
               </FormControl>
               
@@ -439,7 +454,7 @@ const AddAdmission = ({ open, setOpen }) => {
                   loadingPosition="start"
                   startIcon={<Iconify icon="eva:cloud-upload-fill" />}
                   sx={{ px: 3 }}
-                  disabled={rows.length === 0}
+                  disabled={rows.length === 0 || !sessionId}
                 >
                   Publish Admissions
                 </LoadingButton>

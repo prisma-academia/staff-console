@@ -8,17 +8,17 @@ import {
   Stack,
   alpha,
   Button,
+  Select,
   useTheme,
+  MenuItem,
   Container,
   IconButton,
   Typography,
-  FormControl,
   InputLabel,
-  Select,
-  MenuItem,
+  FormControl,
 } from '@mui/material';
 
-import { listAdmissions, listSessions, listProgrammes } from 'src/api/adminApplicationApi';
+import { listSessions, listAdmissions, listProgrammes } from 'src/api/adminApplicationApi';
 
 import Iconify from 'src/components/iconify';
 import { GenericTable } from 'src/components/generic-table';
