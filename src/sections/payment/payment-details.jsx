@@ -16,6 +16,7 @@ import { Stack, Divider, TextField, Typography } from '@mui/material';
 
 import { paymentApi } from 'src/api';
 
+import Iconify from 'src/components/iconify';
 import CustomSelect from 'src/components/old-select/select';
 
 const style = {
@@ -39,12 +40,13 @@ const statusOptions = [
   { name: 'Overdue', value: 'Overdue' },
 ];
 
-export default function PaymentDetails({ open, setOpen, payment }) {
+export default function PaymentDetails({ open, setOpen, payment, onSuccess }) {
   const [amount, setAmount] = useState('');
   const [status, setStatus] = useState('');
   const [description, setDescription] = useState('');
   const [reference, setReference] = useState('');
   const [gateway, setGateway] = useState('');
+  const [printingReceipt, setPrintingReceipt] = useState(false);
 
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
@@ -69,6 +71,7 @@ export default function PaymentDetails({ open, setOpen, payment }) {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       enqueueSnackbar({ message: 'Payment updated successfully', variant: 'success' });
       handleClose();
+      onSuccess?.();
     },
     onError: (error) => {
       enqueueSnackbar({ message: error.message || 'Failed to update payment', variant: 'error' });
@@ -93,6 +96,7 @@ export default function PaymentDetails({ open, setOpen, payment }) {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       enqueueSnackbar({ message: 'Payment verified and updated successfully', variant: 'success' });
       handleClose();
+      onSuccess?.();
     },
     onError: (error) => {
       enqueueSnackbar({ message: error.message || 'Failed to verify payment', variant: 'error' });
@@ -132,6 +136,22 @@ export default function PaymentDetails({ open, setOpen, payment }) {
 
   const handleVerify = () => {
     mutateVerify();
+  };
+
+  const handlePrintReceipt = async () => {
+    if (!payment?._id) return;
+    setPrintingReceipt(true);
+    try {
+      const blob = await paymentApi.getReceiptPdf(payment._id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      enqueueSnackbar({ message: 'Receipt opened in new tab', variant: 'success' });
+    } catch (err) {
+      enqueueSnackbar({ message: err?.message || 'Failed to load receipt', variant: 'error' });
+    } finally {
+      setPrintingReceipt(false);
+    }
   };
 
   // Extract user name from nested object structure
@@ -260,10 +280,18 @@ export default function PaymentDetails({ open, setOpen, payment }) {
             </Grid>
 
             {/* Action Buttons */}
-            <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 2 }}>
+            <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 2 }} flexWrap="wrap">
               <Button variant="outlined" onClick={handleClose}>
                 Cancel
               </Button>
+              <LoadingButton
+                variant="outlined"
+                startIcon={<Iconify icon="eva:printer-fill" />}
+                loading={printingReceipt}
+                onClick={handlePrintReceipt}
+              >
+                Print receipt
+              </LoadingButton>
               <LoadingButton
                 variant="contained"
                 color="info"
@@ -292,4 +320,5 @@ PaymentDetails.propTypes = {
   open: PropTypes.bool,
   setOpen: PropTypes.func,
   payment: PropTypes.object,
+  onSuccess: PropTypes.func,
 };

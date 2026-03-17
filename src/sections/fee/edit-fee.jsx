@@ -19,7 +19,6 @@ import {
   Select,
   Button,
   Divider,
-  Tooltip,
   Backdrop,
   useTheme,
   MenuItem,
@@ -187,41 +186,44 @@ const EditFee = ({ open, setOpen, fee }) => {
     validationSchema,
     onSubmit: (values) => {
       if (hasCompletedPayments) {
-        enqueueSnackbar({
-          message: 'Cannot edit fee with completed payments',
-          variant: 'error',
-        });
+        const payload = {
+          dueDate: values.dueDate,
+          programs: values.programs,
+          classLevels: values.classLevels,
+          students: (values.students || []).filter((s) => s && s.trim() !== ''),
+          users: (values.users || []).filter((u) => u && u.trim() !== ''),
+          gateway: values.gateway,
+        };
+        mutate({ id: fee?._id, data: payload });
         return;
       }
       const { students, users, items, amount, ...rest } = values;
-      
+
       const payload = {
         ...rest,
         students: students.filter((student) => student && student.trim() !== ''),
         users: users.filter((user) => user && user.trim() !== ''),
       };
-      
-      // If items array is provided and non-empty, omit amount (API will calculate)
+
       if (items && items.length > 0) {
-        payload.items = items.map(item => ({
+        payload.items = items.map((item) => ({
           name: item.name,
           quantity: Number(item.quantity),
           price: Number(item.price),
         }));
-        // Don't include amount - API will calculate it
       } else {
-        // If no items, require and send amount
         payload.amount = Number(amount);
       }
-      
+
       mutate({ id: fee?._id, data: payload });
     },
   });
 
   const { mutate, isPending } = useMutation({
     mutationFn: ({ id, data }) => FeeApi.updateFee(id, data),
-    onSuccess: () => {
+    onSuccess: (_, { id: feeId }) => {
       queryClient.invalidateQueries({ queryKey: ['fees'] });
+      queryClient.invalidateQueries({ queryKey: ['fee', feeId] });
       enqueueSnackbar({ message: 'Fee updated successfully', variant: 'success' });
       setOpen(false);
     },
@@ -296,8 +298,8 @@ const EditFee = ({ open, setOpen, fee }) => {
             Update Fee
           </Typography>
           {hasCompletedPayments && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              This fee has completed payments and cannot be edited. Only fees without completed payments can be modified.
+            <Alert severity="info" sx={{ mb: 2 }}>
+              This fee has completed payments. Only due date, programmes, class levels, students, and payment gateways can be updated.
             </Alert>
           )}
           <Box component="form" onSubmit={formik.handleSubmit}>
@@ -360,7 +362,6 @@ const EditFee = ({ open, setOpen, fee }) => {
                     onChange={formik.handleChange}
                     error={formik.touched.dueDate && Boolean(formik.errors.dueDate)}
                     helperText={formik.touched.dueDate && formik.errors.dueDate}
-                    disabled={hasCompletedPayments}
                   />
                 </Grid>
 
@@ -371,7 +372,6 @@ const EditFee = ({ open, setOpen, fee }) => {
                     name="programs"
                     formik={formik}
                     multiple
-                    disabled={hasCompletedPayments}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -381,7 +381,6 @@ const EditFee = ({ open, setOpen, fee }) => {
                     name="classLevels"
                     formik={formik}
                     multiple
-                    disabled={hasCompletedPayments}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -392,7 +391,7 @@ const EditFee = ({ open, setOpen, fee }) => {
                     formik={formik}
                     multiple
                     showSelectedCount
-                    disabled={!formattedStudentOptions.length || hasCompletedPayments}
+                    disabled={!formattedStudentOptions.length}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -403,7 +402,7 @@ const EditFee = ({ open, setOpen, fee }) => {
                     formik={formik}
                     multiple
                     showSelectedCount
-                    disabled={!formattedStudentOptions.length || hasCompletedPayments}
+                    disabled={!formattedStudentOptions.length}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -454,7 +453,6 @@ const EditFee = ({ open, setOpen, fee }) => {
                     formik={formik}
                     multiple
                     showSelectedCount
-                    disabled={hasCompletedPayments}
                   />
                 </Grid>
                 <Divider sx={{ my: 5, width: '100%' }} />
@@ -471,6 +469,7 @@ const EditFee = ({ open, setOpen, fee }) => {
                       fullWidth
                       value={formik.values.currentItem.name}
                       onChange={formik.handleChange}
+                      disabled={hasCompletedPayments}
                     />
                     <TextField
                       label="Quantity"
@@ -479,6 +478,7 @@ const EditFee = ({ open, setOpen, fee }) => {
                       fullWidth
                       value={formik.values.currentItem.quantity}
                       onChange={formik.handleChange}
+                      disabled={hasCompletedPayments}
                     />
                     <TextField
                       label="Price"
@@ -487,8 +487,9 @@ const EditFee = ({ open, setOpen, fee }) => {
                       fullWidth
                       value={formik.values.currentItem.price}
                       onChange={formik.handleChange}
+                      disabled={hasCompletedPayments}
                     />
-                    <IconButton color="primary" onClick={addItem}>
+                    <IconButton color="primary" onClick={addItem} disabled={hasCompletedPayments}>
                       <Add />
                     </IconButton>
                   </Stack>
@@ -512,6 +513,7 @@ const EditFee = ({ open, setOpen, fee }) => {
                             <TableCell align="center">
                               <IconButton
                                 color="error"
+                                disabled={hasCompletedPayments}
                                 onClick={() => {
                                   const updatedItems = formik.values.items.filter((_, i) => i !== index);
                                   formik.setFieldValue('items', updatedItems);
@@ -530,20 +532,9 @@ const EditFee = ({ open, setOpen, fee }) => {
 
               <Stack direction="row" justifyContent="flex-end" spacing={2} mt={4}>
                 <Button onClick={handleModalClose}>Cancel</Button>
-                <Tooltip
-                  title={hasCompletedPayments ? 'Cannot update fee with completed payments' : ''}
-                >
-                  <span>
-                    <LoadingButton
-                      loading={isPending}
-                      variant="contained"
-                      type="submit"
-                      disabled={hasCompletedPayments}
-                    >
-                      Update Fee
-                    </LoadingButton>
-                  </span>
-                </Tooltip>
+                <LoadingButton loading={isPending} variant="contained" type="submit">
+                  Update Fee
+                </LoadingButton>
               </Stack>
             </Stack>
           </Box>

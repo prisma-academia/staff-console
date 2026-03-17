@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
 import Card from '@mui/material/Card';
@@ -6,7 +7,7 @@ import Stack from '@mui/material/Stack';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
-import { Box, Button, IconButton } from '@mui/material';
+import { Box, Button, Tooltip, IconButton } from '@mui/material';
 
 import { paymentApi } from 'src/api';
 
@@ -101,6 +102,7 @@ const columns = [
 
 export default function PaymentPage() {
   const theme = useTheme();
+  const navigate = useNavigate();
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [selectedUser] = useState('');
   const [selectedFee] = useState('');
@@ -115,18 +117,34 @@ export default function PaymentPage() {
     ),
   });
 
+  const payments = Array.isArray(data) ? data : (data?.data ?? []);
+
   const columnsWithActions = columns.map((column) => {
     if (column.id === 'action') {
       return {
         ...column,
         renderCell: (row) => (
           <Stack direction="row" spacing={1} justifyContent="flex-end">
-             <IconButton onClick={(e) => {
-                e.stopPropagation();
-                setSelectedPayment(row);
-             }}>
-              <Iconify icon="carbon:settings-edit" />
-            </IconButton>
+            <Tooltip title="View details">
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/payment/${row._id}`);
+                }}
+              >
+                <Iconify icon="eva:eye-fill" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Edit">
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedPayment(row);
+                }}
+              >
+                <Iconify icon="carbon:settings-edit" />
+              </IconButton>
+            </Tooltip>
           </Stack>
         ),
       };
@@ -164,7 +182,7 @@ export default function PaymentPage() {
           borderRadius: 2,
         }}>
           <GenericTable
-            data={data}
+            data={payments}
             columns={columnsWithActions}
             rowIdField="_id"
             withCheckbox
@@ -173,7 +191,7 @@ export default function PaymentPage() {
             selectable
             isLoading={isLoading}
             emptyRowsHeight={53}
-            onRowClick={(row) => setSelectedPayment(row)}
+            onRowClick={(row) => navigate(`/payment/${row._id}`)}
             toolbarProps={{
               searchPlaceholder: 'Search payments...',
               toolbarTitle: 'Payments List',

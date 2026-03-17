@@ -27,6 +27,7 @@ const AppSettingsPage = lazy(() => import('src/pages/app-settings'));
 const LoginPage = lazy(() => import('src/pages/login'));
 const ProgramPage = lazy(() => import('src/pages/program'));
 const PaymentPage = lazy(() => import('src/pages/payment'));
+const PaymentDetailPage = lazy(() => import('src/sections/payment/detail/payment-detail-page'));
 const InstructorPage = lazy(() => import('src/pages/instructor'));
 const MemoPage = lazy(() => import('src/pages/memo'));
 const DocumentPage = lazy(() => import('src/pages/document'));
@@ -43,6 +44,7 @@ const CoursePage = lazy(() => import('src/pages/course'));
 const ClassLevelPage = lazy(() => import('src/pages/classlevel'));
 const SessionPage = lazy(() => import('src/pages/session'));
 const FeePage = lazy(() => import('src/pages/fee'));
+const FeeDetailPage = lazy(() => import('src/pages/fee-detail'));
 const MailPage = lazy(() => import('src/pages/mail'));
 const AuditPage = lazy(() => import('src/pages/audit'));
 const RolePermissionPage = lazy(() => import('src/pages/role-permission'));
@@ -185,6 +187,14 @@ export default function Router() {
           ),
         },
         {
+          path: 'payment/:id',
+          element: (
+            <PrivateRoute>
+              <PaymentDetailPage />
+            </PrivateRoute>
+          ),
+        },
+        {
           path: 'application/sessions',
           element: (
             <PrivateRoute>
@@ -229,6 +239,14 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <FeePage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'fee/:id',
+          element: (
+            <PrivateRoute>
+              <FeeDetailPage />
             </PrivateRoute>
           ),
         },

@@ -301,6 +301,22 @@ export const paymentApi = {
     const queryString = params.toString();
     return apiClient.get(`payment${queryString ? `?${queryString}` : ''}`);
   },
+  getPaymentById: (id) => apiClient.get(`payment/${id}`),
+  getReceiptPdf: async (id) => {
+    const { token } = useAuthStore.getState();
+    const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
+    const url = `${config.baseUrl}${apiVersion}/payment/receipt/${id}`;
+    const res = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      const err = new Error('Failed to load receipt');
+      err.status = res.status;
+      throw err;
+    }
+    return res.blob();
+  },
+  initializePaymentForStudent: (body) => apiClient.post('payment/admin/initialize', body),
   verifyPayment: (paymentId, reference) => {
     const body = {};
     if (paymentId) body.paymentId = paymentId;

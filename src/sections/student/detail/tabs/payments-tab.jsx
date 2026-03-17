@@ -1,20 +1,34 @@
+import { useState } from 'react';
 import PropTypes from 'prop-types';
+import { useSnackbar } from 'notistack';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
+import LoadingButton from '@mui/lab/LoadingButton';
 import {
   Card,
   Chip,
   Stack,
   Table,
   Button,
+  Dialog,
+  Select,
   Divider,
   useTheme,
   TableRow,
+  MenuItem,
   TableBody,
   TableCell,
   TableHead,
   Typography,
+  InputLabel,
+  DialogTitle,
+  FormControl,
+  DialogContent,
+  DialogActions,
   TableContainer,
 } from '@mui/material';
+
+import { FeeApi, paymentApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
 
@@ -48,7 +62,47 @@ const formatCurrency = (amount) => {
 
 export default function PaymentsTab({ student }) {
   const theme = useTheme();
+  const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [selectedFeeId, setSelectedFeeId] = useState('');
+
   const paymentHistory = student?.payments || [];
+
+  const { data: fees = [] } = useQuery({
+    queryKey: ['fees'],
+    queryFn: FeeApi.getFees,
+    enabled: createModalOpen,
+  });
+  const feeList = Array.isArray(fees) ? fees : (fees?.data ?? []);
+
+  const { mutate: initializePayment, isPending: isInitializing } = useMutation({
+    mutationFn: (body) => paymentApi.initializePaymentForStudent(body),
+    onSuccess: (data) => {
+      const url = data?.authorizationUrl;
+      if (url) {
+        setCreateModalOpen(false);
+        setSelectedFeeId('');
+        queryClient.invalidateQueries({ queryKey: ['payments'] });
+        queryClient.invalidateQueries({ queryKey: ['student', student?._id] });
+        enqueueSnackbar('Redirecting to payment gateway...', { variant: 'info' });
+        window.location.href = url;
+      } else {
+        enqueueSnackbar('No payment URL returned', { variant: 'error' });
+      }
+    },
+    onError: (err) => {
+      enqueueSnackbar(err?.message || 'Failed to initialize payment', { variant: 'error' });
+    },
+  });
+
+  const handleCreatePayment = () => {
+    if (!student?._id || !selectedFeeId) {
+      enqueueSnackbar('Please select a fee', { variant: 'warning' });
+      return;
+    }
+    initializePayment({ studentId: student._id, feeId: selectedFeeId });
+  };
 
   return (
     <Card sx={{ boxShadow: theme.shadows[2] }}>
@@ -65,13 +119,23 @@ export default function PaymentsTab({ student }) {
           </Typography>
         </Stack>
 
-        <Button
-          size="small"
-          variant="contained"
-          startIcon={<Iconify icon="mdi:download" />}
-        >
-          Export
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<Iconify icon="mdi:plus" />}
+            onClick={() => setCreateModalOpen(true)}
+          >
+            Create payment
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<Iconify icon="mdi:download" />}
+          >
+            Export
+          </Button>
+        </Stack>
       </Stack>
       <Divider />
 
@@ -115,6 +179,46 @@ export default function PaymentsTab({ student }) {
           </TableBody>
         </Table>
       </TableContainer>
+
+      <Dialog open={createModalOpen} onClose={() => !isInitializing && setCreateModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create payment</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Select a fee to initialize payment. You will be redirected to the payment gateway to complete the transaction.
+          </Typography>
+          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+            <InputLabel id="create-payment-fee-label">Fee</InputLabel>
+            <Select
+              labelId="create-payment-fee-label"
+              label="Fee"
+              value={selectedFeeId}
+              onChange={(e) => setSelectedFeeId(e.target.value)}
+            >
+              <MenuItem value="">
+                <em>Select fee</em>
+              </MenuItem>
+              {feeList.map((fee) => (
+                <MenuItem key={fee._id} value={fee._id}>
+                  {fee.name} — ₦{typeof fee.amount === 'number' ? fee.amount.toLocaleString() : fee.amount}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateModalOpen(false)} disabled={isInitializing}>
+            Cancel
+          </Button>
+          <LoadingButton
+            variant="contained"
+            onClick={handleCreatePayment}
+            loading={isInitializing}
+            disabled={!selectedFeeId}
+          >
+            Continue to payment
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 }

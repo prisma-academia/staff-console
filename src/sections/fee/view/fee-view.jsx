@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSnackbar } from 'notistack';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
@@ -24,7 +25,6 @@ import { GenericTable } from 'src/components/generic-table';
 
 import AddFee from '../add-fee';
 import EditFee from '../edit-fee';
-import FeeDetails from '../fee-details';
 
 const formatCurrency = (value) => {
   if (!value && value !== 0) return '₦0';
@@ -53,9 +53,9 @@ const calculatePaymentProgress = (fee) => {
 
 export default function FeePage() {
   const theme = useTheme();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [editingFee, setEditingFee] = useState(null);
-  const [viewingFee, setViewingFee] = useState(null);
 
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
@@ -99,7 +99,7 @@ export default function FeePage() {
 
   const handleView = (fee, e) => {
     e.stopPropagation();
-    setViewingFee(fee);
+    navigate(`/fee/${fee._id}`);
   };
 
   const columns = [
@@ -287,7 +287,7 @@ export default function FeePage() {
             selectable
             isLoading={isLoading}
             emptyRowsHeight={53}
-            onRowClick={(row) => setViewingFee(row)}
+            onRowClick={(row) => navigate(`/fee/${row._id}`)}
             toolbarProps={{
               searchPlaceholder: 'Search fees...',
               toolbarTitle: 'Fees List',
@@ -298,7 +298,6 @@ export default function FeePage() {
 
       <AddFee open={open} setOpen={setOpen}/>
       <EditFee open={Boolean(editingFee)} setOpen={handleCloseEdit} fee={editingFee} />
-      <FeeDetails open={Boolean(viewingFee)} setOpen={(value) => !value && setViewingFee(null)} fee={viewingFee} />
     </Container>
   );
 }
