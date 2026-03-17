@@ -119,14 +119,15 @@ const AddFee = ({ open, setOpen }) => {
   const validationSchema = Yup.object({
     name: Yup.string().required('Fee name is required'),
     description: Yup.string(),
-    amount: Yup.number().nullable(),
-    items: Yup.array().of(
-      Yup.object().shape({
-        name: Yup.string().required('Item name is required'),
-        quantity: Yup.number().required('Quantity is required').min(0.01, 'Quantity must be greater than 0'),
-        price: Yup.number().required('Price is required').min(0, 'Price must be non-negative'),
-      })
-    ),
+    items: Yup.array()
+      .of(
+        Yup.object().shape({
+          name: Yup.string().required('Item name is required'),
+          quantity: Yup.number().required('Quantity is required').min(0.01, 'Quantity must be greater than 0'),
+          price: Yup.number().required('Price is required').min(0, 'Price must be non-negative'),
+        })
+      )
+      .min(1, 'Add at least one item'),
     dueDate: Yup.date().required('Due date is required'),
     programs: Yup.array().required('Program(s) are required'),
     classLevels: Yup.array().required('Class level(s) are required'),
@@ -136,20 +137,6 @@ const AddFee = ({ open, setOpen }) => {
     gateway: Yup.array().of(Yup.string().oneOf(['Paystack', 'Flutterwave', 'Paypal', 'Stripe'], 'Invalid gateway')),
     students: Yup.array().of(Yup.string()),
     users: Yup.array().of(Yup.string()),
-  }).test('amount-or-items', 'Either amount or items array must be provided', function testAmountOrItems(value) {
-    const { amount, items } = value;
-    const hasAmount = amount !== '' && amount !== null && amount !== undefined && !Number.isNaN(Number(amount));
-    const hasItems = items && Array.isArray(items) && items.length > 0;
-    
-    if (!hasAmount && !hasItems) {
-      // eslint-disable-next-line react/no-this-in-sfc
-      return this.createError({
-        path: 'amount',
-        message: 'Either amount or items array must be provided',
-      });
-    }
-    
-    return true;
   });
 
   const formik = useFormik({
@@ -171,30 +158,27 @@ const AddFee = ({ open, setOpen }) => {
     },
     validationSchema,
     onSubmit: (values) => {
-      const { students, users, items, amount, ...rest } = values;
-      
+      const { students, users, items, ...rest } = values;
+
       const payload = {
         ...rest,
         students: students.filter((student) => student && student.trim() !== ''),
         users: users.filter((user) => user && user.trim() !== ''),
-      };
-      
-      // If items array is provided and non-empty, omit amount (API will calculate)
-      if (items && items.length > 0) {
-        payload.items = items.map(item => ({
+        items: items.map((item) => ({
           name: item.name,
           quantity: Number(item.quantity),
           price: Number(item.price),
-        }));
-        // Don't include amount - API will calculate it
-      } else {
-        // If no items, require and send amount
-        payload.amount = Number(amount);
-      }
-      
+        })),
+      };
+
       mutate(payload);
     },
   });
+
+  const totalFromItems = useMemo(() => {
+    const items = formik?.values?.items || [];
+    return items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0);
+  }, [formik.values.items]);
 
   const addItem = () => {
     const { name, quantity, price } = formik.values.currentItem;
@@ -301,19 +285,10 @@ const AddFee = ({ open, setOpen }) => {
                       name="amount"
                       type="number"
                       fullWidth
-                      value={formik.values.amount}
-                      onChange={formik.handleChange}
-                      error={formik.touched.amount && Boolean(formik.errors.amount)}
-                      helperText={(() => {
-                        if (formik.touched.amount && formik.errors.amount) {
-                          return formik.errors.amount;
-                        }
-                        if (formik.values.items.length > 0) {
-                          return 'Amount will be calculated from items';
-                        }
-                        return 'Required if items are not provided';
-                      })()}
-                      disabled={formik.values.items.length > 0}
+                      value={totalFromItems}
+                      error={Boolean(formik.errors.items)}
+                      helperText={formik.errors.items || 'Add items below; total is calculated automatically.'}
+                      disabled
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
@@ -417,7 +392,7 @@ const AddFee = ({ open, setOpen }) => {
 
                   <Grid item xs={12}>
                     <Typography variant="h6" gutterBottom>
-                      Items (Optional - if provided, amount will be auto-calculated)
+                      Items (add at least one; total amount is calculated from the list below)
                     </Typography>
 
                     <Stack direction="row" spacing={2} alignItems="center">

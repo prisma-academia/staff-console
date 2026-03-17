@@ -205,12 +205,10 @@ export default function FeePage() {
               </IconButton>
             </Tooltip>
             
-            <Tooltip title={hasCompletedPayments ? 'Cannot edit fee with completed payments' : 'Edit Fee'}>
-              <span>
-                <IconButton onClick={(e) => handleEdit(row, e)} size="small" disabled={hasCompletedPayments}>
-                  <Iconify icon="eva:edit-fill" />
-                </IconButton>
-              </span>
+            <Tooltip title="Edit Fee">
+              <IconButton onClick={(e) => handleEdit(row, e)} size="small">
+                <Iconify icon="eva:edit-fill" />
+              </IconButton>
             </Tooltip>
 
             <Tooltip title={hasCompletedPayments ? 'Cannot delete fee with completed payments' : 'Delete Fee'}>
