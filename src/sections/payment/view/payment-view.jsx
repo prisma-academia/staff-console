@@ -120,19 +120,23 @@ const columns = [
       </Label>
     )
   },
-  { 
-    id: 'reference', 
+  {
+    id: 'reference',
     label: 'Reference',
-    cellSx: { width: '20%' },
-    renderCell: (row) => row?.reference || 'N/A'
+    cellSx: { width: '18%' },
+    renderCell: (row) => (
+      <Typography variant="body2" noWrap title={row?.reference || ''}>
+        {row?.reference || '—'}
+      </Typography>
+    ),
   },
-  { 
-    id: 'createdAt', 
+  {
+    id: 'createdAt',
     label: 'Date',
-    cellSx: { width: '10%' },
+    cellSx: { width: '11%' },
     renderCell: (row) => formatDate(row?.createdAt || row?.updatedAt)
   },
-  { id: 'action', label: 'Action', cellSx: { width: '10%' } },
+  { id: 'action', label: 'Action', cellSx: { width: '8%' } },
 ];
 
 const STATUS_OPTIONS = [

@@ -57,17 +57,58 @@ const getStudentName = (payment) => {
   return fullName || student?.email || 'Unknown';
 };
 
+const getStudentRegNumber = (payment) => {
+  const student = getStudent(payment);
+  if (!student || typeof student === 'string') return '—';
+  return student?.regNumber ?? '—';
+};
+
+const getStudentEmail = (payment) => {
+  const student = getStudent(payment);
+  if (!student || typeof student === 'string') return '—';
+  return student?.email ?? student?.contactInfo?.email ?? '—';
+};
+
 const getFeeName = (payment) => {
-  if (!payment?.fee) return 'Unknown';
+  if (!payment?.fee) return '—';
   if (typeof payment.fee === 'string') return payment.fee;
-  return payment.fee?.name || 'Unknown';
+  return payment.fee?.name || '—';
+};
+
+const getFeeAmount = (payment) => {
+  const fee = payment?.fee;
+  if (!fee || typeof fee === 'string') return '—';
+  return typeof fee.amount === 'number' ? `₦${fee.amount.toLocaleString()}` : fee.amount ?? '—';
+};
+
+const getFeeType = (payment) => {
+  const fee = payment?.fee;
+  if (!fee || typeof fee === 'string') return '—';
+  return fee.feeType ?? '—';
+};
+
+const getFeeDueDate = (payment) => {
+  const fee = payment?.fee;
+  if (!fee || typeof fee === 'string') return '—';
+  return fee.dueDate ? formatDate(fee.dueDate) : '—';
+};
+
+const getFeeDescription = (payment) => {
+  const fee = payment?.fee;
+  if (!fee || typeof fee === 'string') return '—';
+  return fee.description ?? '—';
 };
 
 const getCreatedByName = (payment) => {
-  if (!payment?.createdBy) return 'N/A';
+  if (!payment?.createdBy) return '—';
   if (typeof payment.createdBy === 'string') return payment.createdBy;
   const name = [payment.createdBy.firstName, payment.createdBy.lastName].filter(Boolean).join(' ');
-  return name || payment.createdBy.email || 'N/A';
+  return name || payment.createdBy.email || '—';
+};
+
+const getCreatedByEmail = (payment) => {
+  if (!payment?.createdBy || typeof payment.createdBy === 'string') return '—';
+  return payment.createdBy?.email ?? '—';
 };
 
 function InfoRow({ label, value }) {
@@ -200,13 +241,13 @@ export default function PaymentDetailPage() {
                 Payment information
               </Typography>
               <Divider sx={{ mb: 1 }} />
-              <InfoRow label="Reference" value={payment.reference} />
+              <InfoRow label="Reference" value={payment.reference || '—'} />
               <InfoRow
                 label="Amount"
-                value={typeof payment.amount === 'number' ? `₦${payment.amount.toLocaleString()}` : payment.amount}
+                value={typeof payment.amount === 'number' ? `₦${payment.amount.toLocaleString()}` : payment.amount ?? '—'}
               />
-              <InfoRow label="Description" value={payment.description} />
-              <InfoRow label="Gateway" value={payment.gateway} />
+              <InfoRow label="Description" value={payment.description || '—'} />
+              <InfoRow label="Gateway" value={payment.gateway || '—'} />
               <InfoRow
                 label="Status"
                 value={
@@ -215,14 +256,16 @@ export default function PaymentDetailPage() {
                   </Label>
                 }
               />
+              <InfoRow label="Created at" value={formatDate(payment.createdAt)} />
+              <InfoRow label="Updated at" value={formatDate(payment.updatedAt)} />
             </Grid>
             <Grid item xs={12} md={6}>
               <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-                Related records
+                Student
               </Typography>
               <Divider sx={{ mb: 1 }} />
               <InfoRow
-                label="Student"
+                label="Name"
                 value={
                   studentId ? (
                     <Link to={`/student/${studentId}`} style={{ color: 'inherit', textDecoration: 'underline' }}>
@@ -233,10 +276,27 @@ export default function PaymentDetailPage() {
                   )
                 }
               />
-              <InfoRow label="Fee" value={getFeeName(payment)} />
-              <InfoRow label="Created by" value={getCreatedByName(payment)} />
-              <InfoRow label="Created at" value={formatDate(payment.createdAt)} />
-              <InfoRow label="Updated at" value={formatDate(payment.updatedAt)} />
+              <InfoRow label="Reg. No." value={getStudentRegNumber(payment)} />
+              <InfoRow label="Email" value={getStudentEmail(payment)} />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+                Fee
+              </Typography>
+              <Divider sx={{ mb: 1 }} />
+              <InfoRow label="Name" value={getFeeName(payment)} />
+              <InfoRow label="Amount" value={getFeeAmount(payment)} />
+              <InfoRow label="Fee type" value={getFeeType(payment)} />
+              <InfoRow label="Due date" value={getFeeDueDate(payment)} />
+              <InfoRow label="Description" value={getFeeDescription(payment)} />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+                Created by (User)
+              </Typography>
+              <Divider sx={{ mb: 1 }} />
+              <InfoRow label="Name" value={getCreatedByName(payment)} />
+              <InfoRow label="Email" value={getCreatedByEmail(payment)} />
             </Grid>
           </Grid>
         </Card>

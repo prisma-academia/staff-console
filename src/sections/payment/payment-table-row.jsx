@@ -82,7 +82,7 @@ export default function PaymentTableRow({
             {payment?.status || 'N/A'}
           </Label>
         </TableCell>
-        <TableCell>{payment?.reference || 'N/A'}</TableCell>
+        <TableCell>{payment?.reference || '—'}</TableCell>
         <TableCell>{dateDisplay}</TableCell>
         <TableCell align="right">
           <IconButton onClick={() => setOpenModal(true)}>
