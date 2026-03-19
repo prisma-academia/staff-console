@@ -47,11 +47,14 @@ const formatDate = (dateString) => {
   }
 };
 
-const getUserName = (payment) => {
-  if (!payment?.user) return 'Unknown';
-  if (typeof payment.user === 'string') return payment.user;
-  const fullName = `${payment.user?.personalInfo?.firstName || ''} ${payment.user?.personalInfo?.lastName || ''}`.trim();
-  return fullName || payment.user?.email || 'Unknown';
+const getStudent = (payment) => payment?.student ?? payment?.user;
+
+const getStudentName = (payment) => {
+  const student = getStudent(payment);
+  if (!student) return 'Unknown';
+  if (typeof student === 'string') return student;
+  const fullName = `${student?.personalInfo?.firstName || ''} ${student?.personalInfo?.lastName || ''}`.trim();
+  return fullName || student?.email || 'Unknown';
 };
 
 const getFeeName = (payment) => {
@@ -149,7 +152,8 @@ export default function PaymentDetailPage() {
     );
   }
 
-  const studentId = typeof payment.user === 'object' ? payment.user?._id : payment.user;
+  const payer = getStudent(payment);
+  const studentId = typeof payer === 'object' ? payer?._id : payer;
 
   return (
     <Container maxWidth="xl">
@@ -222,10 +226,10 @@ export default function PaymentDetailPage() {
                 value={
                   studentId ? (
                     <Link to={`/student/${studentId}`} style={{ color: 'inherit', textDecoration: 'underline' }}>
-                      {getUserName(payment)}
+                      {getStudentName(payment)}
                     </Link>
                   ) : (
-                    getUserName(payment)
+                    getStudentName(payment)
                   )
                 }
               />

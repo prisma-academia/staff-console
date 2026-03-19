@@ -42,17 +42,21 @@ const getStatusColor = (status) => {
   return 'default';
 };
 
-const getUserName = (payment) => {
-  if (!payment?.user) return 'Unknown';
-  if (typeof payment.user === 'string') return payment.user;
-  const fullName = `${payment.user?.personalInfo?.firstName || ''} ${payment.user?.personalInfo?.lastName || ''}`.trim();
-  return fullName || payment.user?.email || 'Unknown';
+// Student/payer: API may return student or user (populated)
+const getStudent = (payment) => payment?.student ?? payment?.user;
+
+const getStudentName = (payment) => {
+  const student = getStudent(payment);
+  if (!student) return 'Unknown';
+  if (typeof student === 'string') return student;
+  const fullName = `${student?.personalInfo?.firstName || ''} ${student?.personalInfo?.lastName || ''}`.trim();
+  return fullName || student?.email || 'Unknown';
 };
 
-const getRegNumber = (payment) => {
-  if (!payment?.user) return '—';
-  if (typeof payment.user === 'string') return '—';
-  return payment.user?.regNumber ?? '—';
+const getStudentRegNumber = (payment) => {
+  const student = getStudent(payment);
+  if (!student || typeof student === 'string') return '—';
+  return student?.regNumber ?? '—';
 };
 
 const getFeeName = (payment) => {
@@ -72,13 +76,13 @@ const formatDate = (dateString) => {
 
 const columns = [
   {
-    id: 'user',
-    label: 'Full Name',
+    id: 'student',
+    label: 'Student',
     align: 'left',
     cellSx: { width: '18%' },
     renderCell: (row) => (
       <Typography variant="subtitle2" noWrap>
-        {getUserName(row)}
+        {getStudentName(row)}
       </Typography>
     ),
   },
@@ -88,7 +92,7 @@ const columns = [
     cellSx: { width: '12%' },
     renderCell: (row) => (
       <Typography variant="body2" noWrap>
-        {getRegNumber(row)}
+        {getStudentRegNumber(row)}
       </Typography>
     ),
   },
@@ -201,8 +205,9 @@ export default function PaymentPage() {
         setCreateStudentId('');
         setCreateFeeId('');
         queryClient.invalidateQueries({ queryKey: ['payments'] });
-        if (result?.payment?.user) {
-          const uid = typeof result.payment.user === 'object' ? result.payment.user._id : result.payment.user;
+        const payer = result?.payment?.student ?? result?.payment?.user;
+        if (payer) {
+          const uid = typeof payer === 'object' ? payer._id : payer;
           if (uid) queryClient.invalidateQueries({ queryKey: ['student', uid] });
         }
         enqueueSnackbar('Redirecting to payment gateway...', { variant: 'info' });

@@ -154,14 +154,15 @@ export default function PaymentDetails({ open, setOpen, payment, onSuccess }) {
     }
   };
 
-  // Extract user name from nested object structure
-  const getUserName = () => {
-    if (!payment?.user) return 'Unknown';
-    if (typeof payment.user === 'string') return payment.user;
-    const fullName = `${payment.user?.personalInfo?.firstName || ''} ${payment.user?.personalInfo?.lastName || ''}`.trim();
-    return fullName || payment.user?.email || 'Unknown';
+  const student = payment?.student ?? payment?.user;
+  const getStudentName = () => {
+    if (!student) return 'Unknown';
+    if (typeof student === 'string') return student;
+    const fullName = `${student?.personalInfo?.firstName || ''} ${student?.personalInfo?.lastName || ''}`.trim();
+    return fullName || student?.email || 'Unknown';
   };
-  const userName = getUserName();
+  const studentName = getStudentName();
+  const studentRegNumber = student && typeof student === 'object' ? student?.regNumber ?? '—' : '—';
 
   // Extract fee name from nested object structure
   const getFeeName = () => {
@@ -196,13 +197,25 @@ export default function PaymentDetails({ open, setOpen, payment, onSuccess }) {
           <Divider sx={{ my: 2 }} />
 
           <Stack spacing={3}>
-            {/* Read-only User and Fee Information */}
+            {/* Read-only Student and Fee Information */}
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="User"
-                  value={userName}
+                  label="Student"
+                  value={studentName}
+                  size="small"
+                  InputProps={{
+                    readOnly: true,
+                  }}
+                  variant="outlined"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Reg. No."
+                  value={studentRegNumber}
                   size="small"
                   InputProps={{
                     readOnly: true,

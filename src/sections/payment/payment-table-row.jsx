@@ -22,14 +22,14 @@ export default function PaymentTableRow({
 }) {
   const [openModal, setOpenModal] = useState(false);
 
-  // Extract user name from nested object structure
-  const getUserName = () => {
-    if (!payment?.user) return 'Unknown';
-    if (typeof payment.user === 'string') return payment.user;
-    const fullName = `${payment.user?.personalInfo?.firstName || ''} ${payment.user?.personalInfo?.lastName || ''}`.trim();
-    return fullName || payment.user?.email || 'Unknown';
+  const student = payment?.student ?? payment?.user;
+  const getStudentName = () => {
+    if (!student) return 'Unknown';
+    if (typeof student === 'string') return student;
+    const fullName = `${student?.personalInfo?.firstName || ''} ${student?.personalInfo?.lastName || ''}`.trim();
+    return fullName || student?.email || 'Unknown';
   };
-  const userName = getUserName();
+  const studentName = getStudentName();
 
   // Extract fee name from nested object structure
   const getFeeName = () => {
@@ -69,7 +69,7 @@ export default function PaymentTableRow({
         <TableCell component="th" scope="row" padding="none">
           <Stack direction="row" alignItems="center" spacing={2}>
             <Typography variant="subtitle2" noWrap>
-              {userName}
+              {studentName}
             </Typography>
           </Stack>
         </TableCell>
