@@ -20,14 +20,14 @@ export default function PaymentTableToolbar({
   numSelected,
   filterName,
   onFilterName,
-  selectedUser,
+  selectedStudent,
   selectedFee,
   selectedRegNumber,
-  onUserChange,
+  onStudentChange,
   onFeeChange,
   onRegNumberChange,
 }) {
-  const { data: users } = useQuery({
+  const { data: students } = useQuery({
     queryKey: ['students'],
     queryFn: () => StudentApi.getStudents(),
   });
@@ -37,10 +37,10 @@ export default function PaymentTableToolbar({
     queryFn: FeeApi.getFees,
   });
 
-  const userOptions =
-    users?.map((user) => ({
-      name: `${user?.personalInfo?.firstName || ''} ${user?.personalInfo?.lastName || ''}`.trim() || user?.email || 'Unknown',
-      value: user._id,
+  const studentOptions =
+    students?.map((student) => ({
+      name: `${student?.personalInfo?.firstName || ''} ${student?.personalInfo?.lastName || ''}`.trim() || student?.email || 'Unknown',
+      value: student._id,
     })) || [];
 
   const feeOptions =
@@ -49,8 +49,8 @@ export default function PaymentTableToolbar({
       value: fee._id,
     })) || [];
 
-  const handleClearUser = () => {
-    onUserChange('');
+  const handleClearStudent = () => {
+    onStudentChange('');
   };
 
   const handleClearFee = () => {
@@ -95,16 +95,16 @@ export default function PaymentTableToolbar({
           />
           <Box sx={{ width: 200 }}>
             <CustomSelect
-              list={userOptions}
-              value={selectedUser}
-              setValue={onUserChange}
-              label="Filter by User"
+              list={studentOptions}
+              value={selectedStudent}
+              setValue={onStudentChange}
+              label="Filter by Student"
             />
           </Box>
-          {selectedUser && (
+          {selectedStudent && (
             <Chip
-              label={`User: ${userOptions.find((u) => u.value === selectedUser)?.name || ''}`}
-              onDelete={handleClearUser}
+              label={`Student: ${studentOptions.find((s) => s.value === selectedStudent)?.name || ''}`}
+              onDelete={handleClearStudent}
               size="small"
             />
           )}
@@ -162,10 +162,10 @@ PaymentTableToolbar.propTypes = {
   numSelected: PropTypes.number,
   filterName: PropTypes.string,
   onFilterName: PropTypes.func,
-  selectedUser: PropTypes.string,
+  selectedStudent: PropTypes.string,
   selectedFee: PropTypes.string,
   selectedRegNumber: PropTypes.string,
-  onUserChange: PropTypes.func,
+  onStudentChange: PropTypes.func,
   onFeeChange: PropTypes.func,
   onRegNumberChange: PropTypes.func,
 };

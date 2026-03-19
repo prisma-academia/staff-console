@@ -35,21 +35,29 @@ import PaymentDetails from '../payment-details';
 // ----------------------------------------------------------------------
 
 const getStatusColor = (status) => {
-  if (status === 'Failed') return 'error';
-  if (status === 'Pending') return 'warning';
-  if (status === 'Completed') return 'success';
-  if (status === 'Overdue') return 'error';
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'failed') return 'error';
+  if (normalized === 'pending') return 'warning';
+  if (normalized === 'completed') return 'success';
+  if (normalized === 'overdue') return 'error';
   return 'default';
 };
 
-// Student/payer: API may return student or user (populated)
-const getStudent = (payment) => payment?.student ?? payment?.user;
+// Student is always the owner of the payment (populated)
+const getStudent = (payment) => payment?.student;
 
 const getStudentName = (payment) => {
   const student = getStudent(payment);
   if (!student) return 'Unknown';
   if (typeof student === 'string') return student;
-  const fullName = `${student?.personalInfo?.firstName || ''} ${student?.personalInfo?.lastName || ''}`.trim();
+  const fullName = [
+    student?.personalInfo?.firstName,
+    student?.personalInfo?.middleName,
+    student?.personalInfo?.lastName,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
   return fullName || student?.email || 'Unknown';
 };
 
@@ -209,7 +217,7 @@ export default function PaymentPage() {
         setCreateStudentId('');
         setCreateFeeId('');
         queryClient.invalidateQueries({ queryKey: ['payments'] });
-        const payer = result?.payment?.student ?? result?.payment?.user;
+        const payer = result?.payment?.student;
         if (payer) {
           const uid = typeof payer === 'object' ? payer._id : payer;
           if (uid) queryClient.invalidateQueries({ queryKey: ['student', uid] });

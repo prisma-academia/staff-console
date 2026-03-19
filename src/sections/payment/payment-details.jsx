@@ -154,7 +154,7 @@ export default function PaymentDetails({ open, setOpen, payment, onSuccess }) {
     }
   };
 
-  const student = payment?.student ?? payment?.user;
+  const student = payment?.student;
   const getStudentName = () => {
     if (!student) return 'Unknown';
     if (typeof student === 'string') return student;

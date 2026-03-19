@@ -25,10 +25,11 @@ import PaymentDetails from '../payment-details';
 // ----------------------------------------------------------------------
 
 const getStatusColor = (status) => {
-  if (status === 'Failed') return 'error';
-  if (status === 'Pending') return 'warning';
-  if (status === 'Completed') return 'success';
-  if (status === 'Overdue') return 'error';
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'failed') return 'error';
+  if (normalized === 'pending') return 'warning';
+  if (normalized === 'completed') return 'success';
+  if (normalized === 'overdue') return 'error';
   return 'default';
 };
 
@@ -47,13 +48,20 @@ const formatDate = (dateString) => {
   }
 };
 
-const getStudent = (payment) => payment?.student ?? payment?.user;
+const getStudent = (payment) => payment?.student;
 
 const getStudentName = (payment) => {
   const student = getStudent(payment);
   if (!student) return 'Unknown';
   if (typeof student === 'string') return student;
-  const fullName = `${student?.personalInfo?.firstName || ''} ${student?.personalInfo?.lastName || ''}`.trim();
+  const fullName = [
+    student?.personalInfo?.firstName,
+    student?.personalInfo?.middleName,
+    student?.personalInfo?.lastName,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
   return fullName || student?.email || 'Unknown';
 };
 
@@ -194,7 +202,7 @@ export default function PaymentDetailPage() {
   }
 
   const payer = getStudent(payment);
-  const studentId = typeof payer === 'object' ? payer?._id : payer;
+  const studentId = typeof payer === 'object' ? payer?._id || payer?.id : payer;
 
   return (
     <Container maxWidth="xl">

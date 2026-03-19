@@ -52,21 +52,17 @@ const getPaymentStatusColor = (status) => {
 };
 
 function getPaymentStudentName(payment) {
-  if (payment?.students?.personalInfo) {
-    const first = payment.students.personalInfo.firstName || '';
-    const last = payment.students.personalInfo.lastName || '';
-    return [first, last].filter(Boolean).join(' ').trim() || 'N/A';
+  const student = payment?.student;
+  if (student?.personalInfo) {
+    const first = student.personalInfo.firstName || '';
+    const last = student.personalInfo.lastName || '';
+    return [first, last].filter(Boolean).join(' ').trim() || student?.email || 'N/A';
   }
-  if (payment?.user) {
-    const first = payment.user.firstName || '';
-    const last = payment.user.lastName || '';
-    return [first, last].filter(Boolean).join(' ').trim() || payment.user.email || 'N/A';
-  }
-  return 'N/A';
+  return student?.email ?? 'N/A';
 }
 
 function getPaymentRegNumber(payment) {
-  return payment?.students?.regNumber ?? payment?.user?.regNumber ?? 'N/A';
+  return payment?.student?.regNumber ?? 'N/A';
 }
 
 export default function FeeDetailsContent({ feeDetails, isLoading }) {

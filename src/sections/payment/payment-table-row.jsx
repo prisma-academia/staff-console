@@ -22,7 +22,7 @@ export default function PaymentTableRow({
 }) {
   const [openModal, setOpenModal] = useState(false);
 
-  const student = payment?.student ?? payment?.user;
+  const student = payment?.student;
   const getStudentName = () => {
     if (!student) return 'Unknown';
     if (typeof student === 'string') return student;

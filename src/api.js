@@ -401,7 +401,20 @@ export const paymentApi = {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) {
-      const err = new Error('Failed to load receipt');
+      let errorMessage = 'Failed to load receipt';
+      try {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const errorJson = await res.json();
+          errorMessage = errorJson.message || errorJson.error || errorMessage;
+        } else {
+          const errorText = await res.text();
+          if (errorText) errorMessage = errorText;
+        }
+      } catch {
+        errorMessage = res.statusText || errorMessage;
+      }
+      const err = new Error(errorMessage);
       err.status = res.status;
       throw err;
     }
