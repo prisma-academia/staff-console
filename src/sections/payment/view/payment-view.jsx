@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { useSnackbar } from 'notistack';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -145,6 +145,8 @@ export default function PaymentPage() {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
   const [selectedPayment, setSelectedPayment] = useState(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [filterRegNumber, setFilterRegNumber] = useState('');
   const [filterFeeId, setFilterFeeId] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -152,17 +154,30 @@ export default function PaymentPage() {
   const [createStudentId, setCreateStudentId] = useState('');
   const [createFeeId, setCreateFeeId] = useState('');
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['payments', filterRegNumber, filterFeeId],
-    queryFn: () =>
-      paymentApi.getPayments(undefined, filterFeeId || undefined, filterRegNumber || undefined),
+  const queryParams = useMemo(
+    () => ({
+      limit: rowsPerPage,
+      skip: page * rowsPerPage,
+      sort: '-createdAt',
+      ...(filterRegNumber?.trim() ? { regNumber: filterRegNumber.trim() } : {}),
+      ...(filterFeeId ? { fee: filterFeeId } : {}),
+      ...(filterStatus?.trim() ? { status: filterStatus } : {}),
+    }),
+    [page, rowsPerPage, filterRegNumber, filterFeeId, filterStatus]
+  );
+
+  const { data: paymentsResponse, isLoading } = useQuery({
+    queryKey: ['payments', queryParams],
+    queryFn: () => paymentApi.getPaymentsWithPagination(queryParams),
   });
 
-  const rawPayments = Array.isArray(data) ? data : (data?.data ?? []);
-  const payments =
-    filterStatus && filterStatus.trim() !== ''
-      ? rawPayments.filter((p) => p?.status === filterStatus)
-      : rawPayments;
+  const payments = Array.isArray(paymentsResponse?.data) ? paymentsResponse.data : [];
+  const pagination = paymentsResponse?.pagination ?? {
+    total: 0,
+    limit: rowsPerPage,
+    skip: page * rowsPerPage,
+    pages: 0,
+  };
 
   const { data: feesData } = useQuery({
     queryKey: ['fees'],
@@ -213,6 +228,7 @@ export default function PaymentPage() {
     setFilterRegNumber('');
     setFilterFeeId('');
     setFilterStatus('');
+    setPage(0);
   };
 
   const getStudentLabel = (student) => {
@@ -298,7 +314,10 @@ export default function PaymentPage() {
             size="small"
             placeholder="Reg. number"
             value={filterRegNumber}
-            onChange={(e) => setFilterRegNumber(e.target.value)}
+            onChange={(e) => {
+              setFilterRegNumber(e.target.value);
+              setPage(0);
+            }}
             sx={{ minWidth: 160 }}
           />
           <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -307,7 +326,10 @@ export default function PaymentPage() {
               labelId="payment-filter-fee-label"
               label="Fee"
               value={filterFeeId}
-              onChange={(e) => setFilterFeeId(e.target.value)}
+              onChange={(e) => {
+                setFilterFeeId(e.target.value);
+                setPage(0);
+              }}
             >
               <MenuItem value="">All fees</MenuItem>
               {feeList.map((fee) => (
@@ -323,7 +345,10 @@ export default function PaymentPage() {
               labelId="payment-filter-status-label"
               label="Status"
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setPage(0);
+              }}
             >
               {STATUS_OPTIONS.map((opt) => (
                 <MenuItem key={opt.value || 'all'} value={opt.value}>
@@ -360,6 +385,15 @@ export default function PaymentPage() {
             isLoading={isLoading}
             emptyRowsHeight={53}
             initialRowsPerPage={10}
+            manualPagination
+            count={pagination.total}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            onPageChange={(e, newPage) => setPage(newPage)}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
             onRowClick={(row) => navigate(`/payment/${row._id}`)}
             toolbarProps={{
               searchPlaceholder: 'Search payments...',

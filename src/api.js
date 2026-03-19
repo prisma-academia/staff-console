@@ -55,6 +55,31 @@ const handleResponse = async (response) => {
   throw error;
 };
 
+// Returns full result { ok, data, pagination } for endpoints that need pagination (does not strip to result.data).
+const handleResponseFull = async (response) => {
+  let result;
+  try {
+    const text = await response.text();
+    result = text ? JSON.parse(text) : {};
+  } catch (parseError) {
+    result = { ok: false, message: response.statusText || 'An error occurred' };
+  }
+  if (response.ok && result.ok) {
+    return result;
+  }
+  const errorMessage = result.message || result.error || response.statusText || 'An error occurred';
+  const error = new Error(errorMessage);
+  error.status = response.status;
+  error.data = result;
+  const { showError, showPermissionError } = useErrorStore.getState();
+  if (response.status === 403) {
+    showPermissionError({ title: 'Access Denied', message: errorMessage, details: result });
+  } else if (response.status >= 500) {
+    showError({ title: 'Server Error', message: errorMessage, details: result });
+  }
+  throw error;
+};
+
 let isRefreshing = false;
 let refreshSubscribers = [];
 
@@ -149,6 +174,72 @@ const createRequest = async (endpoint, options = {}, retry = true) => {
   }
 
   return handleResponse(response);
+};
+
+// Same as createRequest but returns full result { ok, data, pagination } for paginated list endpoints.
+const createRequestFullResult = async (endpoint, options = {}, retry = true) => {
+  const { token, refreshToken, user, setToken, logOut } = useAuthStore.getState();
+  const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+  const url = `${config.baseUrl}${apiVersion}/${cleanEndpoint}`;
+  let response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        ...baseHeaders,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+  } catch (networkError) {
+    const { showError } = useErrorStore.getState();
+    showError({
+      title: 'Network Error',
+      message: 'Unable to connect to the server. Please check your internet connection and try again.',
+      details: networkError.message,
+      retry: () => createRequestFullResult(endpoint, options, retry),
+    });
+    throw networkError;
+  }
+  if (response.status === 401 && retry && refreshToken && user) {
+    if (!isRefreshing) {
+      isRefreshing = true;
+      try {
+        const refreshResponse = await fetch(`${config.baseUrl}${apiVersion}/user/refresh-token`, {
+          method: 'POST',
+          headers: baseHeaders,
+          body: JSON.stringify({ email: user.email, refreshToken }),
+        });
+        const refreshResult = await refreshResponse.json();
+        if (refreshResult.ok) {
+          const newToken = refreshResult.data.token;
+          setToken(newToken);
+          isRefreshing = false;
+          onRefreshed(newToken);
+          return createRequestFullResult(endpoint, options, false);
+        }
+        const { showError } = useErrorStore.getState();
+        showError({
+          title: 'Session Expired',
+          message: 'Your session has expired. Please log in again.',
+          onClose: () => logOut(),
+        });
+        logOut();
+        throw new Error('Session expired. Please log in again.');
+      } catch (error) {
+        isRefreshing = false;
+        logOut();
+        throw error;
+      }
+    }
+    return new Promise((resolve) => {
+      addRefreshSubscriber((newToken) => {
+        resolve(createRequestFullResult(endpoint, options, false));
+      });
+    });
+  }
+  return handleResponseFull(response);
 };
 
 export const apiClient = {
@@ -293,13 +384,13 @@ export const AnalyticsApi = {
 };
 
 export const paymentApi = {
-  getPayments: (userId, feeId, regNumber) => {
-    const params = new URLSearchParams();
-    if (userId) params.append('user', userId);
-    if (feeId) params.append('fee', feeId);
-    if (regNumber) params.append('regNumber', regNumber);
-    const queryString = params.toString();
+  getPayments: (params = {}) => {
+    const queryString = buildQueryString(params);
     return apiClient.get(`payment${queryString ? `?${queryString}` : ''}`);
+  },
+  getPaymentsWithPagination: (params = {}) => {
+    const queryString = buildQueryString(params);
+    return createRequestFullResult(`payment${queryString ? `?${queryString}` : ''}`);
   },
   getPaymentById: (id) => apiClient.get(`payment/${id}`),
   getReceiptPdf: async (id) => {
