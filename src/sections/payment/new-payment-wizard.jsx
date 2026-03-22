@@ -10,6 +10,7 @@ import Stack from '@mui/material/Stack';
 import Alert from '@mui/material/Alert';
 import Radio from '@mui/material/Radio';
 import Button from '@mui/material/Button';
+import Select from '@mui/material/Select';
 import Divider from '@mui/material/Divider';
 import Stepper from '@mui/material/Stepper';
 import MenuItem from '@mui/material/MenuItem';
@@ -18,14 +19,16 @@ import Container from '@mui/material/Container';
 import FormLabel from '@mui/material/FormLabel';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import InputLabel from '@mui/material/InputLabel';
 import RadioGroup from '@mui/material/RadioGroup';
 import LoadingButton from '@mui/lab/LoadingButton';
 import FormControl from '@mui/material/FormControl';
+import Autocomplete from '@mui/material/Autocomplete';
 import { alpha, useTheme } from '@mui/material/styles';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
 
-import { FeeApi, paymentApi } from 'src/api';
+import { FeeApi, paymentApi, programApi, classLevelApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
 
@@ -33,7 +36,36 @@ import Iconify from 'src/components/iconify';
 
 const STEPS = ['Details', 'Preview'];
 
+const SEMESTER_OPTIONS = [
+  { value: '', label: 'All semesters' },
+  { value: 'First Semester', label: 'First Semester' },
+  { value: 'Second Semester', label: 'Second Semester' },
+];
+
 const IMPLEMENTED_GATEWAYS = new Set(['Paystack']);
+
+const refId = (x) => {
+  if (x == null) return '';
+  const id = typeof x === 'object' && x !== null ? x._id : x;
+  return id != null ? String(id) : '';
+};
+
+function feeMatchesFilters(fee, { programId, classLevelId, semester }) {
+  if (programId) {
+    const programs = fee.programs || [];
+    const ids = programs.map((p) => refId(p));
+    if (ids.length > 0 && !ids.includes(programId)) return false;
+  }
+  if (classLevelId) {
+    const levels = fee.classLevels || [];
+    const ids = levels.map((c) => refId(c));
+    if (ids.length > 0 && !ids.includes(classLevelId)) return false;
+  }
+  if (semester) {
+    if (fee.semester && fee.semester !== semester) return false;
+  }
+  return true;
+}
 
 const formatCurrency = (amount) => {
   if (amount == null) return '—';
@@ -76,6 +108,9 @@ export default function NewPaymentWizard() {
   const [feeId, setFeeId] = useState('');
   const [studentId, setStudentId] = useState('');
   const [gateway, setGateway] = useState('Paystack');
+  const [filterProgramId, setFilterProgramId] = useState('');
+  const [filterClassLevelId, setFilterClassLevelId] = useState('');
+  const [filterSemester, setFilterSemester] = useState('');
 
   const { data: feesData, isLoading: feesLoading } = useQuery({
     queryKey: ['fees'],
@@ -84,6 +119,37 @@ export default function NewPaymentWizard() {
   const feeList = useMemo(
     () => (Array.isArray(feesData) ? feesData : (feesData?.data ?? [])),
     [feesData]
+  );
+
+  const { data: programsData } = useQuery({
+    queryKey: ['programs'],
+    queryFn: programApi.getPrograms,
+  });
+  const programsList = useMemo(
+    () => (Array.isArray(programsData) ? programsData : (programsData?.data ?? [])),
+    [programsData]
+  );
+
+  const { data: classLevelsData } = useQuery({
+    queryKey: ['classLevels'],
+    queryFn: classLevelApi.getClassLevels,
+  });
+  const classLevelsList = useMemo(
+    () =>
+      Array.isArray(classLevelsData) ? classLevelsData : (classLevelsData?.data ?? []),
+    [classLevelsData]
+  );
+
+  const filteredFeeList = useMemo(
+    () =>
+      feeList.filter((fee) =>
+        feeMatchesFilters(fee, {
+          programId: filterProgramId,
+          classLevelId: filterClassLevelId,
+          semester: filterSemester,
+        })
+      ),
+    [feeList, filterProgramId, filterClassLevelId, filterSemester]
   );
 
   const selectedFee = useMemo(
@@ -131,6 +197,12 @@ export default function NewPaymentWizard() {
   useEffect(() => {
     setStudentId('');
   }, [feeId]);
+
+  useEffect(() => {
+    if (!feeId) return;
+    const stillVisible = filteredFeeList.some((f) => String(f._id) === String(feeId));
+    if (!stillVisible) setFeeId('');
+  }, [feeId, filteredFeeList]);
 
   const { mutate: initializePayment, isPending: isInitializing } = useMutation({
     mutationFn: (body) => paymentApi.initializePaymentForStudent(body),
@@ -212,23 +284,22 @@ export default function NewPaymentWizard() {
       );
     }
     return (
-      <TextField
-        select
+      <Autocomplete
         fullWidth
-        label="Select student"
-        value={studentId}
-        onChange={(e) => setStudentId(e.target.value)}
         size="small"
-      >
-        <MenuItem value="">
-          <em>Choose a student</em>
-        </MenuItem>
-        {list.map((s) => (
-          <MenuItem key={s._id} value={s._id}>
-            {studentLabel(s)}
-          </MenuItem>
-        ))}
-      </TextField>
+        options={list}
+        getOptionLabel={(option) => studentLabel(option)}
+        isOptionEqualToValue={(a, b) => Boolean(a && b && a._id === b._id)}
+        value={list.find((s) => s._id === studentId) ?? null}
+        onChange={(_, v) => setStudentId(v?._id ?? '')}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="Select student"
+            placeholder="Search by name or reg. no."
+          />
+        )}
+      />
     );
   };
 
@@ -286,6 +357,60 @@ export default function NewPaymentWizard() {
               <Typography variant="subtitle2" color="text.secondary">
                 Fee
               </Typography>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={2}
+                flexWrap="wrap"
+                useFlexGap
+              >
+                <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 160 } }}>
+                  <InputLabel id="new-pay-filter-program-label">Program</InputLabel>
+                  <Select
+                    labelId="new-pay-filter-program-label"
+                    label="Program"
+                    value={filterProgramId}
+                    onChange={(e) => setFilterProgramId(e.target.value)}
+                  >
+                    <MenuItem value="">All programs</MenuItem>
+                    {programsList.map((p) => (
+                      <MenuItem key={p._id} value={String(p._id)}>
+                        {p.name || p._id}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 160 } }}>
+                  <InputLabel id="new-pay-filter-class-label">Class</InputLabel>
+                  <Select
+                    labelId="new-pay-filter-class-label"
+                    label="Class"
+                    value={filterClassLevelId}
+                    onChange={(e) => setFilterClassLevelId(e.target.value)}
+                  >
+                    <MenuItem value="">All classes</MenuItem>
+                    {classLevelsList.map((c) => (
+                      <MenuItem key={c._id} value={String(c._id)}>
+                        {c.name || c._id}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 160 } }}>
+                  <InputLabel id="new-pay-filter-semester-label">Semester</InputLabel>
+                  <Select
+                    labelId="new-pay-filter-semester-label"
+                    label="Semester"
+                    value={filterSemester}
+                    onChange={(e) => setFilterSemester(e.target.value)}
+                  >
+                    {SEMESTER_OPTIONS.map((opt) => (
+                      <MenuItem key={opt.value || 'all'} value={opt.value}>
+                        {opt.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Stack>
               {feesLoading ? (
                 <Box display="flex" justifyContent="center" py={3}>
                   <CircularProgress size={32} />
@@ -302,7 +427,7 @@ export default function NewPaymentWizard() {
                   <MenuItem value="">
                     <em>Choose a fee</em>
                   </MenuItem>
-                  {feeList.map((fee) => (
+                  {filteredFeeList.map((fee) => (
                     <MenuItem key={fee._id} value={fee._id}>
                       {fee.name} — {formatCurrency(fee.amount)}
                     </MenuItem>
