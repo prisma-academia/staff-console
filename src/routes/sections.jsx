@@ -27,6 +27,7 @@ const AppSettingsPage = lazy(() => import('src/pages/app-settings'));
 const LoginPage = lazy(() => import('src/pages/login'));
 const ProgramPage = lazy(() => import('src/pages/program'));
 const PaymentPage = lazy(() => import('src/pages/payment'));
+const PaymentNewPage = lazy(() => import('src/pages/payment-new'));
 const PaymentDetailPage = lazy(() => import('src/sections/payment/detail/payment-detail-page'));
 const InstructorPage = lazy(() => import('src/pages/instructor'));
 const MemoPage = lazy(() => import('src/pages/memo'));
@@ -183,6 +184,14 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <PaymentPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'payment/new',
+          element: (
+            <PrivateRoute>
+              <PaymentNewPage />
             </PrivateRoute>
           ),
         },

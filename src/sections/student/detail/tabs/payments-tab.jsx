@@ -85,8 +85,8 @@ export default function PaymentsTab({ student }) {
         setSelectedFeeId('');
         queryClient.invalidateQueries({ queryKey: ['payments'] });
         queryClient.invalidateQueries({ queryKey: ['student', student?._id] });
-        enqueueSnackbar('Redirecting to payment gateway...', { variant: 'info' });
-        window.location.href = url;
+        window.open(url, '_blank', 'noopener,noreferrer');
+        enqueueSnackbar('Payment page opened in a new tab.', { variant: 'success' });
       } else {
         enqueueSnackbar('No payment URL returned', { variant: 'error' });
       }
@@ -101,7 +101,11 @@ export default function PaymentsTab({ student }) {
       enqueueSnackbar('Please select a fee', { variant: 'warning' });
       return;
     }
-    initializePayment({ studentId: student._id, feeId: selectedFeeId });
+    initializePayment({
+      studentId: student._id,
+      feeId: selectedFeeId,
+      gateway: 'Paystack',
+    });
   };
 
   return (

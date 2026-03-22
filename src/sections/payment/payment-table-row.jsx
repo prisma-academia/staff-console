@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import PropTypes from 'prop-types';
+import { useNavigate } from 'react-router-dom';
 
 import Stack from '@mui/material/Stack';
 import TableRow from '@mui/material/TableRow';
@@ -11,8 +11,6 @@ import IconButton from '@mui/material/IconButton';
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
 
-import PaymentDetails from './payment-details';
-
 // ----------------------------------------------------------------------
 
 export default function PaymentTableRow({
@@ -20,7 +18,7 @@ export default function PaymentTableRow({
   payment,
   handleClick,
 }) {
-  const [openModal, setOpenModal] = useState(false);
+  const navigate = useNavigate();
 
   const student = payment?.student;
   const getStudentName = () => {
@@ -61,37 +59,34 @@ export default function PaymentTableRow({
   };
 
   return (
-    <>
-      <TableRow hover tabIndex={-1} role="checkbox" selected={selected}>
-        <TableCell padding="checkbox">
-          <Checkbox disableRipple checked={selected} onChange={handleClick} />
-        </TableCell>
-        <TableCell component="th" scope="row" padding="none">
-          <Stack direction="row" alignItems="center" spacing={2}>
-            <Typography variant="subtitle2" noWrap>
-              {studentName}
-            </Typography>
-          </Stack>
-        </TableCell>
-        <TableCell>{feeName}</TableCell>
-        <TableCell>
-          {typeof payment?.amount === 'number' ? `₦${payment.amount.toLocaleString()}` : payment?.amount || 'N/A'}
-        </TableCell>
-        <TableCell>
-          <Label color={getStatusColor(payment?.status)}>
-            {payment?.status || 'N/A'}
-          </Label>
-        </TableCell>
-        <TableCell>{payment?.reference || '—'}</TableCell>
-        <TableCell>{dateDisplay}</TableCell>
-        <TableCell align="right">
-          <IconButton onClick={() => setOpenModal(true)}>
-            <Iconify icon="carbon:settings-edit" />
-          </IconButton>
-        </TableCell>
-      </TableRow>
-      <PaymentDetails open={openModal} setOpen={setOpenModal} payment={payment} />
-    </>
+    <TableRow hover tabIndex={-1} role="checkbox" selected={selected}>
+      <TableCell padding="checkbox">
+        <Checkbox disableRipple checked={selected} onChange={handleClick} />
+      </TableCell>
+      <TableCell component="th" scope="row" padding="none">
+        <Stack direction="row" alignItems="center" spacing={2}>
+          <Typography variant="subtitle2" noWrap>
+            {studentName}
+          </Typography>
+        </Stack>
+      </TableCell>
+      <TableCell>{feeName}</TableCell>
+      <TableCell>
+        {typeof payment?.amount === 'number' ? `₦${payment.amount.toLocaleString()}` : payment?.amount || 'N/A'}
+      </TableCell>
+      <TableCell>
+        <Label color={getStatusColor(payment?.status)}>
+          {payment?.status || 'N/A'}
+        </Label>
+      </TableCell>
+      <TableCell>{payment?.reference || '—'}</TableCell>
+      <TableCell>{dateDisplay}</TableCell>
+      <TableCell align="right">
+        <IconButton onClick={() => navigate(`/payment/${payment._id}`)} aria-label="View payment details">
+          <Iconify icon="eva:eye-fill" />
+        </IconButton>
+      </TableCell>
+    </TableRow>
   );
 }
 

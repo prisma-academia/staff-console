@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useSnackbar } from 'notistack';
-import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -19,8 +19,6 @@ import { paymentApi } from 'src/api';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
-
-import PaymentDetails from '../payment-details';
 
 // ----------------------------------------------------------------------
 
@@ -142,14 +140,33 @@ InfoRow.propTypes = {
 export default function PaymentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
-  const [editModalOpen, setEditModalOpen] = useState(false);
   const [printingReceipt, setPrintingReceipt] = useState(false);
 
-  const { data: payment, isLoading, error, refetch } = useQuery({
+  const { data: payment, isLoading, error } = useQuery({
     queryKey: ['payment', id],
     queryFn: () => paymentApi.getPaymentById(id),
     enabled: Boolean(id),
+  });
+
+  const { mutate: validatePayment, isPending: isValidating } = useMutation({
+    mutationFn: () => {
+      const paymentId = payment?._id;
+      const reference = payment?.reference;
+      if (!paymentId && !reference) {
+        throw new Error('Payment ID or reference is required');
+      }
+      return paymentApi.verifyPayment(paymentId, reference);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['payment', id] });
+      enqueueSnackbar('Payment validated successfully', { variant: 'success' });
+    },
+    onError: (err) => {
+      enqueueSnackbar(err?.message || 'Failed to validate payment', { variant: 'error' });
+    },
   });
 
   const handlePrintReceipt = async () => {
@@ -166,11 +183,6 @@ export default function PaymentDetailPage() {
     } finally {
       setPrintingReceipt(false);
     }
-  };
-
-  const handleEditSuccess = () => {
-    refetch();
-    setEditModalOpen(false);
   };
 
   if (isLoading) {
@@ -229,13 +241,15 @@ export default function PaymentDetailPage() {
             >
               Print receipt
             </LoadingButton>
-            <Button
+            <LoadingButton
               variant="contained"
-              startIcon={<Iconify icon="eva:edit-fill" />}
-              onClick={() => setEditModalOpen(true)}
+              color="info"
+              startIcon={<Iconify icon="eva:checkmark-circle-2-fill" />}
+              loading={isValidating}
+              onClick={() => validatePayment()}
             >
-              Edit
-            </Button>
+              Validate payment
+            </LoadingButton>
             <Button variant="outlined" startIcon={<Iconify icon="eva:arrow-back-fill" />} onClick={() => navigate('/payment')}>
               Back
             </Button>
@@ -309,13 +323,6 @@ export default function PaymentDetailPage() {
           </Grid>
         </Card>
       </Box>
-
-      <PaymentDetails
-        open={editModalOpen}
-        setOpen={setEditModalOpen}
-        payment={payment}
-        onSuccess={handleEditSuccess}
-      />
     </Container>
   );
 }

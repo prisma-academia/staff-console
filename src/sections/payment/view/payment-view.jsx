@@ -1,14 +1,12 @@
-import { useSnackbar } from 'notistack';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Select from '@mui/material/Select';
-import Dialog from '@mui/material/Dialog';
 import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import Container from '@mui/material/Container';
@@ -16,21 +14,15 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
-import LoadingButton from '@mui/lab/LoadingButton';
 import FormControl from '@mui/material/FormControl';
-import DialogTitle from '@mui/material/DialogTitle';
 import { alpha, useTheme } from '@mui/material/styles';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 
-import { FeeApi, paymentApi, StudentApi } from 'src/api';
+import { FeeApi, paymentApi } from 'src/api';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
 import { GenericTable } from 'src/components/generic-table';
-
-import PaymentDetails from '../payment-details';
 
 // ----------------------------------------------------------------------
 
@@ -158,17 +150,11 @@ const STATUS_OPTIONS = [
 export default function PaymentPage() {
   const theme = useTheme();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { enqueueSnackbar } = useSnackbar();
-  const [selectedPayment, setSelectedPayment] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [filterRegNumber, setFilterRegNumber] = useState('');
   const [filterFeeId, setFilterFeeId] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [createStudentId, setCreateStudentId] = useState('');
-  const [createFeeId, setCreateFeeId] = useState('');
 
   const queryParams = useMemo(
     () => ({
@@ -201,61 +187,11 @@ export default function PaymentPage() {
   });
   const feeList = Array.isArray(feesData) ? feesData : (feesData?.data ?? []);
 
-  const { data: studentsData } = useQuery({
-    queryKey: ['students'],
-    queryFn: () => StudentApi.getStudents(),
-    enabled: createModalOpen,
-  });
-  const studentList = Array.isArray(studentsData) ? studentsData : (studentsData?.data ?? studentsData ?? []);
-
-  const { mutate: initializePayment, isPending: isInitializing } = useMutation({
-    mutationFn: (body) => paymentApi.initializePaymentForStudent(body),
-    onSuccess: (result) => {
-      const url = result?.authorizationUrl;
-      if (url) {
-        setCreateModalOpen(false);
-        setCreateStudentId('');
-        setCreateFeeId('');
-        queryClient.invalidateQueries({ queryKey: ['payments'] });
-        const payer = result?.payment?.student;
-        if (payer) {
-          const uid = typeof payer === 'object' ? payer._id : payer;
-          if (uid) queryClient.invalidateQueries({ queryKey: ['student', uid] });
-        }
-        enqueueSnackbar('Redirecting to payment gateway...', { variant: 'info' });
-        window.location.href = url;
-      } else {
-        enqueueSnackbar('No payment URL returned', { variant: 'error' });
-      }
-    },
-    onError: (err) => {
-      enqueueSnackbar(err?.message || 'Failed to initialize payment', { variant: 'error' });
-    },
-  });
-
-  const handleCreatePayment = () => {
-    if (!createStudentId || !createFeeId) {
-      enqueueSnackbar('Please select a student and a fee', { variant: 'warning' });
-      return;
-    }
-    initializePayment({ studentId: createStudentId, feeId: createFeeId });
-  };
-
   const handleClearFilters = () => {
     setFilterRegNumber('');
     setFilterFeeId('');
     setFilterStatus('');
     setPage(0);
-  };
-
-  const getStudentLabel = (student) => {
-    if (!student) return '';
-    const reg = student.regNumber || '';
-    const name =
-      typeof student.personalInfo === 'object'
-        ? [student.personalInfo?.firstName, student.personalInfo?.lastName].filter(Boolean).join(' ')
-        : '';
-    return name ? `${reg} — ${name}` : reg || student.email || student._id;
   };
 
   const columnsWithActions = columns.map((column) => {
@@ -272,16 +208,6 @@ export default function PaymentPage() {
                 }}
               >
                 <Iconify icon="eva:eye-fill" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Edit">
-              <IconButton
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedPayment(row);
-                }}
-              >
-                <Iconify icon="carbon:settings-edit" />
               </IconButton>
             </Tooltip>
           </Stack>
@@ -308,10 +234,10 @@ export default function PaymentPage() {
               <Button
                 variant="contained"
                 startIcon={<Iconify icon="eva:plus-fill" />}
-                onClick={() => setCreateModalOpen(true)}
+                onClick={() => navigate('/payment/new')}
                 sx={{ px: 3 }}
               >
-                Create payment
+                New payment
               </Button>
             </Can>
             <Button variant="outlined" startIcon={<Iconify icon="eva:download-fill" />} sx={{ px: 3 }}>
@@ -419,77 +345,6 @@ export default function PaymentPage() {
           />
         </Card>
       </Box>
-
-      <PaymentDetails
-        open={Boolean(selectedPayment)}
-        setOpen={(val) => !val && setSelectedPayment(null)}
-        payment={selectedPayment}
-      />
-
-      <Dialog
-        open={createModalOpen}
-        onClose={() => !isInitializing && setCreateModalOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Create payment</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select a student and fee to initialize payment. You will be redirected to the payment gateway to complete
-            the transaction.
-          </Typography>
-          <FormControl fullWidth size="small" sx={{ mt: 1, mb: 2 }}>
-            <InputLabel id="create-payment-student-label">Student</InputLabel>
-            <Select
-              labelId="create-payment-student-label"
-              label="Student"
-              value={createStudentId}
-              onChange={(e) => setCreateStudentId(e.target.value)}
-              displayEmpty
-            >
-              <MenuItem value="">
-                <em>Select student</em>
-              </MenuItem>
-              {studentList.map((student) => (
-                <MenuItem key={student._id} value={student._id}>
-                  {getStudentLabel(student)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel id="create-payment-fee-label">Fee</InputLabel>
-            <Select
-              labelId="create-payment-fee-label"
-              label="Fee"
-              value={createFeeId}
-              onChange={(e) => setCreateFeeId(e.target.value)}
-            >
-              <MenuItem value="">
-                <em>Select fee</em>
-              </MenuItem>
-              {feeList.map((fee) => (
-                <MenuItem key={fee._id} value={fee._id}>
-                  {fee.name} — ₦{typeof fee.amount === 'number' ? fee.amount.toLocaleString() : fee.amount}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateModalOpen(false)} disabled={isInitializing}>
-            Cancel
-          </Button>
-          <LoadingButton
-            variant="contained"
-            onClick={handleCreatePayment}
-            loading={isInitializing}
-            disabled={!createStudentId || !createFeeId}
-          >
-            Continue to payment
-          </LoadingButton>
-        </DialogActions>
-      </Dialog>
     </Container>
   );
 }

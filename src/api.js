@@ -352,6 +352,8 @@ export const courseApi = {
 export const FeeApi = {
   getFees: () => apiClient.get('fee'),
   getFeeById: (id) => apiClient.get(`fee/${id}`),
+  getEligibleStudentsForPayment: (feeId) =>
+    apiClient.get(`fee/${feeId}/eligible-students`),
   createFee: (data) => apiClient.post('fee', data),
   updateFee: (id, data) => apiClient.put(`fee/${id}`, data),
   deleteFee: (id) => apiClient.delete(`fee/${id}`),
@@ -427,7 +429,6 @@ export const paymentApi = {
     if (reference) body.reference = reference;
     return apiClient.post('payment/verify', body);
   },
-  updatePayment: (id, data) => apiClient.put(`payment/${id}`, data),
 };
 
 export const userGroupApi = {
