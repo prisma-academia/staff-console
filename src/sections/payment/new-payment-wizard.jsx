@@ -31,7 +31,7 @@ import Iconify from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
-const STEPS = ['Select fee', 'Select student', 'Payment gateway', 'Review & confirm'];
+const STEPS = ['Details', 'Preview'];
 
 const IMPLEMENTED_GATEWAYS = new Set(['Paystack']);
 
@@ -156,9 +156,15 @@ export default function NewPaymentWizard() {
   });
 
   const canGoNext = () => {
-    if (activeStep === 0) return Boolean(feeId);
-    if (activeStep === 1) return Boolean(studentId);
-    if (activeStep === 2) return true;
+    if (activeStep === 0) {
+      return Boolean(
+        feeId &&
+          studentId &&
+          IMPLEMENTED_GATEWAYS.has(gateway) &&
+          selectedFee &&
+          selectedStudent
+      );
+    }
     return true;
   };
 
@@ -251,7 +257,8 @@ export default function NewPaymentWizard() {
             New payment
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Choose a fee, an eligible student, a gateway, then confirm to open checkout in a new tab.
+            Enter fee, student, and gateway on the first step, review on the second, then confirm to open
+            checkout in a new tab.
           </Typography>
         </Box>
 
@@ -274,6 +281,9 @@ export default function NewPaymentWizard() {
           {activeStep === 0 && (
             <Stack spacing={2}>
               <Typography variant="subtitle1" fontWeight={600}>
+                Payment details
+              </Typography>
+              <Typography variant="subtitle2" color="text.secondary">
                 Fee
               </Typography>
               {feesLoading ? (
@@ -299,21 +309,13 @@ export default function NewPaymentWizard() {
                   ))}
                 </TextField>
               )}
-            </Stack>
-          )}
-
-          {activeStep === 1 && (
-            <Stack spacing={2}>
-              <Typography variant="subtitle1" fontWeight={600}>
+              <Divider sx={{ my: 1 }} />
+              <Typography variant="subtitle2" color="text.secondary">
                 Student
               </Typography>
               {renderStudentStep()}
-            </Stack>
-          )}
-
-          {activeStep === 2 && (
-            <Stack spacing={2}>
-              <Typography variant="subtitle1" fontWeight={600}>
+              <Divider sx={{ my: 1 }} />
+              <Typography variant="subtitle2" color="text.secondary">
                 Payment gateway
               </Typography>
               <FormControl>
@@ -330,9 +332,7 @@ export default function NewPaymentWizard() {
                         key={g}
                         value={g}
                         control={<Radio disabled={!implemented} />}
-                        label={
-                          implemented ? g : `${g} (not configured)`
-                        }
+                        label={implemented ? g : `${g} (not configured)`}
                         disabled={!implemented}
                       />
                     );
@@ -348,7 +348,7 @@ export default function NewPaymentWizard() {
             </Stack>
           )}
 
-          {activeStep === 3 && (
+          {activeStep === 1 && (
             <Stack spacing={2}>
               <Typography variant="subtitle1" fontWeight={600}>
                 Review
