@@ -18,7 +18,6 @@ import FormControl from '@mui/material/FormControl';
 import { alpha, useTheme } from '@mui/material/styles';
 
 import { FeeApi, paymentApi } from 'src/api';
-import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
@@ -211,7 +210,7 @@ export default function PaymentPage() {
                 <Iconify icon="eva:eye-fill" />
               </IconButton>
             </Tooltip>
-            <Can do={PERMISSIONS.PAYMENT_EDIT}>
+            <Can do="edit_payment">
               <Tooltip title="Edit payment">
                 <IconButton
                   onClick={(e) => {
@@ -243,7 +242,7 @@ export default function PaymentPage() {
             </Typography>
           </Box>
           <Stack direction="row" spacing={2}>
-            <Can do={PERMISSIONS.PAYMENT_ADD}>
+            <Can do="add_payment">
               <Button
                 variant="contained"
                 startIcon={<Iconify icon="eva:plus-fill" />}
