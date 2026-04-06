@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 
 import config from 'src/config';
+import { PERMISSIONS } from 'src/permissions/constants';
 import { AuditApi, StudentApi, programApi, classLevelApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -361,7 +362,7 @@ export default function StudentDetailPage() {
                     <Button variant="outlined" color="inherit" onClick={handleToggleEdit}>
                       Cancel
                     </Button>
-                    <Can do="edit_student">
+                    <Can do={PERMISSIONS.EDIT_STUDENT}>
                       <LoadingButton
                         variant="contained"
                         onClick={formik.handleSubmit}
@@ -374,7 +375,7 @@ export default function StudentDetailPage() {
                   </>
                 ) : (
                   <>
-                    <Can do="edit_student">
+                    <Can do={PERMISSIONS.EDIT_STUDENT}>
                       <Button
                         variant="contained"
                         onClick={handleToggleEdit}
@@ -468,4 +469,5 @@ export default function StudentDetailPage() {
     </>
   );
 }
+
 

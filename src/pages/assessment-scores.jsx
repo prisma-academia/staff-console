@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Box, Container, Typography } from '@mui/material';
 
 import config from 'src/config';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Can from 'src/components/permission/can';
 
@@ -22,7 +23,7 @@ export default function AssessmentScoresPage() {
         <title>Score sheet | {config.appName}</title>
       </Helmet>
       <Can
-        do="view_assessment_scores"
+        do={PERMISSIONS.VIEW_ASSESSMENT_SCORES}
         fallback={
           <Container maxWidth="md">
             <Box sx={{ py: 5, textAlign: 'center' }}>
@@ -42,3 +43,4 @@ export default function AssessmentScoresPage() {
     </>
   );
 }
+

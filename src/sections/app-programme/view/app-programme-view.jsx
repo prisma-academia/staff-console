@@ -23,6 +23,7 @@ import {
   DialogActions,
 } from '@mui/material';
 
+import { PERMISSIONS } from 'src/permissions/constants';
 import { listProgrammes, createProgramme, updateProgramme, deleteProgramme } from 'src/api/adminApplicationApi';
 
 import Iconify from 'src/components/iconify';
@@ -178,14 +179,14 @@ export default function AppProgrammeView() {
       cellSx: { width: '12%' },
       renderCell: (row) => (
         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-          <Can do="edit_app_programme">
+          <Can do={PERMISSIONS.EDIT_APP_PROGRAMME}>
             <Tooltip title="Edit">
               <IconButton onClick={(e) => { e.stopPropagation(); handleOpenEdit(row); }} size="small">
                 <Iconify icon="eva:edit-fill" />
               </IconButton>
             </Tooltip>
           </Can>
-          <Can do="delete_app_programme">
+          <Can do={PERMISSIONS.DELETE_APP_PROGRAMME}>
             <Tooltip title="Delete">
               <IconButton onClick={(e) => { e.stopPropagation(); setDeleteConfirm(row); }} size="small" color="error">
                 <Iconify icon="eva:trash-2-fill" />
@@ -285,7 +286,7 @@ export default function AppProgrammeView() {
               Manage application/admission programmes (application-api)
             </Typography>
           </Box>
-          <Can do="add_app_programme">
+          <Can do={PERMISSIONS.ADD_APP_PROGRAMME}>
             <Button
               variant="contained"
               startIcon={<Iconify icon="eva:plus-fill" />}
@@ -353,3 +354,4 @@ export default function AppProgrammeView() {
     </Container>
   );
 }
+

@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 
 import { SessionApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
@@ -161,21 +162,21 @@ export default function SessionView() {
       cellSx: { width: '14%' },
       renderCell: (row) => (
         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-          <Can do="view_session">
+          <Can do={PERMISSIONS.VIEW_SESSION}>
             <Tooltip title="View">
               <IconButton onClick={(e) => handleView(row, e)} size="small">
                 <Iconify icon="eva:eye-fill" />
               </IconButton>
             </Tooltip>
           </Can>
-          <Can do="edit_session">
+          <Can do={PERMISSIONS.EDIT_SESSION}>
             <Tooltip title="Edit">
               <IconButton onClick={(e) => handleEdit(row, e)} size="small">
                 <Iconify icon="eva:edit-fill" />
               </IconButton>
             </Tooltip>
           </Can>
-          <Can do="delete_session">
+          <Can do={PERMISSIONS.DELETE_SESSION}>
             <Tooltip title="Delete">
               <IconButton
                 onClick={(e) => handleDelete(row._id, e)}
@@ -209,7 +210,7 @@ export default function SessionView() {
               Manage academic sessions (e.g. 2024/2025) for fees, results, and reporting
             </Typography>
           </Box>
-          <Can do="add_session">
+          <Can do={PERMISSIONS.ADD_SESSION}>
             <Button
               variant="contained"
               startIcon={<Iconify icon="eva:plus-fill" />}
@@ -263,3 +264,4 @@ export default function SessionView() {
     </Container>
   );
 }
+

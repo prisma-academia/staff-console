@@ -40,6 +40,7 @@ import {
 
 import config from 'src/config';
 import { TemplateApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
@@ -307,7 +308,7 @@ export default function TemplateDetailPage() {
                 <IconButton onClick={handleBack} sx={{ border: `1px solid ${theme.palette.divider}` }}>
                   <Iconify icon="eva:arrow-back-fill" />
                 </IconButton>
-                <Can do="edit_template">
+                <Can do={PERMISSIONS.EDIT_TEMPLATE}>
                   <Button
                     variant={editMode ? 'outlined' : 'contained'}
                     startIcon={<Iconify icon={editMode ? 'eva:close-fill' : 'eva:edit-fill'} />}
@@ -441,7 +442,7 @@ export default function TemplateDetailPage() {
                     <Button variant="outlined" onClick={handleEditToggle}>
                       Cancel
                     </Button>
-                    <Can do="edit_template">
+                    <Can do={PERMISSIONS.EDIT_TEMPLATE}>
                       <LoadingButton
                         variant="contained"
                         type="submit"
@@ -704,4 +705,5 @@ export default function TemplateDetailPage() {
     </>
   );
 }
+
 

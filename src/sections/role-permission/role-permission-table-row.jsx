@@ -14,6 +14,7 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 
 import { RolePermissionApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
@@ -144,28 +145,28 @@ export default function RolePermissionTableRow({
           sx: { width: 160 },
         }}
       >
-        <Can do="view_role_permission">
+        <Can do={PERMISSIONS.VIEW_ROLE_PERMISSION}>
           <MenuItem onClick={handleEdit}>
             <Iconify icon="eva:eye-fill" sx={{ mr: 2 }} />
             View Details
           </MenuItem>
         </Can>
 
-        <Can do="edit_role_permission">
+        <Can do={PERMISSIONS.EDIT_ROLE_PERMISSION}>
           <MenuItem onClick={handleEdit}>
             <Iconify icon="eva:edit-fill" sx={{ mr: 2 }} />
             Edit
           </MenuItem>
         </Can>
 
-        <Can do="edit_role_permission">
+        <Can do={PERMISSIONS.EDIT_ROLE_PERMISSION}>
           <MenuItem onClick={handleToggleStatus} sx={{ color: isActive ? 'error.main' : 'success.main' }}>
             <Iconify icon={isActive ? 'eva:slash-fill' : 'eva:checkmark-circle-2-fill'} sx={{ mr: 2 }} />
             {isActive ? 'Deactivate' : 'Activate'}
           </MenuItem>
         </Can>
 
-        <Can do="delete_role_permission">
+        <Can do={PERMISSIONS.DELETE_ROLE_PERMISSION}>
           <Divider sx={{ borderStyle: 'dashed' }} />
           <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
             <Iconify icon="eva:trash-2-outline" sx={{ mr: 2 }} />
@@ -188,4 +189,5 @@ RolePermissionTableRow.propTypes = {
   handleClick: PropTypes.func,
   selected: PropTypes.any,
 };
+
 

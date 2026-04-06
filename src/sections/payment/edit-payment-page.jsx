@@ -18,7 +18,10 @@ import Typography from '@mui/material/Typography';
 import LoadingButton from '@mui/lab/LoadingButton';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
 
+import { usePermissions } from 'src/utils/permissions';
+
 import { paymentApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
 
@@ -113,11 +116,13 @@ export default function EditPaymentPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
+  const { check } = usePermissions();
+  const canEditPayment = check(PERMISSIONS.PAYMENT_EDIT);
 
   const { data: payment, isLoading, error } = useQuery({
     queryKey: ['payment', id],
     queryFn: () => paymentApi.getPaymentById(id),
-    enabled: Boolean(id),
+    enabled: Boolean(id && canEditPayment),
   });
 
   const { mutateAsync: savePayment, isPending: isSaving } = useMutation({
@@ -153,6 +158,24 @@ export default function EditPaymentPage() {
       }
     },
   });
+
+  if (!canEditPayment) {
+    return (
+      <Container maxWidth="md">
+        <Box sx={{ py: 4, textAlign: 'center' }}>
+          <Typography variant="h6" gutterBottom>
+            Access denied
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            You do not have permission to edit payments.
+          </Typography>
+          <Button variant="contained" onClick={() => navigate('/payment')}>
+            Back to payments
+          </Button>
+        </Box>
+      </Container>
+    );
+  }
 
   if (isLoading) {
     return (

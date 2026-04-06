@@ -19,6 +19,7 @@ import {
   FormControl,
 } from '@mui/material';
 
+import { PERMISSIONS } from 'src/permissions/constants';
 import { courseApi, SessionApi, AssessmentApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -302,7 +303,7 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
         const studentIdStr = row.original.studentId?.toString?.();
         const isSaving = savingStudentId != null && savingStudentId === studentIdStr;
         return (
-          <Can do="edit_assessment_scores">
+          <Can do={PERMISSIONS.EDIT_ASSESSMENT_SCORES}>
             <button
               type="button"
               style={{ ...tableStyles.button, ...(isSaving ? tableStyles.buttonDisabled : {}) }}
@@ -432,7 +433,7 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
             </Select>
           </FormControl>
           <Box sx={{ ml: 'auto' }}>
-            <Can do="view_assessment_scores">
+            <Can do={PERMISSIONS.VIEW_ASSESSMENT_SCORES}>
               <LoadingButton
                 variant="contained"
                 onClick={loadSheet}
@@ -512,3 +513,4 @@ ScoreSheetView.propTypes = {
   initialCourseId: PropTypes.string,
   initialSessionId: PropTypes.string,
 };
+

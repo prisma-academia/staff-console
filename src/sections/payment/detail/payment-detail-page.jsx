@@ -16,6 +16,7 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
 
 import { paymentApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
@@ -234,7 +235,7 @@ export default function PaymentDetailPage() {
             Payment Details
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Can do="edit_payment">
+            <Can do={PERMISSIONS.PAYMENT_EDIT}>
               <Button
                 variant="outlined"
                 color="primary"

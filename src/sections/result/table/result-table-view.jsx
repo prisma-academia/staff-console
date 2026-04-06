@@ -24,6 +24,7 @@ import {
   TableContainer,
 } from '@mui/material';
 
+import { PERMISSIONS } from 'src/permissions/constants';
 import {
   ResultApi,
   SessionApi,
@@ -299,7 +300,7 @@ export default function ResultTableView() {
           >
             Generate
           </LoadingButton>
-          <Can anyOf={['add_result', 'edit_result']}>
+          <Can anyOf={[PERMISSIONS.ADD_RESULT, PERMISSIONS.EDIT_RESULT]}>
             <LoadingButton
               variant="contained"
               color="primary"
@@ -311,7 +312,7 @@ export default function ResultTableView() {
               Save all
             </LoadingButton>
           </Can>
-          <Can anyOf={['export_result', 'view_result']}>
+          <Can anyOf={[PERMISSIONS.EXPORT_RESULT, PERMISSIONS.VIEW_RESULT]}>
             <LoadingButton
               variant="outlined"
               onClick={handleExport}
@@ -451,3 +452,4 @@ export default function ResultTableView() {
     </Container>
   );
 }
+

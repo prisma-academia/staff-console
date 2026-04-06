@@ -2,9 +2,12 @@ import PropTypes from 'prop-types';
 import { lazy, Suspense } from 'react';
 import { Outlet, Navigate, useRoutes } from 'react-router-dom';
 
+import { usePermissions } from 'src/utils/permissions';
+
 import { useAuthStore } from 'src/store';
 import DashboardLayout from 'src/layouts/dashboard';
 import ApplicationPage from 'src/pages/application';
+import { WRITE_ROUTE_PERMISSION_MATRIX } from 'src/permissions/constants';
 
 import Loader from 'src/components/loader';
 
@@ -65,6 +68,20 @@ PrivateRoute.propTypes = {
   children: PropTypes.node,
 };
 
+function PermissionRoute({ permission, children }) {
+  const { check } = usePermissions();
+  return check(permission) ? children : <Navigate to="/" replace />;
+}
+PermissionRoute.propTypes = {
+  permission: PropTypes.string.isRequired,
+  children: PropTypes.node,
+};
+
+const WRITE_ROUTE_PERMISSIONS = WRITE_ROUTE_PERMISSION_MATRIX.reduce((acc, item) => {
+  acc[item.path] = item.permission;
+  return acc;
+}, {});
+
 // ----------------------------------------------------------------------
 
 
@@ -112,7 +129,9 @@ export default function Router() {
           path: 'user/new',
           element: (
             <PrivateRoute>
-              <UserAddPage />
+              <PermissionRoute permission={WRITE_ROUTE_PERMISSIONS['user/new']}>
+                <UserAddPage />
+              </PermissionRoute>
             </PrivateRoute>
           ),
         },
@@ -192,7 +211,9 @@ export default function Router() {
           path: 'payment/new',
           element: (
             <PrivateRoute>
-              <PaymentNewPage />
+              <PermissionRoute permission={WRITE_ROUTE_PERMISSIONS['payment/new']}>
+                <PaymentNewPage />
+              </PermissionRoute>
             </PrivateRoute>
           ),
         },
@@ -200,7 +221,9 @@ export default function Router() {
           path: 'payment/:id/edit',
           element: (
             <PrivateRoute>
-              <PaymentEditPage />
+              <PermissionRoute permission={WRITE_ROUTE_PERMISSIONS['payment/:id/edit']}>
+                <PaymentEditPage />
+              </PermissionRoute>
             </PrivateRoute>
           ),
         },
@@ -408,7 +431,9 @@ export default function Router() {
           path: 'template/new',
           element: (
             <PrivateRoute>
-              <TemplateAddPage />
+              <PermissionRoute permission={WRITE_ROUTE_PERMISSIONS['template/new']}>
+                <TemplateAddPage />
+              </PermissionRoute>
             </PrivateRoute>
           ),
         },

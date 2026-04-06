@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 
 import config from 'src/config';
+import { PERMISSIONS } from 'src/permissions/constants';
 import { UserApi, AuditApi, RolePermissionApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -285,7 +286,7 @@ export default function UserDetailPage() {
                     <Button variant="outlined" color="inherit" onClick={handleToggleEdit}>
                       Cancel
                     </Button>
-                    <Can do="edit_user">
+                    <Can do={PERMISSIONS.EDIT_USER}>
                       <LoadingButton
                         variant="contained"
                         onClick={formik.handleSubmit}
@@ -298,7 +299,7 @@ export default function UserDetailPage() {
                   </>
                 ) : (
                   <>
-                    <Can do="edit_user">
+                    <Can do={PERMISSIONS.EDIT_USER}>
                       <Button
                         variant="contained"
                         onClick={handleToggleEdit}
@@ -383,4 +384,5 @@ export default function UserDetailPage() {
     </>
   );
 }
+
 

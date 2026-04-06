@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 
 import { userGroupApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
@@ -128,7 +129,7 @@ export default function GroupsView() {
               </IconButton>
             </Tooltip>
             
-            <Can do="edit_user_group">
+            <Can do={PERMISSIONS.EDIT_USER_GROUP}>
               <Tooltip title="Edit Group">
                 <IconButton color="primary" onClick={() => handleOpenEdit(row)}>
                   <Iconify icon="solar:pen-bold" />
@@ -142,7 +143,7 @@ export default function GroupsView() {
               </Tooltip>
             </Can>
 
-            <Can do="delete_user_group">
+            <Can do={PERMISSIONS.DELETE_USER_GROUP}>
               <Tooltip title="Delete Group">
                 <IconButton color="error" onClick={() => handleDelete(row._id)}>
                   <Iconify icon="solar:trash-bin-trash-bold" />
@@ -169,7 +170,7 @@ export default function GroupsView() {
             </Typography>
           </Box>
           
-          <Can do="add_user_group">
+          <Can do={PERMISSIONS.ADD_USER_GROUP}>
             <Button
               variant="contained"
               startIcon={<Iconify icon="eva:plus-fill" />}
@@ -231,4 +232,5 @@ export default function GroupsView() {
     </Container>
   );
 }
+
 

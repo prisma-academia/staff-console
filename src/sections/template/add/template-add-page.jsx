@@ -30,6 +30,7 @@ import {
 
 import config from 'src/config';
 import { TemplateApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
@@ -379,7 +380,7 @@ export default function TemplateAddPage() {
                 <Button variant="outlined" color="inherit" onClick={handleBack}>
                   Cancel
                 </Button>
-                <Can do="add_template">
+                <Can do={PERMISSIONS.ADD_TEMPLATE}>
                   <LoadingButton
                     variant="contained"
                     type="submit"
@@ -397,4 +398,5 @@ export default function TemplateAddPage() {
     </>
   );
 }
+
 

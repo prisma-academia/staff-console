@@ -20,6 +20,7 @@ import {
 
 import config from 'src/config';
 import { UserApi, RolePermissionApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
@@ -233,7 +234,7 @@ export default function UserAddPage() {
               <Button variant="outlined" color="inherit" onClick={handleBack}>
                 Cancel
               </Button>
-              <Can do="add_user">
+              <Can do={PERMISSIONS.ADD_USER}>
                 <LoadingButton
                   variant="contained"
                   onClick={formik.handleSubmit}
@@ -250,4 +251,5 @@ export default function UserAddPage() {
     </>
   );
 }
+
 

@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 
 import { StudentApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
@@ -114,7 +115,7 @@ export default function AdminActionsTab({ studentId, studentStatus, studentEmail
       <Grid container spacing={3}>
         {/* Reset Password */}
         <Grid item xs={12} md={6}>
-          <Can do="edit_student">
+          <Can do={PERMISSIONS.EDIT_STUDENT}>
             <Card
               sx={{
                 p: 3,
@@ -153,7 +154,7 @@ export default function AdminActionsTab({ studentId, studentStatus, studentEmail
 
         {/* Account Status */}
         <Grid item xs={12} md={6}>
-          <Can do="edit_student">
+          <Can do={PERMISSIONS.EDIT_STUDENT}>
             <Card
               sx={{
                 p: 3,
@@ -333,4 +334,5 @@ AdminActionsTab.propTypes = {
   studentEmail: PropTypes.string,
   onStatusChange: PropTypes.func,
 };
+
 

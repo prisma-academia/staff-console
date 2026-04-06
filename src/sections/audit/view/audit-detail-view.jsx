@@ -15,6 +15,7 @@ import Typography from '@mui/material/Typography';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
 
 import { AuditApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
@@ -159,7 +160,7 @@ export default function AuditDetailView() {
               </Button>
             )}
 
-            <Can do="delete_audit">
+            <Can do={PERMISSIONS.DELETE_AUDIT}>
               <Button
                 variant="outlined"
                 color="error"
@@ -348,3 +349,4 @@ export default function AuditDetailView() {
     </Container>
   );
 }
+

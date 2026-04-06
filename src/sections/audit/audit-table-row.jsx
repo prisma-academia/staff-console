@@ -16,6 +16,7 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 
 import { AuditApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
@@ -200,7 +201,7 @@ export default function AuditTableRow({
           View Actor History
         </MenuItem>
 
-        <Can do="delete_audit">
+        <Can do={PERMISSIONS.DELETE_AUDIT}>
           <Divider sx={{ borderStyle: 'dashed' }} />
           <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
             <Iconify icon="eva:trash-2-outline" sx={{ mr: 2 }} />
@@ -217,3 +218,4 @@ AuditTableRow.propTypes = {
   handleClick: PropTypes.func,
   selected: PropTypes.any,
 };
+

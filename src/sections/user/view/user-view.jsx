@@ -15,6 +15,7 @@ import { Box, Chip, Paper, Button, Divider, TableRow, TableCell, LinearProgress 
 
 import config from 'src/config';
 import { UserApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
@@ -133,7 +134,7 @@ export default function UserPage() {
               Manage system users, roles, and account statuses
             </Typography>
           </Box>
-          <Can do="add_user">
+          <Can do={PERMISSIONS.ADD_USER}>
             <Button
               variant="contained"
               color="primary"
@@ -281,7 +282,7 @@ export default function UserPage() {
                 />
                 <Box>
                   <Stack direction="row" spacing={1}>
-                    <Can do="delete_user">
+                    <Can do={PERMISSIONS.DELETE_USER}>
                       <Chip 
                         icon={<Iconify icon="eva:trash-2-outline" />} 
                         label="Delete" 
@@ -301,4 +302,5 @@ export default function UserPage() {
     </Container>
   );
 }
+
 

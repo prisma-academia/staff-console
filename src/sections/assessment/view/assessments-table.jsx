@@ -28,6 +28,7 @@ import {
 } from '@mui/material';
 
 import { AssessmentApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
@@ -193,14 +194,14 @@ export default function AssessmentsTable({ sessionId, programId, courseId, addOp
             size: 100,
             cell: ({ row }) => (
               <Stack direction="row" spacing={0.5} justifyContent="flex-end" onClick={(e) => e.stopPropagation()}>
-                <Can do="edit_assessment">
+                <Can do={PERMISSIONS.EDIT_ASSESSMENT}>
                   <Tooltip title="Edit">
                     <IconButton size="small" onClick={(e) => handleEdit(row.original, e)}>
                       <Iconify icon="eva:edit-fill" />
                     </IconButton>
                   </Tooltip>
                 </Can>
-                <Can do="delete_assessment">
+                <Can do={PERMISSIONS.DELETE_ASSESSMENT}>
                   <Tooltip title="Delete">
                     <IconButton
                       size="small"
@@ -273,7 +274,7 @@ export default function AssessmentsTable({ sessionId, programId, courseId, addOp
             }}
             sx={{ minWidth: 260 }}
           />
-          <Can do="add_assessment">
+          <Can do={PERMISSIONS.ADD_ASSESSMENT}>
             <IconButton
               color="primary"
               onClick={() => setAddOpen(true)}
@@ -378,3 +379,4 @@ AssessmentsTable.propTypes = {
   addOpen: PropTypes.bool,
   setAddOpen: PropTypes.func,
 };
+

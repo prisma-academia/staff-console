@@ -5,6 +5,7 @@ import { Link as RouterLink } from 'react-router-dom';
 
 import { Box, Button, MenuItem, Container, TextField, Typography } from '@mui/material';
 
+import { PERMISSIONS } from 'src/permissions/constants';
 import { courseApi, SessionApi, programApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -56,7 +57,7 @@ export default function AssessmentByCourseView({ courseId }) {
             Back to assessments
           </Button>
           {hasContext && (
-            <Can do="view_assessment_scores">
+            <Can do={PERMISSIONS.VIEW_ASSESSMENT_SCORES}>
               <Button
                 component={RouterLink}
                 to={`/assessment/scores?courseId=${encodeURIComponent(courseId)}&sessionId=${encodeURIComponent(sessionId)}`}
@@ -132,3 +133,4 @@ export default function AssessmentByCourseView({ courseId }) {
 AssessmentByCourseView.propTypes = {
   courseId: PropTypes.string.isRequired,
 };
+

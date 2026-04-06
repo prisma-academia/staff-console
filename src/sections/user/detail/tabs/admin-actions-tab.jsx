@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 
 import { UserApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
@@ -111,7 +112,7 @@ export default function AdminActionsTab({ userId, userStatus, userEmail, onStatu
       <Grid container spacing={3}>
         {/* Reset Password */}
         <Grid item xs={12} md={6}>
-          <Can do="reset_user_password">
+          <Can do={PERMISSIONS.RESET_USER_PASSWORD}>
             <Card
               sx={{
                 p: 3,
@@ -150,7 +151,7 @@ export default function AdminActionsTab({ userId, userStatus, userEmail, onStatu
 
         {/* Account Status */}
         <Grid item xs={12} md={6}>
-          <Can do="edit_user">
+          <Can do={PERMISSIONS.EDIT_USER}>
             <Card
               sx={{
                 p: 3,
@@ -199,7 +200,7 @@ export default function AdminActionsTab({ userId, userStatus, userEmail, onStatu
 
         {/* Danger Zone */}
         <Grid item xs={12}>
-          <Can do="delete_user">
+          <Can do={PERMISSIONS.DELETE_USER}>
             <Card
               sx={{
                 p: 3,
@@ -325,4 +326,5 @@ AdminActionsTab.propTypes = {
   userEmail: PropTypes.string,
   onStatusChange: PropTypes.func,
 };
+
 

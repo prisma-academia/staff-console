@@ -7,15 +7,15 @@ import { usePermissions, showPermissionError } from 'src/utils/permissions';
  * Component to conditionally render children based on user permissions
  * 
  * Usage:
- * <Can do="add_student">
+ * <Can do={PERMISSIONS.ADD_STUDENT}>
  *   <button>Add Student</button>
  * </Can>
  * 
- * <Can anyOf={['edit_user', 'delete_user']}>
+ * <Can anyOf={[PERMISSIONS.EDIT_USER, PERMISSIONS.DELETE_USER]}>
  *   <button>Manage User</button>
  * </Can>
  * 
- * <Can do="edit_user" showErrorOnDenied>
+ * <Can do={PERMISSIONS.EDIT_USER} showErrorOnDenied>
  *   <button>Edit User</button>
  * </Can>
  */
@@ -78,4 +78,5 @@ Can.propTypes = {
   errorTitle: PropTypes.string,
   errorMessage: PropTypes.string,
 };
+
 

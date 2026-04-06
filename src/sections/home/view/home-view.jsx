@@ -34,6 +34,7 @@ import TableContainer from '@mui/material/TableContainer';
 
 import { useAuthStore } from 'src/store';
 import { UserApi, AuditApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
@@ -465,7 +466,7 @@ export default function HomeView() {
                 </Typography>
               </Box>
             </Stack>
-            <Can do="view_audit">
+            <Can do={PERMISSIONS.VIEW_AUDIT}>
               <Button
                 size="small"
                 endIcon={<Iconify icon="eva:arrow-forward-fill" width={16} />}
@@ -546,7 +547,7 @@ export default function HomeView() {
                         </Label>
                       </TableCell>
                       <TableCell align="right">
-                        <Can do="view_audit">
+                        <Can do={PERMISSIONS.VIEW_AUDIT}>
                           <Button
                             size="small"
                             variant="text"
@@ -674,3 +675,4 @@ export default function HomeView() {
     </Box>
   );
 }
+

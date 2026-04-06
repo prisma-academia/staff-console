@@ -15,6 +15,7 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 
 import { UserApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
@@ -165,21 +166,21 @@ export default function UserTableRow({
           View Details
         </MenuItem>
 
-        <Can do="reset_user_password">
+        <Can do={PERMISSIONS.RESET_USER_PASSWORD}>
           <MenuItem onClick={handleResetPassword}>
             <Iconify icon="eva:lock-fill" sx={{ mr: 2 }} />
             Reset Password
           </MenuItem>
         </Can>
 
-        <Can do="edit_user">
+        <Can do={PERMISSIONS.EDIT_USER}>
           <MenuItem onClick={handleStatusToggle} sx={{ color: status === 'active' ? 'error.main' : 'success.main' }}>
             <Iconify icon={status === 'active' ? 'eva:slash-fill' : 'eva:checkmark-circle-2-fill'} sx={{ mr: 2 }} />
             {status === 'active' ? 'Suspend' : 'Activate'}
           </MenuItem>
         </Can>
 
-        <Can do="delete_user">
+        <Can do={PERMISSIONS.DELETE_USER}>
           <Divider sx={{ borderStyle: 'dashed' }} />
           <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
             <Iconify icon="eva:trash-2-outline" sx={{ mr: 2 }} />
@@ -203,4 +204,5 @@ UserTableRow.propTypes = {
   handleClick: PropTypes.func,
   selected: PropTypes.any,
 };
+
 

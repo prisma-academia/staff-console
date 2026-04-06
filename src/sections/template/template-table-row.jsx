@@ -15,6 +15,7 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 
 import { TemplateApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
@@ -154,14 +155,14 @@ export default function TemplateTableRow({
           View Details
         </MenuItem>
 
-        <Can do="edit_template">
+        <Can do={PERMISSIONS.EDIT_TEMPLATE}>
           <MenuItem onClick={handleEdit}>
             <Iconify icon="eva:edit-fill" sx={{ mr: 2 }} />
             Edit
           </MenuItem>
         </Can>
 
-        <Can do="delete_template">
+        <Can do={PERMISSIONS.DELETE_TEMPLATE}>
           <Divider sx={{ borderStyle: 'dashed' }} />
           <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
             <Iconify icon="eva:trash-2-outline" sx={{ mr: 2 }} />
@@ -178,4 +179,5 @@ TemplateTableRow.propTypes = {
   handleClick: PropTypes.func,
   selected: PropTypes.any,
 };
+
 

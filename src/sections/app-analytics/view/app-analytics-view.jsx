@@ -13,6 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 
+import { PERMISSIONS } from 'src/permissions/constants';
 import { getAnalytics, listSessions } from 'src/api/adminApplicationApi';
 
 import Can from 'src/components/permission/can';
@@ -43,7 +44,7 @@ export default function AppAnalyticsView() {
   const isLoading = analyticsLoading && Boolean(sessionId);
 
   return (
-    <Can do="view_analytics" fallback={null}>
+    <Can do={PERMISSIONS.VIEW_ANALYTICS} fallback={null}>
       <Container maxWidth="xl">
         <Box sx={{ pb: 5, pt: 4 }}>
           <Box sx={{ mb: 3 }}>
@@ -150,3 +151,4 @@ export default function AppAnalyticsView() {
     </Can>
   );
 }
+

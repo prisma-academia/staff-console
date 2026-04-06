@@ -23,6 +23,7 @@ import {
   DialogActions,
 } from '@mui/material';
 
+import { PERMISSIONS } from 'src/permissions/constants';
 import { listSessions, createSession, updateSession, deleteSession } from 'src/api/adminApplicationApi';
 
 import Iconify from 'src/components/iconify';
@@ -170,14 +171,14 @@ export default function AppSessionView() {
       cellSx: { width: '14%' },
       renderCell: (row) => (
         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-          <Can do="edit_app_session">
+          <Can do={PERMISSIONS.EDIT_APP_SESSION}>
             <Tooltip title="Edit">
               <IconButton onClick={(e) => { e.stopPropagation(); handleOpenEdit(row); }} size="small">
                 <Iconify icon="eva:edit-fill" />
               </IconButton>
             </Tooltip>
           </Can>
-          <Can do="delete_app_session">
+          <Can do={PERMISSIONS.DELETE_APP_SESSION}>
             <Tooltip title="Delete">
               <IconButton onClick={(e) => { e.stopPropagation(); setDeleteConfirm(row); }} size="small" color="error">
                 <Iconify icon="eva:trash-2-fill" />
@@ -271,7 +272,7 @@ export default function AppSessionView() {
               Manage application/admission sessions (application-api)
             </Typography>
           </Box>
-          <Can do="add_app_session">
+          <Can do={PERMISSIONS.ADD_APP_SESSION}>
             <Button
               variant="contained"
               startIcon={<Iconify icon="eva:plus-fill" />}
@@ -339,3 +340,4 @@ export default function AppSessionView() {
     </Container>
   );
 }
+

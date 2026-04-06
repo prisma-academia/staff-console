@@ -30,6 +30,7 @@ import {
 } from '@mui/material';
 
 import { SettingsApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
@@ -286,7 +287,7 @@ export default function AppSettingsView() {
             </Typography>
           </Box>
           <Stack direction="row" spacing={2}>
-            <Can do="reset_settings">
+            <Can do={PERMISSIONS.RESET_SETTINGS}>
               <Button
                 variant="outlined"
                 color="error"
@@ -296,7 +297,7 @@ export default function AppSettingsView() {
                 Reset to Defaults
               </Button>
             </Can>
-            <Can do="edit_settings">
+            <Can do={PERMISSIONS.EDIT_SETTINGS}>
               <LoadingButton
                 variant="contained"
                 color="primary"
@@ -312,7 +313,7 @@ export default function AppSettingsView() {
 
         <Divider sx={{ mb: 4 }} />
 
-        <Can do="view_settings">
+        <Can do={PERMISSIONS.VIEW_SETTINGS}>
           <Card
             elevation={0}
             sx={{
@@ -1119,4 +1120,5 @@ export default function AppSettingsView() {
     </Container>
   );
 }
+
 

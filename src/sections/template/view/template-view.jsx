@@ -11,6 +11,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import { Box, Button, Popover, Divider, MenuItem, IconButton } from '@mui/material';
 
 import { TemplateApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
@@ -88,14 +89,14 @@ const TemplateActions = ({ row }) => {
           View Details
         </MenuItem>
 
-        <Can do="edit_template">
+        <Can do={PERMISSIONS.EDIT_TEMPLATE}>
           <MenuItem onClick={handleEdit}>
             <Iconify icon="eva:edit-fill" sx={{ mr: 2 }} />
             Edit
           </MenuItem>
         </Can>
 
-        <Can do="delete_template">
+        <Can do={PERMISSIONS.DELETE_TEMPLATE}>
           <Divider sx={{ borderStyle: 'dashed' }} />
           <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
             <Iconify icon="eva:trash-2-outline" sx={{ mr: 2 }} />
@@ -216,7 +217,7 @@ export default function TemplateView() {
               Manage email and document templates
             </Typography>
           </Box>
-          <Can do="add_template">
+          <Can do={PERMISSIONS.ADD_TEMPLATE}>
             <Button
               variant="contained"
               startIcon={<Iconify icon="eva:plus-fill" />}
@@ -260,3 +261,4 @@ export default function TemplateView() {
     </Container>
   );
 }
+
