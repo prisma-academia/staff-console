@@ -395,6 +395,7 @@ export const paymentApi = {
     return createRequestFullResult(`payment${queryString ? `?${queryString}` : ''}`);
   },
   getPaymentById: (id) => apiClient.get(`payment/${id}`),
+  updatePayment: (id, data) => apiClient.put(`payment/${id}`, data),
   getReceiptPdf: async (id) => {
     const { token } = useAuthStore.getState();
     const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;

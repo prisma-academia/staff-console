@@ -210,6 +210,18 @@ export default function PaymentPage() {
                 <Iconify icon="eva:eye-fill" />
               </IconButton>
             </Tooltip>
+            <Can do="edit_payment">
+              <Tooltip title="Edit payment">
+                <IconButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/payment/${row._id}/edit`);
+                  }}
+                >
+                  <Iconify icon="eva:edit-fill" />
+                </IconButton>
+              </Tooltip>
+            </Can>
           </Stack>
         ),
       };

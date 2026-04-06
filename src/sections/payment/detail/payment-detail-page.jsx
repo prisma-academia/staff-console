@@ -19,6 +19,7 @@ import { paymentApi } from 'src/api';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
+import Can from 'src/components/permission/can';
 
 // ----------------------------------------------------------------------
 
@@ -232,7 +233,17 @@ export default function PaymentDetailPage() {
           <Typography variant="h4" color="text.primary" fontWeight="700">
             Payment Details
           </Typography>
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Can do="edit_payment">
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<Iconify icon="eva:edit-fill" />}
+                onClick={() => navigate(`/payment/${id}/edit`)}
+              >
+                Edit payment
+              </Button>
+            </Can>
             <LoadingButton
               variant="outlined"
               startIcon={<Iconify icon="eva:printer-fill" />}
