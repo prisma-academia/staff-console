@@ -195,18 +195,11 @@ export default function ExportModal({ open, onClose }) {
                   }}
                   sx={{ borderRadius: 1.5 }}
                 >
-                  {
-                    <>
-                      {/* <MenuItem value="">
-                        <em>Select session</em>
-                      </MenuItem> */}
-                      {(sessions || []).map((session) => (
-                        <MenuItem key={session._id || session.id} value={session._id || session.id}>
-                          {session.name}
-                        </MenuItem>
-                      ))}
-                    </>
-                  }
+                  {(sessions || []).map((session) => (
+                    <MenuItem key={session._id || session.id} value={session._id || session.id}>
+                      {session.name}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Box>
