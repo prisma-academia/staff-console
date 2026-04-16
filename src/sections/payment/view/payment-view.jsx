@@ -1,3 +1,4 @@
+import { useSnackbar } from 'notistack';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -17,12 +18,20 @@ import InputLabel from '@mui/material/InputLabel';
 import FormControl from '@mui/material/FormControl';
 import { alpha, useTheme } from '@mui/material/styles';
 
-import { FeeApi, paymentApi } from 'src/api';
+import {
+  FeeApi,
+  paymentApi,
+  SessionApi,
+  programApi,
+  classLevelApi,
+} from 'src/api';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
 import { GenericTable } from 'src/components/generic-table';
+
+import PaymentExportDialog from 'src/sections/payment/payment-export-dialog';
 
 // ----------------------------------------------------------------------
 
@@ -145,27 +154,91 @@ const STATUS_OPTIONS = [
   { value: 'Completed', label: 'Completed' },
   { value: 'Failed', label: 'Failed' },
   { value: 'Overdue', label: 'Overdue' },
+  { value: 'Abandoned', label: 'Abandoned' },
 ];
+
+const GATEWAY_OPTIONS = [
+  { value: '', label: 'All gateways' },
+  { value: 'Paystack', label: 'Paystack' },
+  { value: 'Flutterwave', label: 'Flutterwave' },
+  { value: 'Paypal', label: 'Paypal' },
+  { value: 'Stripe', label: 'Stripe' },
+];
+
+const FEE_TYPE_OPTIONS = [
+  { value: '', label: 'All fee types' },
+  { value: 'Tuition', label: 'Tuition' },
+  { value: 'Hostel', label: 'Hostel' },
+  { value: 'Laboratory', label: 'Laboratory' },
+  { value: 'Others', label: 'Others' },
+];
+
+const FEE_STATUS_OPTIONS = [
+  { value: '', label: 'All fee statuses' },
+  { value: 'Pending', label: 'Pending' },
+  { value: 'Active', label: 'Active' },
+  { value: 'Overdue', label: 'Overdue' },
+];
+
+const SEMESTER_OPTIONS = [
+  { value: '', label: 'All semesters' },
+  { value: 'First Semester', label: 'First Semester' },
+  { value: 'Second Semester', label: 'Second Semester' },
+];
+
+const INITIAL_FILTERS = {
+  search: '',
+  regNumber: '',
+  reference: '',
+  fee: '',
+  status: '',
+  gateway: '',
+  sessionId: '',
+  feeType: '',
+  semester: '',
+  feeStatus: '',
+  programId: '',
+  classLevelId: '',
+  startDate: '',
+  endDate: '',
+  amountMin: '',
+  amountMax: '',
+};
 
 export default function PaymentPage() {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [filterRegNumber, setFilterRegNumber] = useState('');
-  const [filterFeeId, setFilterFeeId] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState('xlsx');
+  const [isExporting, setIsExporting] = useState(false);
 
   const queryParams = useMemo(
     () => ({
       limit: rowsPerPage,
       skip: page * rowsPerPage,
       sort: '-createdAt',
-      ...(filterRegNumber?.trim() ? { regNumber: filterRegNumber.trim() } : {}),
-      ...(filterFeeId ? { fee: filterFeeId } : {}),
-      ...(filterStatus?.trim() ? { status: filterStatus } : {}),
+      ...(filters.search?.trim() ? { search: filters.search.trim() } : {}),
+      ...(filters.regNumber?.trim() ? { regNumber: filters.regNumber.trim() } : {}),
+      ...(filters.reference?.trim() ? { reference: filters.reference.trim() } : {}),
+      ...(filters.fee ? { fee: filters.fee } : {}),
+      ...(filters.status?.trim() ? { status: filters.status } : {}),
+      ...(filters.gateway?.trim() ? { gateway: filters.gateway } : {}),
+      ...(filters.sessionId ? { sessionId: filters.sessionId } : {}),
+      ...(filters.feeType?.trim() ? { feeType: filters.feeType } : {}),
+      ...(filters.semester?.trim() ? { semester: filters.semester } : {}),
+      ...(filters.feeStatus?.trim() ? { feeStatus: filters.feeStatus } : {}),
+      ...(filters.programId ? { programId: filters.programId } : {}),
+      ...(filters.classLevelId ? { classLevelId: filters.classLevelId } : {}),
+      ...(filters.startDate ? { startDate: filters.startDate } : {}),
+      ...(filters.endDate ? { endDate: filters.endDate } : {}),
+      ...(filters.amountMin !== '' ? { amountMin: filters.amountMin } : {}),
+      ...(filters.amountMax !== '' ? { amountMax: filters.amountMax } : {}),
     }),
-    [page, rowsPerPage, filterRegNumber, filterFeeId, filterStatus]
+    [page, rowsPerPage, filters]
   );
 
   const { data: paymentsResponse, isLoading } = useQuery({
@@ -185,13 +258,66 @@ export default function PaymentPage() {
     queryKey: ['fees'],
     queryFn: FeeApi.getFees,
   });
+  const { data: sessionsData } = useQuery({
+    queryKey: ['sessions'],
+    queryFn: SessionApi.getSessions,
+  });
+  const { data: programsData } = useQuery({
+    queryKey: ['programs'],
+    queryFn: programApi.getPrograms,
+  });
+  const { data: classLevelsData } = useQuery({
+    queryKey: ['classLevels'],
+    queryFn: classLevelApi.getClassLevels,
+  });
   const feeList = Array.isArray(feesData) ? feesData : (feesData?.data ?? []);
+  const sessionList = Array.isArray(sessionsData) ? sessionsData : (sessionsData?.data ?? []);
+  const programList = Array.isArray(programsData) ? programsData : (programsData?.data ?? []);
+  const classLevelList = Array.isArray(classLevelsData)
+    ? classLevelsData
+    : (classLevelsData?.data ?? []);
+
+  const setFilterValue = (key, value) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(0);
+  };
 
   const handleClearFilters = () => {
-    setFilterRegNumber('');
-    setFilterFeeId('');
-    setFilterStatus('');
+    setFilters(INITIAL_FILTERS);
     setPage(0);
+  };
+
+  const handleExport = async () => {
+    if (
+      filters.startDate &&
+      filters.endDate &&
+      new Date(filters.startDate) > new Date(filters.endDate)
+    ) {
+      enqueueSnackbar('Start date cannot be after end date', { variant: 'warning' });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const blob = await paymentApi.exportPayments({
+        ...queryParams,
+        format: exportFormat,
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `payments-export-${new Date().toISOString().slice(0, 10)}.${exportFormat}`;
+      document.body.appendChild(link);
+      link.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
+      setExportDialogOpen(false);
+      enqueueSnackbar('Payment export downloaded', { variant: 'success' });
+    } catch (error) {
+      enqueueSnackbar(error?.message || 'Failed to export payments', { variant: 'error' });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const columnsWithActions = columns.map((column) => {
@@ -252,38 +378,63 @@ export default function PaymentPage() {
                 New payment
               </Button>
             </Can>
-            <Button variant="outlined" startIcon={<Iconify icon="eva:download-fill" />} sx={{ px: 3 }}>
+            <Button
+              variant="outlined"
+              startIcon={<Iconify icon="eva:download-fill" />}
+              sx={{ px: 3 }}
+              onClick={() => setExportDialogOpen(true)}
+            >
               Export
             </Button>
           </Stack>
         </Box>
 
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={2}
-          sx={{ mb: 2 }}
-          alignItems={{ xs: 'stretch', sm: 'center' }}
-          flexWrap="wrap"
+        <Box
+          sx={{
+            mb: 2,
+            display: 'grid',
+            gap: 2,
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: 'repeat(2, minmax(0, 1fr))',
+              md: 'repeat(3, minmax(0, 1fr))',
+              xl: 'repeat(4, minmax(0, 1fr))',
+            },
+          }}
         >
           <TextField
             size="small"
-            placeholder="Reg. number"
-            value={filterRegNumber}
+            label="Search"
+            placeholder="Student, fee, reference"
+            value={filters.search}
             onChange={(e) => {
-              setFilterRegNumber(e.target.value);
-              setPage(0);
+              setFilterValue('search', e.target.value);
             }}
-            sx={{ minWidth: 160 }}
           />
-          <FormControl size="small" sx={{ minWidth: 180 }}>
+          <TextField
+            size="small"
+            label="Reg. number"
+            value={filters.regNumber}
+            onChange={(e) => {
+              setFilterValue('regNumber', e.target.value);
+            }}
+          />
+          <TextField
+            size="small"
+            label="Reference"
+            value={filters.reference}
+            onChange={(e) => {
+              setFilterValue('reference', e.target.value);
+            }}
+          />
+          <FormControl size="small">
             <InputLabel id="payment-filter-fee-label">Fee</InputLabel>
             <Select
               labelId="payment-filter-fee-label"
               label="Fee"
-              value={filterFeeId}
+              value={filters.fee}
               onChange={(e) => {
-                setFilterFeeId(e.target.value);
-                setPage(0);
+                setFilterValue('fee', e.target.value);
               }}
             >
               <MenuItem value="">All fees</MenuItem>
@@ -294,15 +445,14 @@ export default function PaymentPage() {
               ))}
             </Select>
           </FormControl>
-          <FormControl size="small" sx={{ minWidth: 160 }}>
+          <FormControl size="small">
             <InputLabel id="payment-filter-status-label">Status</InputLabel>
             <Select
               labelId="payment-filter-status-label"
               label="Status"
-              value={filterStatus}
+              value={filters.status}
               onChange={(e) => {
-                setFilterStatus(e.target.value);
-                setPage(0);
+                setFilterValue('status', e.target.value);
               }}
             >
               {STATUS_OPTIONS.map((opt) => (
@@ -312,6 +462,167 @@ export default function PaymentPage() {
               ))}
             </Select>
           </FormControl>
+          <FormControl size="small">
+            <InputLabel id="payment-filter-gateway-label">Gateway</InputLabel>
+            <Select
+              labelId="payment-filter-gateway-label"
+              label="Gateway"
+              value={filters.gateway}
+              onChange={(e) => {
+                setFilterValue('gateway', e.target.value);
+              }}
+            >
+              {GATEWAY_OPTIONS.map((opt) => (
+                <MenuItem key={opt.value || 'all'} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small">
+            <InputLabel id="payment-filter-session-label">Session</InputLabel>
+            <Select
+              labelId="payment-filter-session-label"
+              label="Session"
+              value={filters.sessionId}
+              onChange={(e) => {
+                setFilterValue('sessionId', e.target.value);
+              }}
+            >
+              <MenuItem value="">All sessions</MenuItem>
+              {sessionList.map((session) => (
+                <MenuItem key={session._id} value={session._id}>
+                  {session.name || session.code}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small">
+            <InputLabel id="payment-filter-fee-type-label">Fee type</InputLabel>
+            <Select
+              labelId="payment-filter-fee-type-label"
+              label="Fee type"
+              value={filters.feeType}
+              onChange={(e) => {
+                setFilterValue('feeType', e.target.value);
+              }}
+            >
+              {FEE_TYPE_OPTIONS.map((opt) => (
+                <MenuItem key={opt.value || 'all'} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small">
+            <InputLabel id="payment-filter-semester-label">Semester</InputLabel>
+            <Select
+              labelId="payment-filter-semester-label"
+              label="Semester"
+              value={filters.semester}
+              onChange={(e) => {
+                setFilterValue('semester', e.target.value);
+              }}
+            >
+              {SEMESTER_OPTIONS.map((opt) => (
+                <MenuItem key={opt.value || 'all'} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small">
+            <InputLabel id="payment-filter-fee-status-label">Fee status</InputLabel>
+            <Select
+              labelId="payment-filter-fee-status-label"
+              label="Fee status"
+              value={filters.feeStatus}
+              onChange={(e) => {
+                setFilterValue('feeStatus', e.target.value);
+              }}
+            >
+              {FEE_STATUS_OPTIONS.map((opt) => (
+                <MenuItem key={opt.value || 'all'} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small">
+            <InputLabel id="payment-filter-program-label">Program</InputLabel>
+            <Select
+              labelId="payment-filter-program-label"
+              label="Program"
+              value={filters.programId}
+              onChange={(e) => {
+                setFilterValue('programId', e.target.value);
+              }}
+            >
+              <MenuItem value="">All programs</MenuItem>
+              {programList.map((program) => (
+                <MenuItem key={program._id} value={program._id}>
+                  {program.name || program.code}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small">
+            <InputLabel id="payment-filter-class-level-label">Class level</InputLabel>
+            <Select
+              labelId="payment-filter-class-level-label"
+              label="Class level"
+              value={filters.classLevelId}
+              onChange={(e) => {
+                setFilterValue('classLevelId', e.target.value);
+              }}
+            >
+              <MenuItem value="">All class levels</MenuItem>
+              {classLevelList.map((classLevel) => (
+                <MenuItem key={classLevel._id} value={classLevel._id}>
+                  {classLevel.name || classLevel.code}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            size="small"
+            label="Start date"
+            type="date"
+            value={filters.startDate}
+            onChange={(e) => {
+              setFilterValue('startDate', e.target.value);
+            }}
+            InputLabelProps={{ shrink: true }}
+          />
+          <TextField
+            size="small"
+            label="End date"
+            type="date"
+            value={filters.endDate}
+            onChange={(e) => {
+              setFilterValue('endDate', e.target.value);
+            }}
+            InputLabelProps={{ shrink: true }}
+          />
+          <TextField
+            size="small"
+            label="Min amount"
+            type="number"
+            value={filters.amountMin}
+            onChange={(e) => {
+              setFilterValue('amountMin', e.target.value);
+            }}
+          />
+          <TextField
+            size="small"
+            label="Max amount"
+            type="number"
+            value={filters.amountMax}
+            onChange={(e) => {
+              setFilterValue('amountMax', e.target.value);
+            }}
+          />
+          <Stack direction="row" spacing={1} sx={{ gridColumn: { xs: '1 / -1' } }}>
           <Button
             size="small"
             variant="outlined"
@@ -320,7 +631,8 @@ export default function PaymentPage() {
           >
             Clear filters
           </Button>
-        </Stack>
+          </Stack>
+        </Box>
 
         <Card
           sx={{
@@ -334,7 +646,7 @@ export default function PaymentPage() {
             columns={columnsWithActions}
             rowIdField="_id"
             withCheckbox
-            withToolbar
+            withToolbar={false}
             withPagination
             selectable
             isLoading={isLoading}
@@ -350,13 +662,17 @@ export default function PaymentPage() {
               setPage(0);
             }}
             onRowClick={(row) => navigate(`/payment/${row._id}`)}
-            toolbarProps={{
-              searchPlaceholder: 'Search payments...',
-              toolbarTitle: 'Payments List',
-            }}
           />
         </Card>
       </Box>
+      <PaymentExportDialog
+        open={exportDialogOpen}
+        onClose={() => setExportDialogOpen(false)}
+        format={exportFormat}
+        onFormatChange={setExportFormat}
+        onExport={handleExport}
+        isExporting={isExporting}
+      />
     </Container>
   );
 }

@@ -396,6 +396,35 @@ export const paymentApi = {
   },
   getPaymentById: (id) => apiClient.get(`payment/${id}`),
   updatePayment: (id, data) => apiClient.put(`payment/${id}`, data),
+  exportPayments: async (params = {}) => {
+    const { token } = useAuthStore.getState();
+    const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
+    const query = buildQueryString(params);
+    const url = `${config.baseUrl}${apiVersion}/payment/export${query ? `?${query}` : ''}`;
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      let errorMessage = 'Failed to export payments';
+      try {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const errorJson = await res.json();
+          errorMessage = errorJson.message || errorJson.error || errorMessage;
+        } else {
+          const errorText = await res.text();
+          if (errorText) errorMessage = errorText;
+        }
+      } catch {
+        errorMessage = res.statusText || errorMessage;
+      }
+      const err = new Error(errorMessage);
+      err.status = res.status;
+      throw err;
+    }
+    return res.blob();
+  },
   getReceiptPdf: async (id) => {
     const { token } = useAuthStore.getState();
     const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
