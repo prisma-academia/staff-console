@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import Badge from '@mui/material/Badge';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Select from '@mui/material/Select';
@@ -32,6 +33,10 @@ import Can from 'src/components/permission/can';
 import { GenericTable } from 'src/components/generic-table';
 
 import PaymentExportDialog from 'src/sections/payment/payment-export-dialog';
+import PaymentAdvancedFiltersDialog, {
+  ADVANCED_FILTER_INITIAL,
+  countActiveAdvancedFilters,
+} from 'src/sections/payment/payment-advanced-filters-dialog';
 
 // ----------------------------------------------------------------------
 
@@ -157,35 +162,6 @@ const STATUS_OPTIONS = [
   { value: 'Abandoned', label: 'Abandoned' },
 ];
 
-const GATEWAY_OPTIONS = [
-  { value: '', label: 'All gateways' },
-  { value: 'Paystack', label: 'Paystack' },
-  { value: 'Flutterwave', label: 'Flutterwave' },
-  { value: 'Paypal', label: 'Paypal' },
-  { value: 'Stripe', label: 'Stripe' },
-];
-
-const FEE_TYPE_OPTIONS = [
-  { value: '', label: 'All fee types' },
-  { value: 'Tuition', label: 'Tuition' },
-  { value: 'Hostel', label: 'Hostel' },
-  { value: 'Laboratory', label: 'Laboratory' },
-  { value: 'Others', label: 'Others' },
-];
-
-const FEE_STATUS_OPTIONS = [
-  { value: '', label: 'All fee statuses' },
-  { value: 'Pending', label: 'Pending' },
-  { value: 'Active', label: 'Active' },
-  { value: 'Overdue', label: 'Overdue' },
-];
-
-const SEMESTER_OPTIONS = [
-  { value: '', label: 'All semesters' },
-  { value: 'First Semester', label: 'First Semester' },
-  { value: 'Second Semester', label: 'Second Semester' },
-];
-
 const INITIAL_FILTERS = {
   search: '',
   regNumber: '',
@@ -213,8 +189,11 @@ export default function PaymentPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState('xlsx');
   const [isExporting, setIsExporting] = useState(false);
+
+  const activeAdvancedCount = useMemo(() => countActiveAdvancedFilters(filters), [filters]);
 
   const queryParams = useMemo(
     () => ({
@@ -261,14 +240,17 @@ export default function PaymentPage() {
   const { data: sessionsData } = useQuery({
     queryKey: ['sessions'],
     queryFn: SessionApi.getSessions,
+    enabled: advancedFiltersOpen,
   });
   const { data: programsData } = useQuery({
     queryKey: ['programs'],
     queryFn: programApi.getPrograms,
+    enabled: advancedFiltersOpen,
   });
   const { data: classLevelsData } = useQuery({
     queryKey: ['classLevels'],
     queryFn: classLevelApi.getClassLevels,
+    enabled: advancedFiltersOpen,
   });
   const feeList = Array.isArray(feesData) ? feesData : (feesData?.data ?? []);
   const sessionList = Array.isArray(sessionsData) ? sessionsData : (sessionsData?.data ?? []);
@@ -284,6 +266,16 @@ export default function PaymentPage() {
 
   const handleClearFilters = () => {
     setFilters(INITIAL_FILTERS);
+    setPage(0);
+  };
+
+  const handleApplyAdvanced = (advanced) => {
+    setFilters((prev) => ({ ...prev, ...advanced }));
+    setPage(0);
+  };
+
+  const handleClearAdvancedOnly = () => {
+    setFilters((prev) => ({ ...prev, ...ADVANCED_FILTER_INITIAL }));
     setPage(0);
   };
 
@@ -389,250 +381,93 @@ export default function PaymentPage() {
           </Stack>
         </Box>
 
-        <Box
-          sx={{
-            mb: 2,
-            display: 'grid',
-            gap: 2,
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(2, minmax(0, 1fr))',
-              md: 'repeat(3, minmax(0, 1fr))',
-              xl: 'repeat(4, minmax(0, 1fr))',
-            },
-          }}
-        >
-          <TextField
-            size="small"
-            label="Search"
-            placeholder="Student, fee, reference"
-            value={filters.search}
-            onChange={(e) => {
-              setFilterValue('search', e.target.value);
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }} alignItems={{ md: 'center' }}>
+          <Box
+            sx={{
+              flex: 1,
+              display: 'grid',
+              gap: 2,
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, minmax(0, 1fr))',
+                md: 'repeat(4, minmax(0, 1fr))',
+              },
             }}
-          />
-          <TextField
-            size="small"
-            label="Reg. number"
-            value={filters.regNumber}
-            onChange={(e) => {
-              setFilterValue('regNumber', e.target.value);
-            }}
-          />
-          <TextField
-            size="small"
-            label="Reference"
-            value={filters.reference}
-            onChange={(e) => {
-              setFilterValue('reference', e.target.value);
-            }}
-          />
-          <FormControl size="small">
-            <InputLabel id="payment-filter-fee-label">Fee</InputLabel>
-            <Select
-              labelId="payment-filter-fee-label"
-              label="Fee"
-              value={filters.fee}
-              onChange={(e) => {
-                setFilterValue('fee', e.target.value);
-              }}
-            >
-              <MenuItem value="">All fees</MenuItem>
-              {feeList.map((fee) => (
-                <MenuItem key={fee._id} value={fee._id}>
-                  {fee.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small">
-            <InputLabel id="payment-filter-status-label">Status</InputLabel>
-            <Select
-              labelId="payment-filter-status-label"
-              label="Status"
-              value={filters.status}
-              onChange={(e) => {
-                setFilterValue('status', e.target.value);
-              }}
-            >
-              {STATUS_OPTIONS.map((opt) => (
-                <MenuItem key={opt.value || 'all'} value={opt.value}>
-                  {opt.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small">
-            <InputLabel id="payment-filter-gateway-label">Gateway</InputLabel>
-            <Select
-              labelId="payment-filter-gateway-label"
-              label="Gateway"
-              value={filters.gateway}
-              onChange={(e) => {
-                setFilterValue('gateway', e.target.value);
-              }}
-            >
-              {GATEWAY_OPTIONS.map((opt) => (
-                <MenuItem key={opt.value || 'all'} value={opt.value}>
-                  {opt.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small">
-            <InputLabel id="payment-filter-session-label">Session</InputLabel>
-            <Select
-              labelId="payment-filter-session-label"
-              label="Session"
-              value={filters.sessionId}
-              onChange={(e) => {
-                setFilterValue('sessionId', e.target.value);
-              }}
-            >
-              <MenuItem value="">All sessions</MenuItem>
-              {sessionList.map((session) => (
-                <MenuItem key={session._id} value={session._id}>
-                  {session.name || session.code}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small">
-            <InputLabel id="payment-filter-fee-type-label">Fee type</InputLabel>
-            <Select
-              labelId="payment-filter-fee-type-label"
-              label="Fee type"
-              value={filters.feeType}
-              onChange={(e) => {
-                setFilterValue('feeType', e.target.value);
-              }}
-            >
-              {FEE_TYPE_OPTIONS.map((opt) => (
-                <MenuItem key={opt.value || 'all'} value={opt.value}>
-                  {opt.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small">
-            <InputLabel id="payment-filter-semester-label">Semester</InputLabel>
-            <Select
-              labelId="payment-filter-semester-label"
-              label="Semester"
-              value={filters.semester}
-              onChange={(e) => {
-                setFilterValue('semester', e.target.value);
-              }}
-            >
-              {SEMESTER_OPTIONS.map((opt) => (
-                <MenuItem key={opt.value || 'all'} value={opt.value}>
-                  {opt.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small">
-            <InputLabel id="payment-filter-fee-status-label">Fee status</InputLabel>
-            <Select
-              labelId="payment-filter-fee-status-label"
-              label="Fee status"
-              value={filters.feeStatus}
-              onChange={(e) => {
-                setFilterValue('feeStatus', e.target.value);
-              }}
-            >
-              {FEE_STATUS_OPTIONS.map((opt) => (
-                <MenuItem key={opt.value || 'all'} value={opt.value}>
-                  {opt.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small">
-            <InputLabel id="payment-filter-program-label">Program</InputLabel>
-            <Select
-              labelId="payment-filter-program-label"
-              label="Program"
-              value={filters.programId}
-              onChange={(e) => {
-                setFilterValue('programId', e.target.value);
-              }}
-            >
-              <MenuItem value="">All programs</MenuItem>
-              {programList.map((program) => (
-                <MenuItem key={program._id} value={program._id}>
-                  {program.name || program.code}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small">
-            <InputLabel id="payment-filter-class-level-label">Class level</InputLabel>
-            <Select
-              labelId="payment-filter-class-level-label"
-              label="Class level"
-              value={filters.classLevelId}
-              onChange={(e) => {
-                setFilterValue('classLevelId', e.target.value);
-              }}
-            >
-              <MenuItem value="">All class levels</MenuItem>
-              {classLevelList.map((classLevel) => (
-                <MenuItem key={classLevel._id} value={classLevel._id}>
-                  {classLevel.name || classLevel.code}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <TextField
-            size="small"
-            label="Start date"
-            type="date"
-            value={filters.startDate}
-            onChange={(e) => {
-              setFilterValue('startDate', e.target.value);
-            }}
-            InputLabelProps={{ shrink: true }}
-          />
-          <TextField
-            size="small"
-            label="End date"
-            type="date"
-            value={filters.endDate}
-            onChange={(e) => {
-              setFilterValue('endDate', e.target.value);
-            }}
-            InputLabelProps={{ shrink: true }}
-          />
-          <TextField
-            size="small"
-            label="Min amount"
-            type="number"
-            value={filters.amountMin}
-            onChange={(e) => {
-              setFilterValue('amountMin', e.target.value);
-            }}
-          />
-          <TextField
-            size="small"
-            label="Max amount"
-            type="number"
-            value={filters.amountMax}
-            onChange={(e) => {
-              setFilterValue('amountMax', e.target.value);
-            }}
-          />
-          <Stack direction="row" spacing={1} sx={{ gridColumn: { xs: '1 / -1' } }}>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={handleClearFilters}
-            startIcon={<Iconify icon="eva:close-fill" />}
           >
-            Clear filters
-          </Button>
+            <TextField
+              size="small"
+              label="Search"
+              placeholder="Student, fee, reference"
+              value={filters.search}
+              onChange={(e) => {
+                setFilterValue('search', e.target.value);
+              }}
+            />
+            <TextField
+              size="small"
+              label="Reg. number"
+              value={filters.regNumber}
+              onChange={(e) => {
+                setFilterValue('regNumber', e.target.value);
+              }}
+            />
+            <FormControl size="small">
+              <InputLabel id="payment-filter-fee-label">Fee</InputLabel>
+              <Select
+                labelId="payment-filter-fee-label"
+                label="Fee"
+                value={filters.fee}
+                onChange={(e) => {
+                  setFilterValue('fee', e.target.value);
+                }}
+              >
+                <MenuItem value="">All fees</MenuItem>
+                {feeList.map((fee) => (
+                  <MenuItem key={fee._id} value={fee._id}>
+                    {fee.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small">
+              <InputLabel id="payment-filter-status-label">Status</InputLabel>
+              <Select
+                labelId="payment-filter-status-label"
+                label="Status"
+                value={filters.status}
+                onChange={(e) => {
+                  setFilterValue('status', e.target.value);
+                }}
+              >
+                {STATUS_OPTIONS.map((opt) => (
+                  <MenuItem key={opt.value || 'all'} value={opt.value}>
+                    {opt.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+          <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
+            <Badge color="primary" badgeContent={activeAdvancedCount} invisible={activeAdvancedCount === 0}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<Iconify icon="ic:round-filter-list" />}
+                onClick={() => setAdvancedFiltersOpen(true)}
+              >
+                Advanced filters
+              </Button>
+            </Badge>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={handleClearFilters}
+              startIcon={<Iconify icon="eva:close-fill" />}
+            >
+              Clear filters
+            </Button>
           </Stack>
-        </Box>
+        </Stack>
 
         <Card
           sx={{
@@ -665,6 +500,16 @@ export default function PaymentPage() {
           />
         </Card>
       </Box>
+      <PaymentAdvancedFiltersDialog
+        open={advancedFiltersOpen}
+        onClose={() => setAdvancedFiltersOpen(false)}
+        appliedFilters={filters}
+        onApply={handleApplyAdvanced}
+        onClearAdvanced={handleClearAdvancedOnly}
+        sessionList={sessionList}
+        programList={programList}
+        classLevelList={classLevelList}
+      />
       <PaymentExportDialog
         open={exportDialogOpen}
         onClose={() => setExportDialogOpen(false)}
