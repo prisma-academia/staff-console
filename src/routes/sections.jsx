@@ -21,6 +21,7 @@ const UserAddPage = lazy(() => import('src/sections/user/add/user-add-page'));
 const GroupsPage = lazy(() => import('src/pages/groups'));
 const AdmissionPage = lazy(() => import('src/pages/admission'));
 const StudentPage = lazy(() => import('src/pages/student'));
+const StudentIntakePage = lazy(() => import('src/pages/student-intake'));
 const StudentDetailPage = lazy(() => import('src/sections/student/detail/student-detail-page'));
 const SettingsPage = lazy(() => import('src/pages/settings'));
 const AppSettingsPage = lazy(() => import('src/pages/app-settings'));
@@ -161,6 +162,14 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <StudentPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'student/intake',
+          element: (
+            <PrivateRoute>
+              <StudentIntakePage />
             </PrivateRoute>
           ),
         },

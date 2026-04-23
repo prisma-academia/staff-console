@@ -51,12 +51,13 @@ const style = {
   outline: 'none',
 };
 
-export default function AddStudent({ open, setOpen }) {
+export default function AddStudent({ open, setOpen, onStageStudent }) {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [isGeneratingRegNumber, setIsGeneratingRegNumber] = React.useState(false);
+  const isStageMode = typeof onStageStudent === 'function';
 
   const validationSchema = Yup.object({
     regNumber: Yup.string().required('Registration number is required'),
@@ -74,8 +75,8 @@ export default function AddStudent({ open, setOpen }) {
       state: Yup.string().required('State is required'),
       lga: Yup.string().required('LGA is required'),
     }),
-    program: Yup.string().required('Program is required'),
-    classLevel: Yup.string().required('Class level is required'),
+    program: isStageMode ? Yup.string() : Yup.string().required('Program is required'),
+    classLevel: isStageMode ? Yup.string() : Yup.string().required('Class level is required'),
     guardianInfo: Yup.object({
       guardianName: Yup.string().required('Guardian name is required'),
       guardianPhone: Yup.string().required('Guardian phone is required'),
@@ -135,6 +136,33 @@ export default function AddStudent({ open, setOpen }) {
     },
     validationSchema,
     onSubmit: (values) => {
+      if (isStageMode) {
+        let normalizedAllergies = [];
+        if (Array.isArray(values.medicalInfo?.allergies)) {
+          normalizedAllergies = values.medicalInfo.allergies;
+        } else if (values.medicalInfo?.allergies) {
+          normalizedAllergies = String(values.medicalInfo.allergies)
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean);
+        }
+        const stagedStudent = {
+          regNumber: values.regNumber,
+          email: values.contactInfo?.email || values.email,
+          personalInfo: values.personalInfo,
+          contactInfo: values.contactInfo,
+          guardianInfo: values.guardianInfo,
+          medicalInfo: {
+            ...values.medicalInfo,
+            allergies: normalizedAllergies,
+          },
+          enrollmentDate: values.enrollmentDate,
+        };
+        onStageStudent(stagedStudent);
+        enqueueSnackbar('Student added to staging table', { variant: 'success' });
+        handleClose();
+        return;
+      }
       mutate(values);
     },
   });
@@ -419,31 +447,33 @@ export default function AddStudent({ open, setOpen }) {
                         <MenuItem value="setup">Setup</MenuItem>
                       </TextField>
                     </Grid>
-                    <Grid item xs={12}>
-                      <Stack direction="row" spacing={3} flexWrap="wrap">
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={formik.values.sendEmail}
-                              onChange={() => formik.setFieldValue('sendEmail', true)}
-                              name="sendEmail"
-                              disabled
-                            />
-                          }
-                          label="Send login credentials by email (required)"
-                        />
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={formik.values.sendSMS}
-                              onChange={(e) => formik.setFieldValue('sendSMS', e.target.checked)}
-                              name="sendSMS"
-                            />
-                          }
-                          label="Send login credentials by SMS"
-                        />
-                      </Stack>
-                    </Grid>
+                    {!isStageMode && (
+                      <Grid item xs={12}>
+                        <Stack direction="row" spacing={3} flexWrap="wrap">
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={formik.values.sendEmail}
+                                onChange={() => formik.setFieldValue('sendEmail', true)}
+                                name="sendEmail"
+                                disabled
+                              />
+                            }
+                            label="Send login credentials by email (required)"
+                          />
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={formik.values.sendSMS}
+                                onChange={(e) => formik.setFieldValue('sendSMS', e.target.checked)}
+                                name="sendSMS"
+                              />
+                            }
+                            label="Send login credentials by SMS"
+                          />
+                        </Stack>
+                      </Grid>
+                    )}
                   </Grid>
                 </Box>
 
@@ -958,4 +988,5 @@ export default function AddStudent({ open, setOpen }) {
 AddStudent.propTypes = {
   open: PropTypes.bool.isRequired,
   setOpen: PropTypes.func.isRequired,
+  onStageStudent: PropTypes.func,
 };

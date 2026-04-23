@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
@@ -21,9 +20,7 @@ import config from 'src/config';
 import Iconify from 'src/components/iconify';
 import { GenericTable } from 'src/components/generic-table';
 
-import AddStudent from '../add-student';
 import { StudentApi } from '../../../api';
-import BulkUploadModal from '../bulk-upload/bulk-upload-modal';
 
 const columns = [
   { 
@@ -123,8 +120,6 @@ const columns = [
 export default function StudentView() {
   const theme = useTheme();
   const navigate = useNavigate();
-  const [openAddModal, setOpenAddModal] = useState(false);
-  const [openBulkUploadModal, setOpenBulkUploadModal] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['students'],
@@ -135,11 +130,6 @@ export default function StudentView() {
     navigate(`/student/${row._id}`);
   };
 
-
-
-  const handleOpenAddModal = () => {
-    setOpenAddModal(true);
-  };
 
 
   // Modify the action column to include our view button with onClick handler
@@ -193,7 +183,7 @@ export default function StudentView() {
             <Button 
               variant="contained" 
               startIcon={<Iconify icon="eva:plus-fill" />}
-              onClick={handleOpenAddModal}
+              onClick={() => navigate('/student/intake')}
               sx={{ 
                 px: 3,
                 boxShadow: theme.customShadows.primary,
@@ -202,22 +192,7 @@ export default function StudentView() {
                 }
               }}
             >
-              Add Student
-            </Button>
-            <Button
-              variant="contained"
-              color="secondary"
-              startIcon={<Iconify icon="mdi:upload-multiple" />}
-              onClick={() => setOpenBulkUploadModal(true)}
-              sx={{ 
-                px: 3,
-                boxShadow: theme.customShadows.secondary,
-                '&:hover': {
-                  boxShadow: 'none',
-                }
-              }}
-            >
-              Bulk Upload
+              Student Intake
             </Button>
             <Button
               variant="outlined"
@@ -256,18 +231,6 @@ export default function StudentView() {
           />
         </Card>
       </Box>
-
-      {/* Add Student Modal */}
-      <AddStudent
-        open={openAddModal}
-        setOpen={setOpenAddModal}
-      />
-
-      {/* Bulk Upload Modal */}
-      <BulkUploadModal
-        open={openBulkUploadModal}
-        setOpen={setOpenBulkUploadModal}
-      />
     </Container>
   );
 }
