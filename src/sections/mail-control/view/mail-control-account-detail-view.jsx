@@ -8,6 +8,7 @@ import {
   Box,
   Card,
   Chip,
+  Grid,
   Stack,
   Button,
   Divider,
@@ -99,44 +100,50 @@ export default function MailControlAccountDetailView() {
         <Typography variant="h4" sx={{ flexGrow: 1 }}>{account.name}</Typography>
       </Stack>
 
-      <Stack spacing={3}>
-        <Card sx={{ p: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>Account</Typography>
-          <Stack spacing={1}>
-            <Typography variant="body2"><strong>Email:</strong> {account.email}</Typography>
-            <Typography variant="body2"><strong>Owner:</strong> {account.owner}</Typography>
-            <Typography variant="body2"><strong>Description:</strong> {account.description || '—'}</Typography>
-            <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
-              <Chip label={account.isActive ? 'Active' : 'Inactive'} color={account.isActive ? 'success' : 'default'} size="small" />
-              <Chip label={account.isPublic ? 'Public' : 'Private'} size="small" variant="outlined" />
-            </Stack>
-          </Stack>
-        </Card>
-
-        <Card sx={{ p: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>Linked domain</Typography>
-          {domain && typeof domain === 'object' ? (
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ p: 3, height: '100%' }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>Account</Typography>
             <Stack spacing={1}>
-              <Typography variant="body2"><strong>Domain:</strong> {domain.value}</Typography>
-              <Typography variant="body2"><strong>SMTP host:</strong> {domain.smtpHost || '—'}</Typography>
-              <Typography variant="body2"><strong>SMTP port:</strong> {domain.smtpPort ?? '—'}</Typography>
-              <Typography variant="body2"><strong>Domain active:</strong> {domain.isActive ? 'Yes' : 'No'}</Typography>
-              <Chip
-                label={smtpComplete ? 'SMTP configuration complete' : 'SMTP incomplete'}
-                color={smtpComplete ? 'success' : 'warning'}
-                size="small"
-                sx={{ alignSelf: 'flex-start', mt: 1 }}
-              />
+              <Typography variant="body2"><strong>Email:</strong> {account.email}</Typography>
+              <Typography variant="body2"><strong>Owner:</strong> {account.owner}</Typography>
+              <Typography variant="body2"><strong>Description:</strong> {account.description || '—'}</Typography>
+              <Box sx={{ pt: 1 }}>
+                <Chip label={account.isActive ? 'Active' : 'Inactive'} color={account.isActive ? 'success' : 'default'} size="small" />
+              </Box>
             </Stack>
-          ) : (
-            <Typography variant="body2" color="text.secondary">No domain linked (legacy account).</Typography>
-          )}
-        </Card>
+          </Card>
+        </Grid>
 
-        <Card sx={{ p: 3 }}>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ p: 3, height: '100%' }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>Linked domain</Typography>
+            {domain && typeof domain === 'object' ? (
+              <Stack spacing={1}>
+                <Typography variant="body2"><strong>Domain:</strong> {domain.value}</Typography>
+                <Typography variant="body2"><strong>SMTP host:</strong> {domain.smtpHost || '—'}</Typography>
+                <Typography variant="body2"><strong>SMTP port:</strong> {domain.smtpPort ?? '—'}</Typography>
+                <Typography variant="body2"><strong>Domain active:</strong> {domain.isActive ? 'Yes' : 'No'}</Typography>
+                <Chip
+                  label={smtpComplete ? 'SMTP configuration complete' : 'SMTP incomplete'}
+                  color={smtpComplete ? 'success' : 'warning'}
+                  size="small"
+                  sx={{ alignSelf: 'flex-start', mt: 1 }}
+                />
+              </Stack>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                No domain linked. Mail accounts must be linked to a domain to be used for mail.
+              </Typography>
+            )}
+          </Card>
+        </Grid>
+
+        <Grid item xs={12}>
+          <Card sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 1 }}>Assigned users</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Staff who may open this mailbox in Inbox and send as this address (in addition to the owner and public accounts).
+            Only the account owner and users listed here may open this mailbox and send as this address.
           </Typography>
           <Autocomplete
             multiple
@@ -156,8 +163,9 @@ export default function MailControlAccountDetailView() {
           ) : (
             <Typography variant="caption" color="text.secondary">You do not have permission to change assignments.</Typography>
           )}
-        </Card>
-      </Stack>
+          </Card>
+        </Grid>
+      </Grid>
     </Box>
   );
 }

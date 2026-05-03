@@ -10,6 +10,7 @@ import {
   Card,
   List,
   Chip,
+  Grid,
   Stack,
   Badge,
   Paper,
@@ -361,34 +362,40 @@ export default function MailView() {
 
         <Card sx={{ p: 3, flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
           <Stack spacing={2} sx={{ flexGrow: 1 }}>
-            <FormControl fullWidth>
-              <InputLabel id="compose-from-label">From</InputLabel>
-              <Select
-                labelId="compose-from-label"
-                label="From"
-                value={composeFrom || fromOptions[0]?.address || ''}
-                onChange={(e) => setComposeFrom(e.target.value)}
-              >
-                {fromOptions.map((o) => (
-                  <MenuItem key={o.address} value={o.address}>
-                    {o.name !== o.address ? `${o.name} <${o.address}>` : o.address}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              fullWidth
-              label="To"
-              value={composeData.to}
-              onChange={(e) => setComposeData((d) => ({ ...d, to: e.target.value }))}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Iconify icon="solar:user-bold-duotone" sx={{ color: 'text.disabled' }} />
-                  </InputAdornment>
-                ),
-              }}
-            />
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel id="compose-from-label">From</InputLabel>
+                  <Select
+                    labelId="compose-from-label"
+                    label="From"
+                    value={composeFrom || fromOptions[0]?.address || ''}
+                    onChange={(e) => setComposeFrom(e.target.value)}
+                  >
+                    {fromOptions.map((o) => (
+                      <MenuItem key={o.address} value={o.address}>
+                        {o.name !== o.address ? `${o.name} <${o.address}>` : o.address}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="To"
+                  value={composeData.to}
+                  onChange={(e) => setComposeData((d) => ({ ...d, to: e.target.value }))}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Iconify icon="solar:user-bold-duotone" sx={{ color: 'text.disabled' }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+            </Grid>
             <TextField
               fullWidth
               label="Cc"
@@ -615,52 +622,68 @@ export default function MailView() {
   return (
     <Box sx={{ height: 'calc(100vh - 110px)', display: 'flex', flexDirection: 'column' }}>
       <Card sx={{ boxShadow: 0, mb: 2 }}>
-        <Toolbar sx={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-            <FormControl size="small" sx={{ minWidth: 260 }}>
-              <InputLabel id="mailbox-select-label">Mailbox</InputLabel>
-              <Select
-                labelId="mailbox-select-label"
-                label="Mailbox"
-                value={selectedMailboxEmail || userEmail}
-                onChange={(e) => setSelectedMailboxEmail(e.target.value)}
+        <Toolbar
+          sx={{
+            minHeight: 80,
+            py: 2,
+            display: 'block',
+            height: 'auto',
+          }}
+        >
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={4}>
+              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
+                <InputLabel id="mailbox-select-label">Mailbox</InputLabel>
+                <Select
+                  labelId="mailbox-select-label"
+                  label="Mailbox"
+                  value={selectedMailboxEmail || userEmail}
+                  onChange={(e) => setSelectedMailboxEmail(e.target.value)}
+                >
+                  {fromOptions.map((o) => (
+                    <MenuItem key={o.address} value={o.address}>
+                      {o.name !== o.address ? `${o.name} <${o.address}>` : o.address}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Button
+                variant="contained"
+                fullWidth
+                startIcon={<Iconify icon="solar:pen-bold" />}
+                onClick={() => handleOpenCompose()}
               >
-                {fromOptions.map((o) => (
-                  <MenuItem key={o.address} value={o.address}>
-                    {o.name !== o.address ? `${o.name} <${o.address}>` : o.address}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              startIcon={<Iconify icon="solar:pen-bold" />}
-              onClick={() => handleOpenCompose()}
-            >
-              Compose
-            </Button>
-            <OutlinedInput
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={handleSearch}
-              placeholder="Search emails… (Enter)"
-              startAdornment={
-                <InputAdornment position="start">
-                  <Iconify icon="eva:search-fill" sx={{ color: 'text.disabled', width: 20, height: 20 }} />
-                </InputAdornment>
-              }
-              sx={{
-                width: 280,
-                '& fieldset': {
-                  borderWidth: '1px !important',
-                  borderColor: `${alpha(theme.palette.grey[500], 0.32)} !important`,
-                },
-              }}
-            />
-          </Stack>
-          <IconButton onClick={() => queryClient.invalidateQueries({ queryKey: mailsKey })}>
-            <Iconify icon="solar:refresh-bold-duotone" />
-          </IconButton>
+                Compose
+              </Button>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <OutlinedInput
+                fullWidth
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={handleSearch}
+                placeholder="Search emails… (Enter)"
+                startAdornment={
+                  <InputAdornment position="start">
+                    <Iconify icon="eva:search-fill" sx={{ color: 'text.disabled', width: 20, height: 20 }} />
+                  </InputAdornment>
+                }
+                sx={{
+                  '& fieldset': {
+                    borderWidth: '1px !important',
+                    borderColor: `${alpha(theme.palette.grey[500], 0.32)} !important`,
+                  },
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={1} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+              <IconButton onClick={() => queryClient.invalidateQueries({ queryKey: mailsKey })} aria-label="Refresh">
+                <Iconify icon="solar:refresh-bold-duotone" />
+              </IconButton>
+            </Grid>
+          </Grid>
         </Toolbar>
       </Card>
 

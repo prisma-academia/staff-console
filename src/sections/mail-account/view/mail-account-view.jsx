@@ -42,7 +42,6 @@ const accountSchema = Yup.object({
   email: Yup.string().email('Invalid email').required('Email is required'),
   description: Yup.string(),
   isActive: Yup.boolean(),
-  isPublic: Yup.boolean(),
 });
 
 function AccountDialog({ open, onClose, account, onSaved }) {
@@ -56,7 +55,6 @@ function AccountDialog({ open, onClose, account, onSaved }) {
       email: account?.email || '',
       description: account?.description || '',
       isActive: account?.isActive !== undefined ? account.isActive : true,
-      isPublic: account?.isPublic !== undefined ? account.isPublic : false,
     },
     validationSchema: accountSchema,
     onSubmit: async (values, { setSubmitting, resetForm }) => {
@@ -124,16 +122,6 @@ function AccountDialog({ open, onClose, account, onSaved }) {
               }
               label="Active"
             />
-            <FormControlLabel
-              control={
-                <Switch
-                  name="isPublic"
-                  checked={formik.values.isPublic}
-                  onChange={formik.handleChange}
-                />
-              }
-              label="Public (accessible by all staff)"
-            />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -156,7 +144,6 @@ AccountDialog.propTypes = {
     email: PropTypes.string,
     description: PropTypes.string,
     isActive: PropTypes.bool,
-    isPublic: PropTypes.bool,
   }),
   onSaved: PropTypes.func.isRequired,
 };
@@ -216,7 +203,6 @@ export default function MailAccountView() {
                   <TableCell>Email</TableCell>
                   <TableCell>Owner</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Visibility</TableCell>
                   <TableCell>Created</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
@@ -224,14 +210,14 @@ export default function MailAccountView() {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                       <CircularProgress size={28} />
                     </TableCell>
                   </TableRow>
                 )}
                 {!isLoading && accounts.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                    <TableCell colSpan={6} align="center" sx={{ py: 5 }}>
                       <Typography variant="body2" color="text.secondary">
                         No mail accounts yet. Click &quot;Add Account&quot; to create one.
                       </Typography>
@@ -257,14 +243,6 @@ export default function MailAccountView() {
                         label={acc.isActive ? 'Active' : 'Inactive'}
                         color={acc.isActive ? 'success' : 'default'}
                         size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={acc.isPublic ? 'Public' : 'Private'}
-                        color={acc.isPublic ? 'info' : 'default'}
-                        size="small"
-                        variant="outlined"
                       />
                     </TableCell>
                     <TableCell>

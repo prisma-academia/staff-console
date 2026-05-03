@@ -11,6 +11,7 @@ import {
   Box,
   Card,
   Chip,
+  Grid,
   Stack,
   Table,
   Button,
@@ -49,14 +50,12 @@ const createAccountSchema = Yup.object({
   domainId: Yup.string().required('Domain is required'),
   description: Yup.string(),
   isActive: Yup.boolean(),
-  isPublic: Yup.boolean(),
 });
 
 const editAccountSchema = Yup.object({
   name: Yup.string().required('Name is required'),
   description: Yup.string(),
   isActive: Yup.boolean(),
-  isPublic: Yup.boolean(),
 });
 
 function CreateAccountDialog({ open, onClose, domains, onSaved }) {
@@ -67,7 +66,6 @@ function CreateAccountDialog({ open, onClose, domains, onSaved }) {
       domainId: '',
       description: '',
       isActive: true,
-      isPublic: false,
     },
     validationSchema: createAccountSchema,
     onSubmit: async (values, { setSubmitting, resetForm, setStatus }) => {
@@ -78,7 +76,6 @@ function CreateAccountDialog({ open, onClose, domains, onSaved }) {
           domainId: values.domainId,
           description: values.description,
           isActive: values.isActive,
-          isPublic: values.isPublic,
         });
         resetForm();
         onSaved();
@@ -92,63 +89,71 @@ function CreateAccountDialog({ open, onClose, domains, onSaved }) {
   });
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Add mail account</DialogTitle>
       <form onSubmit={formik.handleSubmit}>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             {formik.status && <Typography color="error" variant="body2">{formik.status}</Typography>}
-            <TextField
-              fullWidth
-              label="Name"
-              name="name"
-              value={formik.values.name}
-              onChange={formik.handleChange}
-              error={formik.touched.name && Boolean(formik.errors.name)}
-              helperText={formik.touched.name && formik.errors.name}
-            />
-            <TextField
-              fullWidth
-              select
-              label="Domain"
-              name="domainId"
-              value={formik.values.domainId}
-              onChange={formik.handleChange}
-              error={formik.touched.domainId && Boolean(formik.errors.domainId)}
-              helperText={formik.touched.domainId && formik.errors.domainId}
-            >
-              <MenuItem value="">Select domain</MenuItem>
-              {domains.map((d) => (
-                <MenuItem key={d._id} value={d._id}>{d.value}</MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              fullWidth
-              label="Local part (before @)"
-              name="localPart"
-              value={formik.values.localPart}
-              onChange={formik.handleChange}
-              placeholder="admissions"
-              error={formik.touched.localPart && Boolean(formik.errors.localPart)}
-              helperText={formik.touched.localPart && formik.errors.localPart}
-            />
-            <TextField
-              fullWidth
-              label="Description"
-              name="description"
-              value={formik.values.description}
-              onChange={formik.handleChange}
-              multiline
-              rows={2}
-            />
-            <FormControlLabel
-              control={<Switch name="isActive" checked={formik.values.isActive} onChange={formik.handleChange} />}
-              label="Active"
-            />
-            <FormControlLabel
-              control={<Switch name="isPublic" checked={formik.values.isPublic} onChange={formik.handleChange} />}
-              label="Public (all staff)"
-            />
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Name"
+                  name="name"
+                  value={formik.values.name}
+                  onChange={formik.handleChange}
+                  error={formik.touched.name && Boolean(formik.errors.name)}
+                  helperText={formik.touched.name && formik.errors.name}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Local part (before @)"
+                  name="localPart"
+                  value={formik.values.localPart}
+                  onChange={formik.handleChange}
+                  placeholder="admissions"
+                  error={formik.touched.localPart && Boolean(formik.errors.localPart)}
+                  helperText={formik.touched.localPart && formik.errors.localPart}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  select
+                  label="Domain"
+                  name="domainId"
+                  value={formik.values.domainId}
+                  onChange={formik.handleChange}
+                  error={formik.touched.domainId && Boolean(formik.errors.domainId)}
+                  helperText={formik.touched.domainId && formik.errors.domainId}
+                >
+                  <MenuItem value="">Select domain</MenuItem>
+                  {domains.map((d) => (
+                    <MenuItem key={d._id} value={d._id}>{d.value}</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Description"
+                  name="description"
+                  value={formik.values.description}
+                  onChange={formik.handleChange}
+                  multiline
+                  rows={2}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={<Switch name="isActive" checked={formik.values.isActive} onChange={formik.handleChange} />}
+                  label="Active"
+                />
+              </Grid>
+            </Grid>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -176,7 +181,6 @@ function EditAccountDialog({ open, onClose, account, onSaved }) {
       name: account?.name || '',
       description: account?.description || '',
       isActive: account?.isActive !== false,
-      isPublic: Boolean(account?.isPublic),
     },
     validationSchema: editAccountSchema,
     onSubmit: async (values, { setSubmitting, setStatus }) => {
@@ -195,39 +199,43 @@ function EditAccountDialog({ open, onClose, account, onSaved }) {
   if (!account) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Edit mail account</DialogTitle>
       <form onSubmit={formik.handleSubmit}>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             {formik.status && <Typography color="error" variant="body2">{formik.status}</Typography>}
             <Typography variant="body2" color="text.secondary">Email: {account.email}</Typography>
-            <TextField
-              fullWidth
-              label="Name"
-              name="name"
-              value={formik.values.name}
-              onChange={formik.handleChange}
-              error={formik.touched.name && Boolean(formik.errors.name)}
-              helperText={formik.touched.name && formik.errors.name}
-            />
-            <TextField
-              fullWidth
-              label="Description"
-              name="description"
-              value={formik.values.description}
-              onChange={formik.handleChange}
-              multiline
-              rows={2}
-            />
-            <FormControlLabel
-              control={<Switch name="isActive" checked={formik.values.isActive} onChange={formik.handleChange} />}
-              label="Active"
-            />
-            <FormControlLabel
-              control={<Switch name="isPublic" checked={formik.values.isPublic} onChange={formik.handleChange} />}
-              label="Public"
-            />
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={8}>
+                <TextField
+                  fullWidth
+                  label="Name"
+                  name="name"
+                  value={formik.values.name}
+                  onChange={formik.handleChange}
+                  error={formik.touched.name && Boolean(formik.errors.name)}
+                  helperText={formik.touched.name && formik.errors.name}
+                />
+              </Grid>
+              <Grid item xs={12} md={4} sx={{ display: 'flex', alignItems: 'center' }}>
+                <FormControlLabel
+                  control={<Switch name="isActive" checked={formik.values.isActive} onChange={formik.handleChange} />}
+                  label="Active"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Description"
+                  name="description"
+                  value={formik.values.description}
+                  onChange={formik.handleChange}
+                  multiline
+                  rows={2}
+                />
+              </Grid>
+            </Grid>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -379,10 +387,7 @@ export default function MailControlView() {
                         </TableCell>
                         <TableCell><Typography variant="body2">{acc.owner}</Typography></TableCell>
                         <TableCell>
-                          <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                            <Chip label={acc.isActive ? 'Active' : 'Inactive'} color={acc.isActive ? 'success' : 'default'} size="small" />
-                            <Chip label={acc.isPublic ? 'Public' : 'Private'} size="small" variant="outlined" />
-                          </Stack>
+                          <Chip label={acc.isActive ? 'Active' : 'Inactive'} color={acc.isActive ? 'success' : 'default'} size="small" />
                         </TableCell>
                         <TableCell align="right">
                           <Stack direction="row" spacing={0.5} justifyContent="flex-end">

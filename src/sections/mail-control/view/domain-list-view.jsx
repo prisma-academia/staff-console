@@ -7,6 +7,7 @@ import {
   Box,
   Card,
   Chip,
+  Grid,
   Stack,
   Table,
   Button,
@@ -231,7 +232,7 @@ export default function DomainListView() {
         </Scrollbar>
       </Card>
 
-      <Dialog open={dialogOpen} onClose={closeDialog} maxWidth="sm" fullWidth>
+      <Dialog open={dialogOpen} onClose={closeDialog} maxWidth="md" fullWidth>
         <DialogTitle>{editDomain ? 'Edit Domain' : 'Add Domain'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
@@ -243,55 +244,71 @@ export default function DomainListView() {
               disabled={Boolean(editDomain)}
               helperText={editDomain ? 'Domain value cannot be changed' : ''}
             />
-            <TextField
-              fullWidth
-              label="SMTP host"
-              value={form.smtpHost}
-              onChange={(e) => setForm((f) => ({ ...f, smtpHost: e.target.value }))}
-            />
-            <TextField
-              fullWidth
-              label="SMTP port"
-              value={form.smtpPort}
-              onChange={(e) => setForm((f) => ({ ...f, smtpPort: e.target.value }))}
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={form.smtpSecure}
-                  onChange={(e) => setForm((f) => ({ ...f, smtpSecure: e.target.checked }))}
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={8}>
+                <TextField
+                  fullWidth
+                  label="SMTP host"
+                  value={form.smtpHost}
+                  onChange={(e) => setForm((f) => ({ ...f, smtpHost: e.target.value }))}
                 />
-              }
-              label="SMTP secure (TLS/SSL)"
-            />
-            <TextField
-              fullWidth
-              label="SMTP user"
-              value={form.smtpUser}
-              onChange={(e) => setForm((f) => ({ ...f, smtpUser: e.target.value }))}
-            />
-            <TextField
-              fullWidth
-              label="SMTP password"
-              type="password"
-              value={form.smtpPassword}
-              onChange={(e) => setForm((f) => ({ ...f, smtpPassword: e.target.value }))}
-            />
-            <TextField
-              fullWidth
-              label="Default From name (optional)"
-              value={form.smtpFromName}
-              onChange={(e) => setForm((f) => ({ ...f, smtpFromName: e.target.value }))}
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={form.isActive}
-                  onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="SMTP port"
+                  value={form.smtpPort}
+                  onChange={(e) => setForm((f) => ({ ...f, smtpPort: e.target.value }))}
                 />
-              }
-              label="Active"
-            />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={form.smtpSecure}
+                      onChange={(e) => setForm((f) => ({ ...f, smtpSecure: e.target.checked }))}
+                    />
+                  }
+                  label="SMTP secure (TLS/SSL)"
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="SMTP user"
+                  value={form.smtpUser}
+                  onChange={(e) => setForm((f) => ({ ...f, smtpUser: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="SMTP password"
+                  type="password"
+                  value={form.smtpPassword}
+                  onChange={(e) => setForm((f) => ({ ...f, smtpPassword: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} md={8}>
+                <TextField
+                  fullWidth
+                  label="Default From name (optional)"
+                  value={form.smtpFromName}
+                  onChange={(e) => setForm((f) => ({ ...f, smtpFromName: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} md={4} sx={{ display: 'flex', alignItems: 'center' }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={form.isActive}
+                      onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
+                    />
+                  }
+                  label="Active"
+                />
+              </Grid>
+            </Grid>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
