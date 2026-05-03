@@ -274,7 +274,10 @@ export const UserApi = {
   login: (data) => apiClient.post('user/login', data),
   register: (data) => apiClient.post('user/register', data),
   getMe: () => apiClient.get('user/profile/me'),
-  getUsers: (params = '') => apiClient.get(`user${params ? `?${params}` : ''}`),
+  getUsers: (params = '') => {
+    const q = String(params).replace(/^\?/, '').trim();
+    return apiClient.get(q ? `user?${q}` : 'user');
+  },
   getUserById: (id) => apiClient.get(`user/${id}`),
   updateUser: (id, data) => apiClient.put(`user/${id}`, data),
   updateMyProfile: (data) => apiClient.patch('user/profile/me', data),

@@ -94,7 +94,7 @@ export default function MailView() {
   const [selectedMailId, setSelectedMailId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [composeData, setComposeData] = useState({ to: '', cc: '', subject: '', html: '' });
+  const [composeData, setComposeData] = useState({ to: '', cc: '', bcc: '', subject: '', html: '' });
   const [composeFrom, setComposeFrom] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [isSendingMail, setIsSendingMail] = useState(false);
@@ -247,11 +247,12 @@ export default function MailView() {
       setComposeData({
         to: fromAddr,
         cc: '',
+        bcc: '',
         subject: `Re: ${replyMail.subject || ''}`,
         html: `<br/><hr/><p>On ${fDateTime(replyMail.createdAt)}, ${getParticipantDisplay(replyMail.from)} wrote:</p><blockquote>${replyMail.html || replyMail.text || ''}</blockquote>`,
       });
     } else {
-      setComposeData({ to: '', cc: '', subject: '', html: '' });
+      setComposeData({ to: '', cc: '', bcc: '', subject: '', html: '' });
     }
     setAttachments([]);
     setComposeOpen(true);
@@ -271,6 +272,7 @@ export default function MailView() {
         from: JSON.stringify({ address: fromAddr, name: fromName }),
         to: JSON.stringify([{ address: composeData.to.trim() }]),
         cc: composeData.cc ? JSON.stringify([{ address: composeData.cc.trim() }]) : undefined,
+        bcc: composeData.bcc ? JSON.stringify([{ address: composeData.bcc.trim() }]) : undefined,
         subject: composeData.subject,
         html: composeData.html,
         text: composeData.html.replace(/<[^>]*>/g, ''),
@@ -295,6 +297,8 @@ export default function MailView() {
       await MailApi.saveDraft({
         from: JSON.stringify({ address: fromAddr, name: fromName }),
         to: composeData.to ? JSON.stringify([{ address: composeData.to.trim() }]) : undefined,
+        cc: composeData.cc ? JSON.stringify([{ address: composeData.cc.trim() }]) : undefined,
+        bcc: composeData.bcc ? JSON.stringify([{ address: composeData.bcc.trim() }]) : undefined,
         subject: composeData.subject,
         html: composeData.html,
         text: composeData.html.replace(/<[^>]*>/g, ''),
@@ -396,19 +400,38 @@ export default function MailView() {
                 />
               </Grid>
             </Grid>
-            <TextField
-              fullWidth
-              label="Cc"
-              value={composeData.cc}
-              onChange={(e) => setComposeData((d) => ({ ...d, cc: e.target.value }))}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Iconify icon="solar:users-group-rounded-bold-duotone" sx={{ color: 'text.disabled' }} />
-                  </InputAdornment>
-                ),
-              }}
-            />
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Cc"
+                  value={composeData.cc}
+                  onChange={(e) => setComposeData((d) => ({ ...d, cc: e.target.value }))}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Iconify icon="solar:users-group-rounded-bold-duotone" sx={{ color: 'text.disabled' }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Bcc"
+                  value={composeData.bcc}
+                  onChange={(e) => setComposeData((d) => ({ ...d, bcc: e.target.value }))}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Iconify icon="solar:letter-unread-bold-duotone" sx={{ color: 'text.disabled' }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+            </Grid>
             <TextField
               fullWidth
               label="Subject"

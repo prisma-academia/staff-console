@@ -39,10 +39,11 @@ export default function MailControlAccountDetailView() {
     enabled: Boolean(id),
   });
 
-  const { data: users = [] } = useQuery({
+  const { data: usersRaw } = useQuery({
     queryKey: ['users', 'mail-assign'],
-    queryFn: () => UserApi.getUsers('?status=active'),
+    queryFn: () => UserApi.getUsers('status=active'),
   });
+  const users = Array.isArray(usersRaw) ? usersRaw : [];
 
   useEffect(() => {
     if (account?.assignedUsers?.length) {
@@ -151,7 +152,7 @@ export default function MailControlAccountDetailView() {
             value={selectedUsers}
             onChange={(_, v) => setSelectedUsers(v)}
             getOptionLabel={(u) => `${u.firstName || ''} ${u.lastName || ''} (${u.email})`.trim()}
-            isOptionEqualToValue={(a, b) => a._id === b._id}
+            isOptionEqualToValue={(a, b) => String(a?._id) === String(b?._id)}
             renderInput={(params) => <TextField {...params} label="Users" placeholder="Search staff" />}
             disabled={!check(PERMISSIONS.ASSIGN_MAIL_ACCOUNT)}
           />
