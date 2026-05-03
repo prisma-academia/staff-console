@@ -169,6 +169,24 @@ const useNavConfig = () => {
       icon: <Iconify icon="mdi:file-document-multiple" width={24} />,
       permission: PERMISSIONS.VIEW_TEMPLATE,
     },
+    {
+      title: 'Mail',
+      icon: <Iconify icon="solar:inbox-bold-duotone" width={24} />,
+      children: [
+        {
+          title: 'Inbox',
+          path: '/mail',
+          icon: <Iconify icon="solar:letter-bold-duotone" width={24} />,
+          permission: PERMISSIONS.VIEW_MAILS,
+        },
+        {
+          title: 'Mail Accounts',
+          path: '/mail-account',
+          icon: <Iconify icon="solar:mailbox-bold-duotone" width={24} />,
+          permission: PERMISSIONS.VIEW_MAIL_ACCOUNTS,
+        },
+      ],
+    },
   ], []);
 
   return navConfig;
