@@ -1,6 +1,8 @@
 import ReactQuill from 'react-quill';
+import { useSnackbar } from 'notistack';
 import 'react-quill/dist/quill.snow.css';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { alpha, useTheme } from '@mui/material/styles';
 import {
@@ -16,9 +18,11 @@ import {
   Divider,
   Tooltip,
   Toolbar,
+  Checkbox,
   TextField,
   Typography,
   IconButton,
+  Pagination,
   OutlinedInput,
   ListItemButton,
   InputAdornment,
@@ -28,971 +32,709 @@ import {
 
 import { fDate, fDateTime } from 'src/utils/format-time';
 
-import config from 'src/config';
-import mailService from 'src/services/mailService';
+import { MailApi } from 'src/api';
+import { useAuthStore } from 'src/store';
 
 import Iconify from 'src/components/iconify';
 import Scrollbar from 'src/components/scrollbar';
 
-// ----------------------------------------------------------------------
-
-// Custom toolbar configuration for ReactQuill
-const modules = {
+const quillModules = {
   toolbar: [
-    [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+    [{ header: [1, 2, 3, false] }],
     ['bold', 'italic', 'underline', 'strike', 'blockquote'],
-    [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
-    ['link', 'image'],
-    [{ 'color': [] }, { 'background': [] }],
-    [{ 'align': [] }],
-    ['clean']
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    ['link'],
+    [{ color: [] }, { background: [] }],
+    ['clean'],
   ],
 };
 
-const formats = [
-  'header',
-  'bold', 'italic', 'underline', 'strike', 'blockquote',
-  'list', 'bullet', 'indent',
-  'link', 'image',
-  'color', 'background',
-  'align',
-  'clean'
+const quillFormats = [
+  'header', 'bold', 'italic', 'underline', 'strike', 'blockquote',
+  'list', 'bullet', 'link', 'color', 'background',
 ];
 
-// ----------------------------------------------------------------------
+const FOLDERS = [
+  { key: 'inbox', label: 'Inbox', icon: 'solar:inbox-bold-duotone' },
+  { key: 'sent', label: 'Sent', icon: 'solar:upload-minimalistic-bold-duotone' },
+  { key: 'draft', label: 'Drafts', icon: 'solar:document-bold-duotone' },
+  { key: 'spam', label: 'Spam', icon: 'solar:shield-warning-bold-duotone' },
+  { key: 'trash', label: 'Trash', icon: 'solar:trash-bin-trash-bold-duotone' },
+  { key: 'archive', label: 'Archive', icon: 'solar:archive-bold-duotone' },
+];
+
+const getParticipantDisplay = (p) => {
+  if (!p) return '';
+  if (typeof p === 'string') return p;
+  return p.name ? `${p.name} <${p.address}>` : p.address;
+};
+
+const getInitial = (p) => {
+  if (!p) return '?';
+  const src = typeof p === 'string' ? p : (p.name || p.address || '');
+  return src.charAt(0).toUpperCase();
+};
 
 export default function MailView() {
   const theme = useTheme();
   const quillRef = useRef(null);
-  
-  // View states
-  const [view, setView] = useState('list'); // 'list', 'detail', 'compose'
-  const [selectedMail, setSelectedMail] = useState(null);
-  const [mails, setMails] = useState([]);
-  const [activeFilter, setActiveFilter] = useState('inbox');
+  const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
+  const { user } = useAuthStore();
+
+  const [folder, setFolder] = useState('inbox');
+  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  
-  // Compose email state
-  const [composeData, setComposeData] = useState({
-    to: '',
-    cc: '',
-    subject: '',
-    content: '',
-    isReply: false,
-  });
+  const [selectedMailId, setSelectedMailId] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeData, setComposeData] = useState({ to: '', cc: '', subject: '', html: '' });
   const [attachments, setAttachments] = useState([]);
+  const [isSendingMail, setIsSendingMail] = useState(false);
 
-  // Load emails on component mount and when filter changes
-  useEffect(() => {
-    const fetchEmails = async () => {
-      try {
-        setLoading(true);
-        const filters = {
-          folder: activeFilter !== 'all' ? activeFilter : undefined,
-          search: searchQuery || undefined,
-        };
-        const data = await mailService.getEmails(filters);
-        setMails(data);
-      } catch (error) {
-        console.error('Failed to fetch emails:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const userEmail = user?.email || '';
+  const LIMIT = 20;
 
-    fetchEmails();
-  }, [activeFilter, searchQuery]);
+  const mailsKey = ['mails', folder, page, searchQuery, userEmail];
 
-  const handleOpenCompose = (isReply = false, replyToMail = null) => {
-    if (isReply && replyToMail) {
+  const { data: mailsResult, isLoading: loadingMails } = useQuery({
+    queryKey: mailsKey,
+    queryFn: () =>
+      searchQuery
+        ? MailApi.searchMails({ folder, q: searchQuery, page, limit: LIMIT, email: userEmail })
+        : MailApi.getMails({ folder, page, limit: LIMIT, email: userEmail }),
+    keepPreviousData: true,
+  });
+
+  const mails = mailsResult?.data || [];
+  const pagination = mailsResult?.pagination || {};
+  const totalPages = pagination.pages || 1;
+
+  const { data: statsData } = useQuery({
+    queryKey: ['mail-stats', userEmail],
+    queryFn: () => MailApi.getStats(userEmail),
+  });
+  const unreadCount = statsData?.unread ?? 0;
+
+  const { data: selectedMailData, isLoading: loadingDetail } = useQuery({
+    queryKey: ['mail-detail', selectedMailId],
+    queryFn: () => MailApi.getMailById(selectedMailId),
+    enabled: !!selectedMailId,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: mailsKey }),
+  });
+  const selectedMail = selectedMailData;
+
+  const invalidateMails = () => {
+    queryClient.invalidateQueries({ queryKey: ['mails'] });
+    queryClient.invalidateQueries({ queryKey: ['mail-stats'] });
+  };
+
+  const starMutation = useMutation({
+    mutationFn: ({ id, starred }) => (starred ? MailApi.unstar(id) : MailApi.star(id)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: mailsKey }),
+  });
+
+  const markReadMutation = useMutation({ mutationFn: (id) => MailApi.markRead(id) });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => MailApi.deleteMail(id),
+    onSuccess: (_, id) => {
+      invalidateMails();
+      if (selectedMailId === id) setSelectedMailId(null);
+      enqueueSnackbar('Mail moved to trash', { variant: 'success' });
+    },
+    onError: (err) => enqueueSnackbar(err.message, { variant: 'error' }),
+  });
+
+  const bulkReadMutation = useMutation({
+    mutationFn: (ids) => MailApi.bulkRead(ids),
+    onSuccess: () => { invalidateMails(); setSelectedIds([]); },
+  });
+
+  const bulkUnreadMutation = useMutation({
+    mutationFn: (ids) => MailApi.bulkUnread(ids),
+    onSuccess: () => { invalidateMails(); setSelectedIds([]); },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids) => MailApi.bulkDelete(ids),
+    onSuccess: () => {
+      invalidateMails();
+      setSelectedIds([]);
+      enqueueSnackbar('Mails moved to trash', { variant: 'success' });
+    },
+  });
+
+  const handleFolderChange = (f) => {
+    setFolder(f);
+    setPage(1);
+    setSelectedMailId(null);
+    setSelectedIds([]);
+    setSearchQuery('');
+    setSearchInput('');
+  };
+
+  const handleSearch = (e) => {
+    if (e.key === 'Enter') {
+      setSearchQuery(searchInput);
+      setPage(1);
+    }
+  };
+
+  const handleOpenMail = (id) => {
+    setSelectedMailId(id);
+    markReadMutation.mutate(id);
+  };
+
+  const handleOpenCompose = (replyMail = null) => {
+    if (replyMail) {
+      const fromAddr = typeof replyMail.from === 'string' ? replyMail.from : replyMail.from?.address || '';
       setComposeData({
-        to: replyToMail.from,
+        to: fromAddr,
         cc: '',
-        subject: `Re: ${replyToMail.subject}`,
-        content: `<br/><br/><hr/><p>On ${fDateTime(replyToMail.createdAt)}, ${replyToMail.from} wrote:</p><blockquote>${replyToMail.html || replyToMail.text}</blockquote>`,
-        isReply: true,
+        subject: `Re: ${replyMail.subject || ''}`,
+        html: `<br/><hr/><p>On ${fDateTime(replyMail.createdAt)}, ${getParticipantDisplay(replyMail.from)} wrote:</p><blockquote>${replyMail.html || replyMail.text || ''}</blockquote>`,
       });
     } else {
-      setComposeData({
-        to: '',
-        cc: '',
-        subject: '',
-        content: '',
-        isReply: false,
-      });
+      setComposeData({ to: '', cc: '', subject: '', html: '' });
     }
-    setView('compose');
+    setAttachments([]);
+    setComposeOpen(true);
   };
 
-  const handleSelectMail = async (mail) => {
-    setSelectedMail(mail);
-    setView('detail');
-    
-    // Mark as read if it's new
-    if (mail.status === 'new') {
-      try {
-        await mailService.updateEmailStatus(mail.id, 'read');
-        // Update the local state
-        setMails(
-          mails.map((m) => (m.id === mail.id ? { ...m, status: 'read' } : m))
-        );
-      } catch (error) {
-        console.error('Failed to mark email as read:', error);
-      }
+  const handleSend = async () => {
+    if (!composeData.to || !userEmail) {
+      enqueueSnackbar('To and from addresses are required', { variant: 'warning' });
+      return;
     }
-  };
-
-  const handleBack = () => {
-    if (view === 'detail' || view === 'compose') {
-      setView('list');
-      setSelectedMail(null);
-    }
-  };
-
-  const handleFilterChange = (filter) => {
-    setActiveFilter(filter);
-    setView('list');
-    setSelectedMail(null);
-  };
-
-  const handleSearchChange = (event) => {
-    setSearchQuery(event.target.value);
-  };
-
-  const handleDeleteMail = async (mailId) => {
+    setIsSendingMail(true);
     try {
-      await mailService.deleteEmail(mailId);
-      setMails(mails.filter((mail) => mail.id !== mailId));
-      if (selectedMail && selectedMail.id === mailId) {
-        setView('list');
-        setSelectedMail(null);
-      }
-    } catch (error) {
-      console.error('Failed to delete email:', error);
-    }
-  };
-
-  const handleSendEmail = async () => {
-    try {
-      setLoading(true);
-      const emailData = {
-        from: 'admin@abnaibi.edu', // This would be the current user's email
-        to: composeData.to,
-        cc: composeData.cc ? composeData.cc.split(',').map(cc => cc.trim()) : [],
+      await MailApi.sendMail({
+        from: JSON.stringify({ address: userEmail, name: user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : userEmail }),
+        to: JSON.stringify([{ address: composeData.to.trim() }]),
+        cc: composeData.cc ? JSON.stringify([{ address: composeData.cc.trim() }]) : undefined,
         subject: composeData.subject,
-        text: composeData.content.replace(/<[^>]*>?/gm, ''), // Strip HTML for text version
-        html: composeData.content,
+        html: composeData.html,
+        text: composeData.html.replace(/<[^>]*>/g, ''),
         attachments,
-      };
-      
-      const sentEmail = await mailService.sendEmail(emailData);
-      setMails([sentEmail, ...mails]);
-      setView('list');
-    } catch (error) {
-      console.error('Failed to send email:', error);
+      });
+      enqueueSnackbar('Email sent successfully', { variant: 'success' });
+      setComposeOpen(false);
+      invalidateMails();
+    } catch (err) {
+      enqueueSnackbar(err.message || 'Failed to send email', { variant: 'error' });
     } finally {
-      setLoading(false);
+      setIsSendingMail(false);
     }
   };
 
   const handleSaveDraft = async () => {
+    setIsSendingMail(true);
     try {
-      setLoading(true);
-      const draftData = {
-        from: 'admin@abnaibi.edu', // This would be the current user's email
-        to: composeData.to,
-        cc: composeData.cc ? composeData.cc.split(',').map(cc => cc.trim()) : [],
+      await MailApi.saveDraft({
+        from: JSON.stringify({ address: userEmail, name: user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : userEmail }),
+        to: composeData.to ? JSON.stringify([{ address: composeData.to.trim() }]) : undefined,
         subject: composeData.subject,
-        text: composeData.content.replace(/<[^>]*>?/gm, ''), // Strip HTML for text version
-        html: composeData.content,
+        html: composeData.html,
+        text: composeData.html.replace(/<[^>]*>/g, ''),
         attachments,
-      };
-      
-      const savedDraft = await mailService.saveDraft(draftData);
-      setMails([savedDraft, ...mails]);
-      setView('list');
-    } catch (error) {
-      console.error('Failed to save draft:', error);
+      });
+      enqueueSnackbar('Draft saved', { variant: 'success' });
+      setComposeOpen(false);
+      invalidateMails();
+    } catch (err) {
+      enqueueSnackbar(err.message || 'Failed to save draft', { variant: 'error' });
     } finally {
-      setLoading(false);
+      setIsSendingMail(false);
     }
   };
 
-  const handleAttachFile = (event) => {
-    const files = Array.from(event.target.files);
-    if (!files.length) return;
-
-    const newAttachments = files.map(file => ({
-      originalName: file.name,
-      size: file.size,
-      file,
-    }));
-
-    setAttachments([...attachments, ...newAttachments]);
+  const toggleSelectId = (id) => {
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   };
 
-  const handleRemoveAttachment = (index) => {
-    setAttachments(attachments.filter((_, i) => i !== index));
+  const toggleSelectAll = () => {
+    if (selectedIds.length === mails.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(mails.map((m) => m._id));
+    }
   };
 
-  const handleComposeChange = (field, value) => {
-    setComposeData({
-      ...composeData,
-      [field]: value,
-    });
-  };
+  const hasSelection = selectedIds.length > 0;
 
-  // Get unread count for inbox
-  const unreadCount = mails.filter(
-    (mail) => mail.status === 'new' && mail.to === 'admin@abnaibi.edu'
-  ).length;
+  if (composeOpen) {
+    return (
+      <Box sx={{ height: 'calc(100vh - 110px)', display: 'flex', flexDirection: 'column' }}>
+        <Card sx={{ mb: 2, boxShadow: 0 }}>
+          <Toolbar sx={{ height: 72, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Tooltip title="Back">
+                <IconButton onClick={() => setComposeOpen(false)}>
+                  <Iconify icon="solar:arrow-left-bold-duotone" width={24} />
+                </IconButton>
+              </Tooltip>
+              <Typography variant="h6">
+                {composeData.subject.startsWith('Re:') ? 'Reply' : 'New Message'}
+              </Typography>
+            </Stack>
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="outlined"
+                startIcon={<Iconify icon="solar:file-text-bold-duotone" />}
+                onClick={handleSaveDraft}
+                disabled={isSendingMail}
+              >
+                Save Draft
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<Iconify icon="solar:airplane-bold-duotone" />}
+                onClick={handleSend}
+                disabled={isSendingMail}
+              >
+                {isSendingMail ? 'Sending...' : 'Send'}
+              </Button>
+            </Stack>
+          </Toolbar>
+        </Card>
 
-  // Render mail list view
-  const renderMailList = () => (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Toolbar */}
-      <Card sx={{ boxShadow: 0, mb: 3 }}>
-        <Toolbar
-          sx={{
-            height: 96,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
+        <Card sx={{ p: 3, flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+          <Stack spacing={2} sx={{ flexGrow: 1 }}>
+            <TextField
+              fullWidth
+              label="To"
+              value={composeData.to}
+              onChange={(e) => setComposeData((d) => ({ ...d, to: e.target.value }))}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Iconify icon="solar:user-bold-duotone" sx={{ color: 'text.disabled' }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              fullWidth
+              label="Cc"
+              value={composeData.cc}
+              onChange={(e) => setComposeData((d) => ({ ...d, cc: e.target.value }))}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Iconify icon="solar:users-group-rounded-bold-duotone" sx={{ color: 'text.disabled' }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              fullWidth
+              label="Subject"
+              value={composeData.subject}
+              onChange={(e) => setComposeData((d) => ({ ...d, subject: e.target.value }))}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Iconify icon="solar:document-text-bold-duotone" sx={{ color: 'text.disabled' }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Box sx={{ flexGrow: 1, minHeight: 300 }}>
+              <ReactQuill
+                ref={quillRef}
+                theme="snow"
+                value={composeData.html}
+                onChange={(val) => setComposeData((d) => ({ ...d, html: val }))}
+                modules={quillModules}
+                formats={quillFormats}
+                placeholder="Write your message..."
+                style={{ height: 280 }}
+              />
+            </Box>
+            {attachments.length > 0 && (
+              <Stack spacing={1} sx={{ mt: 4 }}>
+                <Typography variant="subtitle2">Attachments ({attachments.length})</Typography>
+                {attachments.map((f, i) => (
+                  <Stack
+                    key={i}
+                    direction="row"
+                    alignItems="center"
+                    spacing={2}
+                    sx={{ p: 1.5, borderRadius: 1, border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}` }}
+                  >
+                    <Iconify icon="solar:file-bold-duotone" sx={{ color: 'primary.main', flexShrink: 0 }} />
+                    <Typography variant="body2" noWrap sx={{ flexGrow: 1 }}>{f.name}</Typography>
+                    <IconButton size="small" onClick={() => setAttachments((a) => a.filter((_, j) => j !== i))}>
+                      <Iconify icon="solar:close-circle-bold" sx={{ color: 'text.disabled' }} />
+                    </IconButton>
+                  </Stack>
+                ))}
+              </Stack>
+            )}
+            <Stack direction="row" justifyContent="space-between" sx={{ mt: 2 }}>
+              <Box>
+                <input
+                  type="file"
+                  multiple
+                  id="attach-input"
+                  aria-label="Attach files"
+                  style={{ display: 'none' }}
+                  onChange={(e) => setAttachments((a) => [...a, ...Array.from(e.target.files)])}
+                />
+                <Button
+                  component="label"
+                  htmlFor="attach-input"
+                  variant="outlined"
+                  startIcon={<Iconify icon="solar:paperclip-bold-duotone" />}
+                >
+                  Attach Files
+                </Button>
+              </Box>
+              <Button variant="outlined" onClick={() => setComposeOpen(false)}>
+                Cancel
+              </Button>
+            </Stack>
+          </Stack>
+        </Card>
+      </Box>
+    );
+  }
+
+  if (selectedMailId) {
+    return (
+      <Box sx={{ height: 'calc(100vh - 110px)', display: 'flex', flexDirection: 'column' }}>
+        <Card sx={{ mb: 2, boxShadow: 0 }}>
+          <Toolbar sx={{ height: 72, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Tooltip title="Back">
+                <IconButton onClick={() => setSelectedMailId(null)}>
+                  <Iconify icon="solar:arrow-left-bold-duotone" width={24} />
+                </IconButton>
+              </Tooltip>
+              {!loadingDetail && selectedMail && (
+                <Typography variant="h6" noWrap>{selectedMail.subject || '(no subject)'}</Typography>
+              )}
+            </Stack>
+            {!loadingDetail && selectedMail && (
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Tooltip title="Reply">
+                  <IconButton onClick={() => { setSelectedMailId(null); handleOpenCompose(selectedMail); }}>
+                    <Iconify icon="solar:reply-bold-duotone" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title={selectedMail.starred ? 'Unstar' : 'Star'}>
+                  <IconButton onClick={() => starMutation.mutate({ id: selectedMail._id, starred: selectedMail.starred })}>
+                    <Iconify
+                      icon={selectedMail.starred ? 'solar:star-bold' : 'solar:star-outline-bold-duotone'}
+                      sx={{ color: selectedMail.starred ? 'warning.main' : 'text.secondary' }}
+                    />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Move to trash">
+                  <IconButton onClick={() => deleteMutation.mutate(selectedMail._id)}>
+                    <Iconify icon="solar:trash-bin-trash-bold-duotone" />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
+            )}
+          </Toolbar>
+        </Card>
+
+        <Card sx={{ p: 3, flexGrow: 1, overflow: 'auto' }}>
+          {loadingDetail && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', pt: 5 }}>
+              <CircularProgress />
+            </Box>
+          )}
+          {!loadingDetail && selectedMail && (
+            <Stack spacing={3}>
+              <Stack direction="row" alignItems="flex-start" spacing={2}>
+                <Avatar sx={{ width: 48, height: 48, bgcolor: 'primary.main' }}>
+                  {getInitial(selectedMail.from)}
+                </Avatar>
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                  <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                    <Typography variant="subtitle1">
+                      {getParticipantDisplay(selectedMail.from)}
+                    </Typography>
+                    <Chip
+                      label={selectedMail.status}
+                      size="small"
+                      color={selectedMail.status === 'unread' ? 'info' : 'default'}
+                      sx={{ height: 22, fontSize: '0.7rem' }}
+                    />
+                  </Stack>
+                  {selectedMail.to?.length > 0 && (
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                      To: {selectedMail.to.map(getParticipantDisplay).join(', ')}
+                    </Typography>
+                  )}
+                  {selectedMail.labels?.length > 0 && (
+                    <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }} flexWrap="wrap">
+                      {selectedMail.labels.map((l) => (
+                        <Chip key={l} label={l} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+                      ))}
+                    </Stack>
+                  )}
+                </Box>
+                <Typography variant="caption" sx={{ color: 'text.secondary', flexShrink: 0 }}>
+                  {fDateTime(selectedMail.createdAt)}
+                </Typography>
+              </Stack>
+
+              <Divider />
+
+              <Box sx={{ typography: 'body1' }}>
+                {selectedMail.html ? (
+                  <Box dangerouslySetInnerHTML={{ __html: selectedMail.html }} />
+                ) : (
+                  <Typography sx={{ whiteSpace: 'pre-line' }}>{selectedMail.text || '(no content)'}</Typography>
+                )}
+              </Box>
+
+              {selectedMail.attachments?.length > 0 && (
+                <Stack spacing={1.5}>
+                  <Typography variant="subtitle2">
+                    Attachments ({selectedMail.attachments.length})
+                  </Typography>
+                  {selectedMail.attachments.map((att, i) => (
+                    <Stack
+                      key={i}
+                      direction="row"
+                      alignItems="center"
+                      spacing={2}
+                      sx={{ p: 2, borderRadius: 1, border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}` }}
+                    >
+                      <Box sx={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 1, bgcolor: alpha(theme.palette.primary.main, 0.08) }}>
+                        <Iconify icon="solar:file-bold-duotone" sx={{ color: 'primary.main' }} />
+                      </Box>
+                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <Typography variant="subtitle2" noWrap>{att.filename || att.originalName}</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{att.mimeType}</Typography>
+                      </Box>
+                    </Stack>
+                  ))}
+                </Stack>
+              )}
+
+              <Paper sx={{ p: 3, borderRadius: 2, bgcolor: 'background.neutral', border: `1px solid ${alpha(theme.palette.grey[500], 0.12)}` }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Quick Reply</Typography>
+                <TextField fullWidth multiline rows={3} placeholder="Write a reply..." sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'background.paper' } }} />
+                <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 1.5 }}>
+                  <Button
+                    variant="contained"
+                    onClick={() => { setSelectedMailId(null); handleOpenCompose(selectedMail); }}
+                  >
+                    Open Full Reply
+                  </Button>
+                </Stack>
+              </Paper>
+            </Stack>
+          )}
+        </Card>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ height: 'calc(100vh - 110px)', display: 'flex', flexDirection: 'column' }}>
+      <Card sx={{ boxShadow: 0, mb: 2 }}>
+        <Toolbar sx={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Stack direction="row" spacing={2} alignItems="center">
             <Button
               variant="contained"
               startIcon={<Iconify icon="solar:pen-bold" />}
               onClick={() => handleOpenCompose()}
-              sx={{ px: 2.5 }}
             >
               Compose
             </Button>
-            
             <OutlinedInput
-              value={searchQuery}
-              onChange={handleSearchChange}
-              placeholder="Search emails..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={handleSearch}
+              placeholder="Search emails… (Enter)"
               startAdornment={
                 <InputAdornment position="start">
-                  <Iconify
-                    icon="eva:search-fill"
-                    sx={{ color: 'text.disabled', width: 20, height: 20 }}
-                  />
+                  <Iconify icon="eva:search-fill" sx={{ color: 'text.disabled', width: 20, height: 20 }} />
                 </InputAdornment>
               }
               sx={{
                 width: 280,
-                transition: theme.transitions.create(['box-shadow', 'width']),
-                '&.Mui-focused': { width: 320, boxShadow: theme.customShadows.z8 },
                 '& fieldset': {
-                  borderWidth: `1px !important`,
+                  borderWidth: '1px !important',
                   borderColor: `${alpha(theme.palette.grey[500], 0.32)} !important`,
                 },
               }}
             />
           </Stack>
-
-          <Stack direction="row" spacing={1} alignItems="center">
-            <IconButton onClick={() => window.location.reload()}>
-              <Iconify icon="solar:refresh-bold-duotone" />
-            </IconButton>
-            <IconButton>
-              <Iconify icon="solar:filter-bold-duotone" />
-            </IconButton>
-          </Stack>
+          <IconButton onClick={() => queryClient.invalidateQueries({ queryKey: mailsKey })}>
+            <Iconify icon="solar:refresh-bold-duotone" />
+          </IconButton>
         </Toolbar>
       </Card>
 
-      {/* Navigation tabs */}
-      <Stack 
-        direction="row" 
-        spacing={1} 
-        sx={{ 
-          mb: 3, 
-          px: 1, 
-          py: 1, 
-          borderRadius: 1,
-          bgcolor: 'background.neutral',
-          overflow: 'auto',
-          whiteSpace: 'nowrap',
-        }}
+      <Stack
+        direction="row"
+        spacing={0.5}
+        sx={{ mb: 2, px: 1, py: 0.5, borderRadius: 1, bgcolor: 'background.neutral', overflowX: 'auto', flexShrink: 0 }}
       >
-        <Button
-          startIcon={<Iconify icon="solar:inbox-bold-duotone" />}
-          color={activeFilter === 'inbox' ? 'primary' : 'inherit'}
-          onClick={() => handleFilterChange('inbox')}
-          sx={{ 
-            px: 2, 
-            borderRadius: 1,
-            bgcolor: activeFilter === 'inbox' ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
-            '&:hover': {
-              bgcolor: activeFilter === 'inbox' 
-                ? alpha(theme.palette.primary.main, 0.12) 
-                : alpha(theme.palette.grey[500], 0.08)
-            }
-          }}
-        >
-          Inbox
-          {unreadCount > 0 && (
-            <Badge
-              color="error"
-              badgeContent={unreadCount}
-              max={99}
-              sx={{ ml: 1 }}
-            />
-          )}
-        </Button>
-        
-        <Button
-          startIcon={<Iconify icon="solar:upload-minimalistic-bold-duotone" />}
-          color={activeFilter === 'sent' ? 'primary' : 'inherit'}
-          onClick={() => handleFilterChange('sent')}
-          sx={{ 
-            px: 2, 
-            borderRadius: 1,
-            bgcolor: activeFilter === 'sent' ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
-            '&:hover': {
-              bgcolor: activeFilter === 'sent' 
-                ? alpha(theme.palette.primary.main, 0.12) 
-                : alpha(theme.palette.grey[500], 0.08)
-            }
-          }}
-        >
-          Sent
-        </Button>
-        
-        <Button
-          startIcon={<Iconify icon="solar:document-bold-duotone" />}
-          color={activeFilter === 'draft' ? 'primary' : 'inherit'}
-          onClick={() => handleFilterChange('draft')}
-          sx={{ 
-            px: 2, 
-            borderRadius: 1,
-            bgcolor: activeFilter === 'draft' ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
-            '&:hover': {
-              bgcolor: activeFilter === 'draft' 
-                ? alpha(theme.palette.primary.main, 0.12) 
-                : alpha(theme.palette.grey[500], 0.08)
-            }
-          }}
-        >
-          Drafts
-        </Button>
-        
-        <Button
-          startIcon={<Iconify icon="solar:shield-warning-bold-duotone" />}
-          color={activeFilter === 'spam' ? 'primary' : 'inherit'}
-          onClick={() => handleFilterChange('spam')}
-          sx={{ 
-            px: 2, 
-            borderRadius: 1,
-            bgcolor: activeFilter === 'spam' ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
-            '&:hover': {
-              bgcolor: activeFilter === 'spam' 
-                ? alpha(theme.palette.primary.main, 0.12) 
-                : alpha(theme.palette.grey[500], 0.08)
-            }
-          }}
-        >
-          Spam
-        </Button>
-        
-        <Button
-          startIcon={<Iconify icon="solar:trash-bin-trash-bold-duotone" />}
-          color={activeFilter === 'trash' ? 'primary' : 'inherit'}
-          onClick={() => handleFilterChange('trash')}
-          sx={{ 
-            px: 2, 
-            borderRadius: 1,
-            bgcolor: activeFilter === 'trash' ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
-            '&:hover': {
-              bgcolor: activeFilter === 'trash' 
-                ? alpha(theme.palette.primary.main, 0.12) 
-                : alpha(theme.palette.grey[500], 0.08)
-            }
-          }}
-        >
-          Trash
-        </Button>
-        
-        <Button
-          startIcon={<Iconify icon="solar:sort-by-time-bold-duotone" />}
-          color={activeFilter === 'all' ? 'primary' : 'inherit'}
-          onClick={() => handleFilterChange('all')}
-          sx={{ 
-            px: 2, 
-            borderRadius: 1,
-            bgcolor: activeFilter === 'all' ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
-            '&:hover': {
-              bgcolor: activeFilter === 'all' 
-                ? alpha(theme.palette.primary.main, 0.12) 
-                : alpha(theme.palette.grey[500], 0.08)
-            }
-          }}
-        >
-          All Mail
-        </Button>
-      </Stack>
-      
-      {/* Email List */}
-      <Card sx={{ flexGrow: 1, overflow: 'hidden' }}>
-        {loading && (
-          <Box
+        {FOLDERS.map((f) => (
+          <Button
+            key={f.key}
+            size="small"
+            startIcon={<Iconify icon={f.icon} />}
+            color={folder === f.key ? 'primary' : 'inherit'}
+            onClick={() => handleFolderChange(f.key)}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
+              px: 1.5,
+              borderRadius: 1,
+              whiteSpace: 'nowrap',
+              bgcolor: folder === f.key ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
             }}
           >
+            {f.label}
+            {f.key === 'inbox' && unreadCount > 0 && (
+              <Badge color="error" badgeContent={unreadCount} max={99} sx={{ ml: 1 }} />
+            )}
+          </Button>
+        ))}
+      </Stack>
+
+      <Card sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {hasSelection && (
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ px: 2, py: 1, borderBottom: `1px solid ${theme.palette.divider}`, bgcolor: alpha(theme.palette.primary.main, 0.04) }}
+          >
+            <Typography variant="body2" sx={{ color: 'text.secondary', mr: 1 }}>
+              {selectedIds.length} selected
+            </Typography>
+            <Button size="small" onClick={() => bulkReadMutation.mutate(selectedIds)}>Mark Read</Button>
+            <Button size="small" onClick={() => bulkUnreadMutation.mutate(selectedIds)}>Mark Unread</Button>
+            <Button size="small" color="error" onClick={() => bulkDeleteMutation.mutate(selectedIds)}>Delete</Button>
+            <Button size="small" onClick={() => setSelectedIds([])}>Clear</Button>
+          </Stack>
+        )}
+
+        {loadingMails && (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexGrow: 1 }}>
             <CircularProgress />
           </Box>
         )}
-        {!loading && mails.length === 0 && (
-          <Box
-            sx={{
-              p: 5,
-              display: 'flex',
-              alignItems: 'center',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              height: '100%',
-            }}
-          >
-            <Box
-              component="img"
-              src={config.assets.illustrations.notFound}
-              sx={{ height: 240, mb: 3 }}
-            />
-            <Typography variant="h6" gutterBottom>
-              No emails found
-            </Typography>
+        {!loadingMails && mails.length === 0 && (
+          <Box sx={{ p: 5, display: 'flex', alignItems: 'center', flexDirection: 'column', justifyContent: 'center', flexGrow: 1 }}>
+            <Iconify icon="solar:inbox-bold-duotone" sx={{ width: 80, height: 80, color: 'text.disabled', mb: 2 }} />
+            <Typography variant="h6" gutterBottom>No emails</Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
-              {searchQuery
-                ? 'No emails match your search criteria'
-                : 'There are no emails in this folder'}
+              {searchQuery ? 'No emails match your search' : `No emails in ${folder}`}
             </Typography>
           </Box>
         )}
-        {!loading && mails.length > 0 && (
-          <Scrollbar sx={{ height: 'calc(100vh - 280px)' }}>
-            <List disablePadding>
-              {mails.map((mail) => {
-                const isUnread = mail.status === 'new';
-                return (
-                  <ListItemButton
-                    key={mail.id}
-                    sx={{
-                      p: 2,
-                      borderBottom: `1px solid ${alpha(theme.palette.divider, 0.32)}`,
-                      cursor: 'pointer',
-                      ...(isUnread && {
-                        bgcolor: alpha(theme.palette.grey[500], 0.08),
-                      }),
-                      '&:hover': {
-                        bgcolor: alpha(theme.palette.grey[500], 0.12),
-                      },
-                    }}
-                    onClick={() => handleSelectMail(mail)}
-                  >
-                    <Box sx={{ display: 'flex', width: '100%' }}>
-                      <ListItemAvatar>
-                        <Avatar
-                          alt={mail.from.split('@')[0]}
-                          sx={{
-                            ...(isUnread && {
-                              border: `solid 2px ${theme.palette.primary.main}`,
-                            }),
-                          }}
-                        />
-                      </ListItemAvatar>
+        {!loadingMails && mails.length > 0 && (
+          <>
+            <Box sx={{ px: 2, py: 0.5, borderBottom: `1px solid ${theme.palette.divider}` }}>
+              <Checkbox
+                size="small"
+                checked={selectedIds.length === mails.length && mails.length > 0}
+                indeterminate={selectedIds.length > 0 && selectedIds.length < mails.length}
+                onChange={toggleSelectAll}
+              />
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {pagination.total || 0} emails
+              </Typography>
+            </Box>
 
-                      <Box sx={{ flexGrow: 1, minWidth: 0, pr: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+            <Scrollbar sx={{ flexGrow: 1 }}>
+              <List disablePadding>
+                {mails.map((mail) => {
+                  const isUnread = mail.status === 'unread';
+                  const isChecked = selectedIds.includes(mail._id);
+                  const fromDisplay = typeof mail.from === 'string' ? mail.from : (mail.from?.name || mail.from?.address || '');
+
+                  return (
+                    <ListItemButton
+                      key={mail._id}
+                      sx={{
+                        p: 2,
+                        borderBottom: `1px solid ${alpha(theme.palette.divider, 0.32)}`,
+                        bgcolor: isUnread ? alpha(theme.palette.grey[500], 0.06) : 'transparent',
+                        '&:hover': { bgcolor: alpha(theme.palette.grey[500], 0.12) },
+                      }}
+                      onClick={() => handleOpenMail(mail._id)}
+                    >
+                      <Checkbox
+                        size="small"
+                        checked={isChecked}
+                        onClick={(e) => { e.stopPropagation(); toggleSelectId(mail._id); }}
+                        sx={{ mr: 1 }}
+                      />
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: 'primary.lighter', color: 'primary.dark' }}>
+                          {getInitial(mail.from)}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <Box sx={{ flexGrow: 1, minWidth: 0, pr: 1 }}>
+                        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5 }}>
                           <Typography
                             variant="subtitle2"
                             noWrap
-                            sx={{
-                              flexGrow: 1,
-                              ...(isUnread && {
-                                fontWeight: 'fontWeightBold',
-                              }),
-                            }}
+                            sx={{ fontWeight: isUnread ? 'fontWeightBold' : 'fontWeightRegular' }}
                           >
-                            {mail.from === 'admin@abnaibi.edu' ? mail.to.split('@')[0] : mail.from.split('@')[0]}
+                            {fromDisplay}
                           </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            {mail.attachments.length > 0 && (
-                              <Iconify
-                                icon="solar:paperclip-bold-duotone"
-                                sx={{ 
-                                  width: 18, 
-                                  height: 18, 
-                                  mr: 1, 
-                                  color: isUnread ? 'primary.main' : 'text.disabled',
-                                }}
-                              />
+                          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
+                            {mail.attachmentCount > 0 && (
+                              <Iconify icon="solar:paperclip-bold-duotone" sx={{ width: 16, height: 16, color: 'text.disabled' }} />
                             )}
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                color: isUnread ? 'text.primary' : 'text.secondary',
-                                fontWeight: isUnread ? 'fontWeightMedium' : 'fontWeightRegular',
-                              }}
-                            >
+                            <Typography variant="caption" sx={{ color: isUnread ? 'text.primary' : 'text.secondary' }}>
                               {fDate(mail.createdAt)}
                             </Typography>
-                          </Box>
-                        </Box>
-
+                          </Stack>
+                        </Stack>
                         <Typography
                           variant="body2"
                           noWrap
-                          sx={{
-                            mb: 0.5,
-                            fontWeight: isUnread ? 'fontWeightMedium' : 'fontWeightRegular',
-                            color: isUnread ? 'text.primary' : 'text.secondary',
-                          }}
+                          sx={{ mb: 0.25, fontWeight: isUnread ? 'fontWeightMedium' : 'fontWeightRegular', color: isUnread ? 'text.primary' : 'text.secondary' }}
                         >
-                          {mail.subject}
+                          {mail.subject || '(no subject)'}
                         </Typography>
-
-                        <Typography
-                          variant="body2"
-                          noWrap
-                          sx={{
-                            color: 'text.secondary',
-                            fontSize: '0.875rem',
-                          }}
-                        >
-                          {mail.text.slice(0, 120)}...
+                        <Typography variant="body2" noWrap sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+                          {(mail.text || '').slice(0, 100)}
                         </Typography>
                       </Box>
-                    </Box>
-                  </ListItemButton>
-                );
-              })}
-            </List>
-          </Scrollbar>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => { e.stopPropagation(); starMutation.mutate({ id: mail._id, starred: mail.starred }); }}
+                        sx={{ flexShrink: 0, ml: 0.5 }}
+                      >
+                        <Iconify
+                          icon={mail.starred ? 'solar:star-bold' : 'solar:star-outline-bold-duotone'}
+                          sx={{ color: mail.starred ? 'warning.main' : 'text.disabled', width: 18, height: 18 }}
+                        />
+                      </IconButton>
+                    </ListItemButton>
+                  );
+                })}
+              </List>
+            </Scrollbar>
+
+            {totalPages > 1 && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 1.5, borderTop: `1px solid ${theme.palette.divider}` }}>
+                <Pagination
+                  count={totalPages}
+                  page={page}
+                  onChange={(_, p) => { setPage(p); setSelectedIds([]); }}
+                  size="small"
+                />
+              </Box>
+            )}
+          </>
         )}
       </Card>
     </Box>
   );
-
-  // Render mail detail view
-  const renderMailDetail = () => {
-    if (!selectedMail) return null;
-
-    return (
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
-        <Card sx={{ mb: 3, boxShadow: 0 }}>
-          <Toolbar
-            sx={{
-              height: 80,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Tooltip title="Back">
-                <IconButton onClick={handleBack} sx={{ mr: 1 }}>
-                  <Iconify icon="solar:arrow-left-bold-duotone" width={24} />
-                </IconButton>
-              </Tooltip>
-              <Typography variant="h6" noWrap>
-                {selectedMail.subject}
-              </Typography>
-            </Stack>
-
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Tooltip title="Reply">
-                <IconButton onClick={() => handleOpenCompose(true, selectedMail)}>
-                  <Iconify icon="solar:reply-bold-duotone" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Forward">
-                <IconButton>
-                  <Iconify icon="solar:forward-bold-duotone" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Delete">
-                <IconButton onClick={() => handleDeleteMail(selectedMail.id)}>
-                  <Iconify icon="solar:trash-bin-trash-bold-duotone" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="More options">
-                <IconButton>
-                  <Iconify icon="solar:menu-dots-bold-duotone" />
-                </IconButton>
-              </Tooltip>
-            </Stack>
-          </Toolbar>
-        </Card>
-
-        {/* Email content */}
-        <Card sx={{ p: 3, flexGrow: 1, overflow: 'auto' }}>
-          <Stack spacing={3}>
-            {/* Email metadata */}
-            <Stack spacing={2}>
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <Avatar
-                  alt={selectedMail.from.split('@')[0]}
-                  sx={{ width: 48, height: 48 }}
-                />
-                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <Typography variant="subtitle1" noWrap>
-                      {selectedMail.from.split('@')[0]}
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: 'text.secondary' }} noWrap>
-                      &lt;{selectedMail.from}&gt;
-                    </Typography>
-                    <Chip 
-                      label={selectedMail.status.charAt(0).toUpperCase() + selectedMail.status.slice(1)} 
-                      size="small"
-                      color={selectedMail.status === 'new' ? 'info' : 'default'}
-                      sx={{ ml: 1, height: 22, fontSize: '0.75rem' }}
-                    />
-                  </Stack>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      To:
-                    </Typography>
-                    <Typography variant="body2">
-                      {selectedMail.to}
-                    </Typography>
-                  </Stack>
-                </Box>
-                <Box sx={{ flexShrink: 0 }}>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    {fDateTime(selectedMail.createdAt)}
-                  </Typography>
-                </Box>
-              </Stack>
-
-              <Divider />
-            </Stack>
-
-            {/* Email body */}
-            <Box sx={{ typography: 'body1' }}>
-              {selectedMail.html ? (
-                <Box dangerouslySetInnerHTML={{ __html: selectedMail.html }} />
-              ) : (
-                <Typography sx={{ whiteSpace: 'pre-line' }}>{selectedMail.text}</Typography>
-              )}
-            </Box>
-
-            {/* Attachments */}
-            {selectedMail.attachments.length > 0 && (
-              <Stack spacing={2}>
-                <Typography variant="subtitle2">
-                  Attachments ({selectedMail.attachments.length})
-                </Typography>
-                <Stack spacing={1}>
-                  {selectedMail.attachments.map((attachment, index) => (
-                    <Stack
-                      key={index}
-                      direction="row"
-                      alignItems="center"
-                      spacing={2}
-                      sx={{
-                        p: 2,
-                        borderRadius: 1,
-                        border: `solid 1px ${alpha(theme.palette.grey[500], 0.16)}`,
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          width: 40,
-                          height: 40,
-                          flexShrink: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderRadius: 1,
-                          bgcolor: (th) => alpha(th.palette.primary.main, 0.08),
-                        }}
-                      >
-                        <Iconify
-                          icon="solar:file-bold-duotone"
-                          sx={{ width: 24, height: 24, color: 'primary.main' }}
-                        />
-                      </Box>
-                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                        <Typography variant="subtitle2" noWrap>
-                          {attachment.originalName}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          {(attachment.size / 1000).toFixed(1)} KB
-                        </Typography>
-                      </Box>
-                      <Stack direction="row" spacing={1}>
-                        <Tooltip title="Preview">
-                          <IconButton size="small">
-                            <Iconify icon="solar:eye-bold-duotone" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Download">
-                          <IconButton size="small">
-                            <Iconify icon="solar:download-bold-duotone" />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
-                    </Stack>
-                  ))}
-                </Stack>
-              </Stack>
-            )}
-
-            {/* Quick reply */}
-            <Paper
-              sx={{
-                p: 3,
-                mt: 3,
-                borderRadius: 2,
-                bgcolor: 'background.neutral',
-                border: `solid 1px ${alpha(theme.palette.grey[500], 0.12)}`,
-              }}
-            >
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                Reply
-              </Typography>
-              <TextField
-                fullWidth
-                multiline
-                rows={4}
-                placeholder="Write a reply..."
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: 'background.paper',
-                  },
-                }}
-              />
-              <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 2 }}>
-                <Button 
-                  variant="outlined" 
-                  startIcon={<Iconify icon="solar:gallery-add-bold-duotone" />}
-                >
-                  Add Files
-                </Button>
-                <Button 
-                  variant="contained"
-                  onClick={() => handleOpenCompose(true, selectedMail)}
-                >
-                  Reply
-                </Button>
-              </Stack>
-            </Paper>
-          </Stack>
-        </Card>
-      </Box>
-    );
-  };
-
-  // Render compose view
-  const renderComposeView = () => (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <Card sx={{ mb: 3, boxShadow: 0 }}>
-        <Toolbar
-          sx={{
-            height: 80,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Tooltip title="Back">
-              <IconButton onClick={handleBack} sx={{ mr: 1 }}>
-                <Iconify icon="solar:arrow-left-bold-duotone" width={24} />
-              </IconButton>
-            </Tooltip>
-            <Typography variant="h6" noWrap>
-              {composeData.isReply ? 'Reply' : 'New Message'}
-            </Typography>
-          </Stack>
-
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={<Iconify icon="solar:file-text-bold-duotone" />}
-              onClick={handleSaveDraft}
-            >
-              Save Draft
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<Iconify icon="solar:airplane-bold-duotone" />}
-              onClick={handleSendEmail}
-            >
-              Send
-            </Button>
-          </Stack>
-        </Toolbar>
-      </Card>
-
-      {/* Compose Form */}
-      <Card sx={{ p: 3, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        <Stack spacing={3} sx={{ flexGrow: 1 }}>
-          <TextField
-            fullWidth
-            label="To"
-            value={composeData.to}
-            onChange={(e) => handleComposeChange('to', e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Iconify icon="solar:user-bold-duotone" sx={{ color: 'text.disabled' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          <TextField
-            fullWidth
-            label="Cc"
-            value={composeData.cc}
-            onChange={(e) => handleComposeChange('cc', e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Iconify icon="solar:users-group-rounded-bold-duotone" sx={{ color: 'text.disabled' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          <TextField
-            fullWidth
-            label="Subject"
-            value={composeData.subject}
-            onChange={(e) => handleComposeChange('subject', e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Iconify icon="solar:document-text-bold-duotone" sx={{ color: 'text.disabled' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          <Box sx={{ flexGrow: 1 }}>
-            <ReactQuill
-              ref={quillRef}
-              theme="snow"
-              value={composeData.content}
-              onChange={(content) => handleComposeChange('content', content)}
-              modules={modules}
-              formats={formats}
-              placeholder="Write your message..."
-              style={{ 
-                height: '300px', 
-                display: 'flex', 
-                flexDirection: 'column',
-              }}
-            />
-          </Box>
-
-          {/* Attachments */}
-          {attachments.length > 0 && (
-            <Stack spacing={2}>
-              <Typography variant="subtitle2">
-                Attachments ({attachments.length})
-              </Typography>
-              <Stack spacing={1}>
-                {attachments.map((attachment, index) => (
-                  <Stack
-                    key={index}
-                    direction="row"
-                    alignItems="center"
-                    spacing={2}
-                    sx={{
-                      p: 2,
-                      borderRadius: 1,
-                      border: `solid 1px ${alpha(theme.palette.grey[500], 0.16)}`,
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        flexShrink: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: 1,
-                        bgcolor: (thm) => alpha(thm.palette.primary.main, 0.08),
-                      }}
-                    >
-                      <Iconify
-                        icon="solar:file-bold-duotone"
-                        sx={{ width: 24, height: 24, color: 'primary.main' }}
-                      />
-                    </Box>
-                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                      <Typography variant="subtitle2" noWrap>
-                        {attachment.originalName}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        {(attachment.size / 1000).toFixed(1)} KB
-                      </Typography>
-                    </Box>
-                    <IconButton size="small" onClick={() => handleRemoveAttachment(index)}>
-                      <Iconify icon="solar:close-circle-bold-duotone" sx={{ color: 'text.disabled' }} />
-                    </IconButton>
-                  </Stack>
-                ))}
-              </Stack>
-            </Stack>
-          )}
-
-          {/* Actions */}
-          <Stack direction="row" justifyContent="space-between" sx={{ pt: 1 }}>
-            <Box>
-              <input
-                type="file"
-                multiple
-                id="attachment-input"
-                aria-label="Attach files"
-                style={{ display: 'none' }}
-                onChange={handleAttachFile}
-              />
-              <Button
-                component="label"
-                htmlFor="attachment-input"
-                variant="outlined"
-                startIcon={<Iconify icon="solar:paperclip-bold-duotone" />}
-                sx={{ mr: 1 }}
-              >
-                Attach Files
-              </Button>
-            </Box>
-            <Stack direction="row" spacing={2}>
-              <Button variant="outlined" onClick={handleBack}>
-                Cancel
-              </Button>
-              <Button variant="contained" onClick={handleSendEmail}>
-                Send
-              </Button>
-            </Stack>
-          </Stack>
-        </Stack>
-      </Card>
-    </Box>
-  );
-
-  return (
-    <Box sx={{ height: 'calc(100vh - 110px)', display: 'flex', flexDirection: 'column' }}>
-      {view === 'list' && renderMailList()}
-      {view === 'detail' && renderMailDetail()}
-      {view === 'compose' && renderComposeView()}
-    </Box>
-  );
 }
-

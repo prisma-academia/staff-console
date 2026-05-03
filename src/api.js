@@ -705,6 +705,84 @@ export const StudentApi = {
   },
 };
 
+export const MailApi = {
+  getMails: (params = {}) => {
+    const { folder = 'inbox', ...rest } = params;
+    const queryString = buildQueryString(rest);
+    return createRequestFullResult(`mail/folder/${folder}${queryString ? `?${queryString}` : ''}`);
+  },
+  searchMails: (params = {}) => {
+    const queryString = buildQueryString(params);
+    return createRequestFullResult(`mail/search${queryString ? `?${queryString}` : ''}`);
+  },
+  getStats: (email) => apiClient.get(`mail/stats${email ? `?email=${encodeURIComponent(email)}` : ''}`),
+  getUnreadCount: (folder, email) =>
+    apiClient.get(`mail/unread-count/${folder}${email ? `?email=${encodeURIComponent(email)}` : ''}`),
+  getSuggestions: (query = '', limit = 10) =>
+    apiClient.get(`mail/suggestions?query=${encodeURIComponent(query)}&limit=${limit}`),
+  getMailById: (id) => apiClient.get(`mail/${id}`),
+  sendMail: async (data) => {
+    const { token } = useAuthStore.getState();
+    const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
+    const url = `${config.baseUrl}${apiVersion}/mail/send`;
+    const formData = new FormData();
+    const { attachments, from, to, cc, bcc, ...rest } = data;
+    formData.append('from', typeof from === 'object' ? JSON.stringify(from) : from);
+    formData.append('to', typeof to === 'object' ? JSON.stringify(to) : to);
+    if (cc) formData.append('cc', typeof cc === 'object' ? JSON.stringify(cc) : cc);
+    if (bcc) formData.append('bcc', typeof bcc === 'object' ? JSON.stringify(bcc) : bcc);
+    Object.entries(rest).forEach(([k, v]) => { if (v !== undefined && v !== null) formData.append(k, v); });
+    if (attachments) attachments.forEach((f) => formData.append('attachments', f));
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.message || 'Failed to send mail');
+    return result.data;
+  },
+  saveDraft: async (data) => {
+    const { token } = useAuthStore.getState();
+    const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
+    const url = `${config.baseUrl}${apiVersion}/mail/draft`;
+    const formData = new FormData();
+    const { attachments, from, to, cc, bcc, ...rest } = data;
+    if (from) formData.append('from', typeof from === 'object' ? JSON.stringify(from) : from);
+    if (to) formData.append('to', typeof to === 'object' ? JSON.stringify(to) : to);
+    if (cc) formData.append('cc', typeof cc === 'object' ? JSON.stringify(cc) : cc);
+    if (bcc) formData.append('bcc', typeof bcc === 'object' ? JSON.stringify(bcc) : bcc);
+    Object.entries(rest).forEach(([k, v]) => { if (v !== undefined && v !== null) formData.append(k, v); });
+    if (attachments) attachments.forEach((f) => formData.append('attachments', f));
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.message || 'Failed to save draft');
+    return result.data;
+  },
+  markRead: (id) => apiClient.put(`mail/${id}/read`),
+  markUnread: (id) => apiClient.put(`mail/${id}/unread`),
+  star: (id) => apiClient.put(`mail/${id}/star`),
+  unstar: (id) => apiClient.put(`mail/${id}/unstar`),
+  move: (id, folder) => apiClient.put(`mail/${id}/move`, { folder }),
+  deleteMail: (id) => apiClient.delete(`mail/${id}`),
+  bulkRead: (ids) => apiClient.put('mail/bulk/read', { ids }),
+  bulkUnread: (ids) => apiClient.put('mail/bulk/unread', { ids }),
+  bulkMove: (ids, folder) => apiClient.put('mail/bulk/move', { ids, folder }),
+  bulkDelete: (ids) => apiClient.put('mail/bulk/delete', { ids }),
+};
+
+export const MailAccountApi = {
+  getAccounts: () => apiClient.get('mail-account'),
+  getAccountById: (id) => apiClient.get(`mail-account/${id}`),
+  createAccount: (data) => apiClient.post('mail-account', data),
+  updateAccount: (id, data) => apiClient.put(`mail-account/${id}`, data),
+  deleteAccount: (id) => apiClient.delete(`mail-account/${id}`),
+};
+
 export const TemplateApi = {
   getTemplates: (params) => {
     const queryString = params ? buildQueryString(params) : '';
