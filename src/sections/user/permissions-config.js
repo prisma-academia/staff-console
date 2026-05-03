@@ -219,5 +219,22 @@ export const PERMISSION_CATEGORIES = [
       { id: 'view_template', label: 'View Template' },
     ],
   },
+  {
+    label: 'Mail',
+    permissions: [
+      { id: 'view_mails', label: 'View Mails' },
+      { id: 'compose_mail', label: 'Compose Mail' },
+      { id: 'delete_mail', label: 'Delete Mail' },
+    ],
+  },
+  {
+    label: 'Mail Account Management',
+    permissions: [
+      { id: 'view_mail_accounts', label: 'View Mail Accounts' },
+      { id: 'add_mail_account', label: 'Add Mail Account' },
+      { id: 'edit_mail_account', label: 'Edit Mail Account' },
+      { id: 'delete_mail_account', label: 'Delete Mail Account' },
+    ],
+  },
 ];
 

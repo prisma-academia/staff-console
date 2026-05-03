@@ -129,5 +129,14 @@ export const PERMISSIONS = {
   EDIT_TEMPLATE: 'edit_template',
   DELETE_TEMPLATE: 'delete_template',
   VIEW_TEMPLATE: 'view_template',
+
+  VIEW_MAILS: 'view_mails',
+  COMPOSE_MAIL: 'compose_mail',
+  DELETE_MAIL: 'delete_mail',
+
+  VIEW_MAIL_ACCOUNTS: 'view_mail_accounts',
+  ADD_MAIL_ACCOUNT: 'add_mail_account',
+  EDIT_MAIL_ACCOUNT: 'edit_mail_account',
+  DELETE_MAIL_ACCOUNT: 'delete_mail_account',
 };
 
