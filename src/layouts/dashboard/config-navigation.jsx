@@ -180,8 +180,8 @@ const useNavConfig = () => {
           permission: PERMISSIONS.VIEW_MAILS,
         },
         {
-          title: 'Mail Accounts',
-          path: '/mail-account',
+          title: 'Mail control',
+          path: '/mail-control',
           icon: <Iconify icon="solar:mailbox-bold-duotone" width={24} />,
           permission: PERMISSIONS.VIEW_MAIL_ACCOUNTS,
         },

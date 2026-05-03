@@ -706,6 +706,7 @@ export const StudentApi = {
 };
 
 export const MailApi = {
+  getMailAccounts: () => apiClient.get('mail/accounts'),
   getMails: (params = {}) => {
     const { folder = 'inbox', ...rest } = params;
     const queryString = buildQueryString(rest);
@@ -720,7 +721,10 @@ export const MailApi = {
     apiClient.get(`mail/unread-count/${folder}${email ? `?email=${encodeURIComponent(email)}` : ''}`),
   getSuggestions: (query = '', limit = 10) =>
     apiClient.get(`mail/suggestions?query=${encodeURIComponent(query)}&limit=${limit}`),
-  getMailById: (id) => apiClient.get(`mail/${id}`),
+  getMailById: (id, mailboxEmail) => {
+    const q = mailboxEmail ? `?email=${encodeURIComponent(mailboxEmail)}` : '';
+    return apiClient.get(`mail/${id}${q}`);
+  },
   sendMail: async (data) => {
     const { token } = useAuthStore.getState();
     const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
@@ -781,6 +785,15 @@ export const MailAccountApi = {
   createAccount: (data) => apiClient.post('mail-account', data),
   updateAccount: (id, data) => apiClient.put(`mail-account/${id}`, data),
   deleteAccount: (id) => apiClient.delete(`mail-account/${id}`),
+  setAssignments: (id, userIds) => apiClient.put(`mail-account/${id}/assignments`, { userIds }),
+};
+
+export const MailDomainApi = {
+  getDomains: () => apiClient.get('mail-domain'),
+  getDomainById: (id) => apiClient.get(`mail-domain/${id}`),
+  createDomain: (data) => apiClient.post('mail-domain', data),
+  updateDomain: (id, data) => apiClient.put(`mail-domain/${id}`, data),
+  deleteDomain: (id) => apiClient.delete(`mail-domain/${id}`),
 };
 
 export const TemplateApi = {

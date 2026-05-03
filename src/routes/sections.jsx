@@ -50,6 +50,8 @@ const FeePage = lazy(() => import('src/pages/fee'));
 const FeeDetailPage = lazy(() => import('src/pages/fee-detail'));
 const MailPage = lazy(() => import('src/pages/mail'));
 const MailAccountPage = lazy(() => import('src/pages/mail-account'));
+const MailControlPage = lazy(() => import('src/pages/mail-control'));
+const MailControlAccountPage = lazy(() => import('src/pages/mail-control-account'));
 const AuditPage = lazy(() => import('src/pages/audit'));
 const RolePermissionPage = lazy(() => import('src/pages/role-permission'));
 const TemplatePage = lazy(() => import('src/pages/template'));
@@ -371,6 +373,22 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <MailAccountPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'mail-control',
+          element: (
+            <PrivateRoute>
+              <MailControlPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'mail-control/accounts/:id',
+          element: (
+            <PrivateRoute>
+              <MailControlAccountPage />
             </PrivateRoute>
           ),
         },

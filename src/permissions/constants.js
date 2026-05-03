@@ -138,5 +138,6 @@ export const PERMISSIONS = {
   ADD_MAIL_ACCOUNT: 'add_mail_account',
   EDIT_MAIL_ACCOUNT: 'edit_mail_account',
   DELETE_MAIL_ACCOUNT: 'delete_mail_account',
+  ASSIGN_MAIL_ACCOUNT: 'assign_mail_account',
 };
 

@@ -234,6 +234,7 @@ export const PERMISSION_CATEGORIES = [
       { id: 'add_mail_account', label: 'Add Mail Account' },
       { id: 'edit_mail_account', label: 'Edit Mail Account' },
       { id: 'delete_mail_account', label: 'Delete Mail Account' },
+      { id: 'assign_mail_account', label: 'Assign Mail Account' },
     ],
   },
 ];

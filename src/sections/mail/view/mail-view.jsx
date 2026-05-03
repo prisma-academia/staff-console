@@ -1,7 +1,7 @@
 import ReactQuill from 'react-quill';
 import { useSnackbar } from 'notistack';
 import 'react-quill/dist/quill.snow.css';
-import { useRef, useState } from 'react';
+import { useRef, useMemo, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -15,14 +15,18 @@ import {
   Paper,
   Button,
   Avatar,
+  Select,
   Divider,
   Tooltip,
   Toolbar,
   Checkbox,
+  MenuItem,
   TextField,
   Typography,
   IconButton,
+  InputLabel,
   Pagination,
+  FormControl,
   OutlinedInput,
   ListItemButton,
   InputAdornment,
@@ -90,21 +94,65 @@ export default function MailView() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeData, setComposeData] = useState({ to: '', cc: '', subject: '', html: '' });
+  const [composeFrom, setComposeFrom] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [isSendingMail, setIsSendingMail] = useState(false);
 
   const userEmail = user?.email || '';
   const LIMIT = 20;
 
-  const mailsKey = ['mails', folder, page, searchQuery, userEmail];
+  const [selectedMailboxEmail, setSelectedMailboxEmail] = useState('');
+
+  const { data: mailAccountRows = [] } = useQuery({
+    queryKey: ['mail-accounts-mailbox'],
+    queryFn: MailApi.getMailAccounts,
+  });
+
+  const fromOptions = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    const add = (address, name) => {
+      const a = (address || '').toLowerCase();
+      if (!a || seen.has(a)) return;
+      seen.add(a);
+      list.push({ address, name: name || address });
+    };
+    if (userEmail) {
+      add(userEmail, user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : userEmail);
+    }
+    mailAccountRows.forEach((acc) => add(acc.email, acc.name));
+    return list;
+  }, [userEmail, user, mailAccountRows]);
+
+  useEffect(() => {
+    if (!userEmail) return;
+    setSelectedMailboxEmail((prev) => {
+      const want = prev || userEmail;
+      if (!fromOptions.length) return want;
+      const ok = fromOptions.some((o) => o.address.toLowerCase() === want.toLowerCase());
+      if (ok) return want;
+      return fromOptions.some((o) => o.address.toLowerCase() === userEmail.toLowerCase())
+        ? userEmail
+        : fromOptions[0].address;
+    });
+  }, [userEmail, fromOptions]);
+
+  useEffect(() => {
+    setPage(1);
+    setSelectedMailId(null);
+    setSelectedIds([]);
+  }, [selectedMailboxEmail, folder, searchQuery]);
+
+  const mailsKey = ['mails', folder, page, searchQuery, selectedMailboxEmail];
 
   const { data: mailsResult, isLoading: loadingMails } = useQuery({
     queryKey: mailsKey,
     queryFn: () =>
       searchQuery
-        ? MailApi.searchMails({ folder, q: searchQuery, page, limit: LIMIT, email: userEmail })
-        : MailApi.getMails({ folder, page, limit: LIMIT, email: userEmail }),
+        ? MailApi.searchMails({ folder, q: searchQuery, page, limit: LIMIT, email: selectedMailboxEmail })
+        : MailApi.getMails({ folder, page, limit: LIMIT, email: selectedMailboxEmail }),
     keepPreviousData: true,
+    enabled: Boolean(selectedMailboxEmail),
   });
 
   const mails = mailsResult?.data || [];
@@ -112,15 +160,16 @@ export default function MailView() {
   const totalPages = pagination.pages || 1;
 
   const { data: statsData } = useQuery({
-    queryKey: ['mail-stats', userEmail],
-    queryFn: () => MailApi.getStats(userEmail),
+    queryKey: ['mail-stats', selectedMailboxEmail],
+    queryFn: () => MailApi.getStats(selectedMailboxEmail),
+    enabled: Boolean(selectedMailboxEmail),
   });
   const unreadCount = statsData?.unread ?? 0;
 
   const { data: selectedMailData, isLoading: loadingDetail } = useQuery({
-    queryKey: ['mail-detail', selectedMailId],
-    queryFn: () => MailApi.getMailById(selectedMailId),
-    enabled: !!selectedMailId,
+    queryKey: ['mail-detail', selectedMailId, selectedMailboxEmail],
+    queryFn: () => MailApi.getMailById(selectedMailId, selectedMailboxEmail),
+    enabled: Boolean(selectedMailId && selectedMailboxEmail),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: mailsKey }),
   });
   const selectedMail = selectedMailData;
@@ -188,6 +237,10 @@ export default function MailView() {
   };
 
   const handleOpenCompose = (replyMail = null) => {
+    const defaultFrom = fromOptions.some((o) => o.address.toLowerCase() === selectedMailboxEmail.toLowerCase())
+      ? selectedMailboxEmail
+      : (fromOptions[0]?.address || userEmail);
+    setComposeFrom(defaultFrom);
     if (replyMail) {
       const fromAddr = typeof replyMail.from === 'string' ? replyMail.from : replyMail.from?.address || '';
       setComposeData({
@@ -204,14 +257,17 @@ export default function MailView() {
   };
 
   const handleSend = async () => {
-    if (!composeData.to || !userEmail) {
+    const fromAddr = (composeFrom || selectedMailboxEmail || userEmail).trim();
+    if (!composeData.to || !fromAddr) {
       enqueueSnackbar('To and from addresses are required', { variant: 'warning' });
       return;
     }
+    const fromMeta = fromOptions.find((o) => o.address.toLowerCase() === fromAddr.toLowerCase());
+    const fromName = fromMeta?.name || (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : fromAddr);
     setIsSendingMail(true);
     try {
       await MailApi.sendMail({
-        from: JSON.stringify({ address: userEmail, name: user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : userEmail }),
+        from: JSON.stringify({ address: fromAddr, name: fromName }),
         to: JSON.stringify([{ address: composeData.to.trim() }]),
         cc: composeData.cc ? JSON.stringify([{ address: composeData.cc.trim() }]) : undefined,
         subject: composeData.subject,
@@ -230,10 +286,13 @@ export default function MailView() {
   };
 
   const handleSaveDraft = async () => {
+    const fromAddr = (composeFrom || selectedMailboxEmail || userEmail).trim();
+    const fromMeta = fromOptions.find((o) => o.address.toLowerCase() === fromAddr.toLowerCase());
+    const fromName = fromMeta?.name || (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : fromAddr);
     setIsSendingMail(true);
     try {
       await MailApi.saveDraft({
-        from: JSON.stringify({ address: userEmail, name: user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : userEmail }),
+        from: JSON.stringify({ address: fromAddr, name: fromName }),
         to: composeData.to ? JSON.stringify([{ address: composeData.to.trim() }]) : undefined,
         subject: composeData.subject,
         html: composeData.html,
@@ -302,6 +361,21 @@ export default function MailView() {
 
         <Card sx={{ p: 3, flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
           <Stack spacing={2} sx={{ flexGrow: 1 }}>
+            <FormControl fullWidth>
+              <InputLabel id="compose-from-label">From</InputLabel>
+              <Select
+                labelId="compose-from-label"
+                label="From"
+                value={composeFrom || fromOptions[0]?.address || ''}
+                onChange={(e) => setComposeFrom(e.target.value)}
+              >
+                {fromOptions.map((o) => (
+                  <MenuItem key={o.address} value={o.address}>
+                    {o.name !== o.address ? `${o.name} <${o.address}>` : o.address}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             <TextField
               fullWidth
               label="To"
@@ -541,8 +615,23 @@ export default function MailView() {
   return (
     <Box sx={{ height: 'calc(100vh - 110px)', display: 'flex', flexDirection: 'column' }}>
       <Card sx={{ boxShadow: 0, mb: 2 }}>
-        <Toolbar sx={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Stack direction="row" spacing={2} alignItems="center">
+        <Toolbar sx={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+            <FormControl size="small" sx={{ minWidth: 260 }}>
+              <InputLabel id="mailbox-select-label">Mailbox</InputLabel>
+              <Select
+                labelId="mailbox-select-label"
+                label="Mailbox"
+                value={selectedMailboxEmail || userEmail}
+                onChange={(e) => setSelectedMailboxEmail(e.target.value)}
+              >
+                {fromOptions.map((o) => (
+                  <MenuItem key={o.address} value={o.address}>
+                    {o.name !== o.address ? `${o.name} <${o.address}>` : o.address}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             <Button
               variant="contained"
               startIcon={<Iconify icon="solar:pen-bold" />}

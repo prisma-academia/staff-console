@@ -1,17 +1,5 @@
-import { Helmet } from 'react-helmet-async';
-
-import config from 'src/config';
-
-import { MailAccountView } from 'src/sections/mail-account/view';
+import { Navigate } from 'react-router-dom';
 
 export default function MailAccountPage() {
-  return (
-    <>
-      <Helmet>
-        <title>Mail Accounts | {config.appName}</title>
-      </Helmet>
-
-      <MailAccountView />
-    </>
-  );
+  return <Navigate to="/mail-control" replace />;
 }
