@@ -7,35 +7,31 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
   Box,
-  Card,
   List,
   Chip,
-  Grid,
   Stack,
-  Badge,
   Paper,
   Button,
   Avatar,
   Select,
+  Dialog,
   Divider,
   Tooltip,
-  Toolbar,
   Checkbox,
+  Skeleton,
   MenuItem,
   TextField,
   Typography,
   IconButton,
   InputLabel,
-  Pagination,
   FormControl,
-  OutlinedInput,
-  ListItemButton,
+  ListItemIcon,
+  ListItemText,
   InputAdornment,
-  ListItemAvatar,
-  CircularProgress,
+  ListItemButton,
 } from '@mui/material';
 
-import { fDate, fDateTime } from 'src/utils/format-time';
+import { fDateTime } from 'src/utils/format-time';
 
 import { MailApi } from 'src/api';
 import { useAuthStore } from 'src/store';
@@ -77,7 +73,18 @@ const getParticipantDisplay = (p) => {
 const getInitial = (p) => {
   if (!p) return '?';
   const src = typeof p === 'string' ? p : (p.name || p.address || '');
-  return src.charAt(0).toUpperCase();
+  return src.charAt(0).toUpperCase() || '?';
+};
+
+const formatMailDate = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const isThisYear = d.getFullYear() === now.getFullYear();
+  if (isToday) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (isThisYear) return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
 export default function MailView() {
@@ -94,6 +101,7 @@ export default function MailView() {
   const [selectedMailId, setSelectedMailId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [showCcBcc, setShowCcBcc] = useState(false);
   const [composeData, setComposeData] = useState({ to: '', cc: '', bcc: '', subject: '', html: '' });
   const [composeFrom, setComposeFrom] = useState('');
   const [attachments, setAttachments] = useState([]);
@@ -255,6 +263,7 @@ export default function MailView() {
       setComposeData({ to: '', cc: '', bcc: '', subject: '', html: '' });
     }
     setAttachments([]);
+    setShowCcBcc(false);
     setComposeOpen(true);
   };
 
@@ -328,124 +337,700 @@ export default function MailView() {
 
   const hasSelection = selectedIds.length > 0;
 
-  if (composeOpen) {
-    return (
-      <Box sx={{ height: 'calc(100vh - 110px)', display: 'flex', flexDirection: 'column' }}>
-        <Card sx={{ mb: 2, boxShadow: 0 }}>
-          <Toolbar sx={{ height: 72, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Tooltip title="Back">
-                <IconButton onClick={() => setComposeOpen(false)}>
-                  <Iconify icon="solar:arrow-left-bold-duotone" width={24} />
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        height: 'calc(100vh - 80px)',
+        overflow: 'hidden',
+        bgcolor: 'background.default',
+      }}
+    >
+      {/* ── Sidebar ── */}
+      <Paper
+        elevation={0}
+        sx={{
+          width: 240,
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          borderRight: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 0,
+          overflow: 'hidden',
+        }}
+      >
+        {/* Account selector */}
+        <Box sx={{ p: 2, pb: 1.5 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Mailbox</InputLabel>
+            <Select
+              label="Mailbox"
+              value={selectedMailboxEmail || ''}
+              onChange={(e) => setSelectedMailboxEmail(e.target.value)}
+            >
+              {fromOptions.map((o) => (
+                <MenuItem key={o.address} value={o.address}>
+                  {o.name !== o.address ? o.name : o.address}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
+        {/* Compose button */}
+        <Box sx={{ px: 2, pb: 1.5 }}>
+          <Button
+            fullWidth
+            variant="contained"
+            startIcon={<Iconify icon="solar:pen-new-round-bold-duotone" />}
+            onClick={() => handleOpenCompose()}
+            sx={{ borderRadius: 2 }}
+          >
+            Compose
+          </Button>
+        </Box>
+
+        <Divider />
+
+        {/* Folder list */}
+        <List dense sx={{ py: 1, flexGrow: 1, overflowY: 'auto' }}>
+          {FOLDERS.map((f) => (
+            <ListItemButton
+              key={f.key}
+              selected={folder === f.key}
+              onClick={() => handleFolderChange(f.key)}
+              sx={{
+                borderRadius: 1.5,
+                mx: 1,
+                mb: 0.5,
+                '&.Mui-selected': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.12),
+                  color: 'primary.main',
+                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.16) },
+                },
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 34 }}>
+                <Iconify
+                  icon={f.icon}
+                  width={20}
+                  sx={{ color: folder === f.key ? 'primary.main' : 'text.secondary' }}
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary={f.label}
+                primaryTypographyProps={{
+                  variant: 'body2',
+                  fontWeight: folder === f.key ? 600 : 400,
+                }}
+              />
+              {f.key === 'inbox' && unreadCount > 0 && (
+                <Chip
+                  label={unreadCount > 99 ? '99+' : unreadCount}
+                  size="small"
+                  color="primary"
+                  sx={{ height: 20, fontSize: '0.7rem', minWidth: 24, px: 0.5 }}
+                />
+              )}
+            </ListItemButton>
+          ))}
+        </List>
+      </Paper>
+
+      {/* ── Main panel ── */}
+      <Box
+        sx={{
+          flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          bgcolor: 'background.paper',
+        }}
+      >
+        {selectedMailId ? (
+          /* ── Detail view ── */
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Detail top bar */}
+            <Box
+              sx={{
+                px: 2,
+                py: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+                flexShrink: 0,
+              }}
+            >
+              <IconButton size="small" onClick={() => setSelectedMailId(null)}>
+                <Iconify icon="eva:arrow-back-fill" />
+              </IconButton>
+              <Typography variant="h6" noWrap sx={{ flexGrow: 1, ml: 0.5 }}>
+                {selectedMail?.subject || '(no subject)'}
+              </Typography>
+              {selectedMail && (
+                <>
+                  <Tooltip title={selectedMail.starred ? 'Unstar' : 'Star'}>
+                    <IconButton
+                      size="small"
+                      onClick={() =>
+                        starMutation.mutate({ id: selectedMail._id, starred: selectedMail.starred })
+                      }
+                      sx={{ color: selectedMail.starred ? 'warning.main' : 'text.secondary' }}
+                    >
+                      <Iconify
+                        icon={
+                          selectedMail.starred
+                            ? 'solar:star-bold'
+                            : 'solar:star-outline-bold-duotone'
+                        }
+                      />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Reply">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleOpenCompose(selectedMail)}
+                    >
+                      <Iconify icon="solar:reply-bold-duotone" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Move to trash">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => deleteMutation.mutate(selectedMail._id)}
+                    >
+                      <Iconify icon="solar:trash-bin-trash-bold-duotone" />
+                    </IconButton>
+                  </Tooltip>
+                </>
+              )}
+            </Box>
+
+            {/* Detail content */}
+            <Scrollbar sx={{ flexGrow: 1 }}>
+              {loadingDetail && (
+                <Box sx={{ p: 3 }}>
+                  <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+                    <Skeleton variant="circular" width={44} height={44} />
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Skeleton width="40%" height={24} />
+                      <Skeleton width="60%" />
+                    </Box>
+                  </Stack>
+                  <Skeleton height={200} />
+                </Box>
+              )}
+              {!loadingDetail && selectedMail && (
+                <Box sx={{ p: 3 }}>
+                  {/* From block */}
+                  <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+                    <Avatar
+                      sx={{
+                        width: 44,
+                        height: 44,
+                        bgcolor: 'primary.lighter',
+                        color: 'primary.dark',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {getInitial(selectedMail.from)}
+                    </Avatar>
+                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        {getParticipantDisplay(selectedMail.from)}
+                      </Typography>
+                      {selectedMail.to?.length > 0 && (
+                        <Typography variant="caption" color="text.secondary">
+                          To: {selectedMail.to.map(getParticipantDisplay).join(', ')}
+                        </Typography>
+                      )}
+                      {selectedMail.labels?.length > 0 && (
+                        <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }} flexWrap="wrap">
+                          {selectedMail.labels.map((l) => (
+                            <Chip
+                              key={l}
+                              label={l}
+                              size="small"
+                              variant="outlined"
+                              sx={{ height: 20, fontSize: '0.7rem' }}
+                            />
+                          ))}
+                        </Stack>
+                      )}
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                      {fDateTime(selectedMail.createdAt)}
+                    </Typography>
+                  </Stack>
+
+                  <Divider sx={{ mb: 3 }} />
+
+                  {/* Body */}
+                  <Paper
+                    variant="outlined"
+                    sx={{ p: 3, borderRadius: 2, mb: 3, '& a': { color: 'primary.main' } }}
+                  >
+                    {selectedMail.html ? (
+                      <Box dangerouslySetInnerHTML={{ __html: selectedMail.html }} />
+                    ) : (
+                      <Typography sx={{ whiteSpace: 'pre-line' }}>
+                        {selectedMail.text || '(no content)'}
+                      </Typography>
+                    )}
+                  </Paper>
+
+                  {/* Attachments */}
+                  {selectedMail.attachments?.length > 0 && (
+                    <Box sx={{ mb: 3 }}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ mb: 1, display: 'block', fontWeight: 600 }}
+                      >
+                        Attachments ({selectedMail.attachments.length})
+                      </Typography>
+                      <Stack direction="row" spacing={1} flexWrap="wrap">
+                        {selectedMail.attachments.map((att, i) => (
+                          <Chip
+                            key={i}
+                            label={att.filename || att.originalName}
+                            icon={<Iconify icon="solar:file-bold-duotone" />}
+                            size="small"
+                            variant="outlined"
+                          />
+                        ))}
+                      </Stack>
+                    </Box>
+                  )}
+
+                  {/* Quick reply bar */}
+                  <Paper
+                    variant="outlined"
+                    sx={{ p: 2, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1 }}
+                  >
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="Quick reply… (click to open compose)"
+                      onFocus={() => handleOpenCompose(selectedMail)}
+                      inputProps={{ readOnly: true }}
+                      sx={{ cursor: 'pointer' }}
+                    />
+                    <IconButton
+                      color="primary"
+                      onClick={() => handleOpenCompose(selectedMail)}
+                    >
+                      <Iconify icon="solar:reply-bold-duotone" />
+                    </IconButton>
+                  </Paper>
+                </Box>
+              )}
+            </Scrollbar>
+          </Box>
+        ) : (
+          /* ── List view ── */
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Search + pagination bar */}
+            <Box
+              sx={{
+                px: 2,
+                py: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+                flexShrink: 0,
+              }}
+            >
+              <Checkbox
+                size="small"
+                checked={selectedIds.length === mails.length && mails.length > 0}
+                indeterminate={selectedIds.length > 0 && selectedIds.length < mails.length}
+                onChange={toggleSelectAll}
+                sx={{ mr: 0.5 }}
+              />
+              <TextField
+                size="small"
+                placeholder={`Search ${folder}…`}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={handleSearch}
+                sx={{ flexGrow: 1 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Iconify icon="eva:search-fill" sx={{ color: 'text.disabled' }} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                {pagination.total
+                  ? `${(page - 1) * LIMIT + 1}–${Math.min(page * LIMIT, pagination.total)} of ${pagination.total}`
+                  : ''}
+              </Typography>
+              <IconButton
+                size="small"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                <Iconify icon="eva:arrow-ios-back-fill" />
+              </IconButton>
+              <IconButton
+                size="small"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                <Iconify icon="eva:arrow-ios-forward-fill" />
+              </IconButton>
+              <Tooltip title="Refresh">
+                <IconButton
+                  size="small"
+                  onClick={() => queryClient.invalidateQueries({ queryKey: mailsKey })}
+                >
+                  <Iconify icon="solar:refresh-bold-duotone" />
                 </IconButton>
               </Tooltip>
-              <Typography variant="h6">
-                {composeData.subject.startsWith('Re:') ? 'Reply' : 'New Message'}
-              </Typography>
-            </Stack>
-            <Stack direction="row" spacing={1}>
-              <Button
-                variant="outlined"
-                startIcon={<Iconify icon="solar:file-text-bold-duotone" />}
-                onClick={handleSaveDraft}
-                disabled={isSendingMail}
-              >
-                Save Draft
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<Iconify icon="solar:airplane-bold-duotone" />}
-                onClick={handleSend}
-                disabled={isSendingMail}
-              >
-                {isSendingMail ? 'Sending...' : 'Send'}
-              </Button>
-            </Stack>
-          </Toolbar>
-        </Card>
+            </Box>
 
-        <Card sx={{ p: 3, flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
-          <Stack spacing={2} sx={{ flexGrow: 1 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel id="compose-from-label">From</InputLabel>
-                  <Select
-                    labelId="compose-from-label"
-                    label="From"
-                    value={composeFrom || fromOptions[0]?.address || ''}
-                    onChange={(e) => setComposeFrom(e.target.value)}
-                  >
-                    {fromOptions.map((o) => (
-                      <MenuItem key={o.address} value={o.address}>
-                        {o.name !== o.address ? `${o.name} <${o.address}>` : o.address}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="To"
-                  value={composeData.to}
-                  onChange={(e) => setComposeData((d) => ({ ...d, to: e.target.value }))}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Iconify icon="solar:user-bold-duotone" sx={{ color: 'text.disabled' }} />
-                      </InputAdornment>
-                    ),
+            {/* Bulk action bar */}
+            {hasSelection && (
+              <Box
+                sx={{
+                  px: 2,
+                  py: 0.75,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
+                  flexShrink: 0,
+                }}
+              >
+                <Typography variant="body2" fontWeight={600} sx={{ mr: 1 }}>
+                  {selectedIds.length} selected
+                </Typography>
+                <Button size="small" onClick={() => bulkReadMutation.mutate(selectedIds)}>
+                  Mark read
+                </Button>
+                <Button size="small" onClick={() => bulkUnreadMutation.mutate(selectedIds)}>
+                  Mark unread
+                </Button>
+                <Button
+                  size="small"
+                  color="error"
+                  onClick={() => bulkDeleteMutation.mutate(selectedIds)}
+                >
+                  Delete
+                </Button>
+                <Button size="small" color="inherit" onClick={() => setSelectedIds([])}>
+                  Clear
+                </Button>
+              </Box>
+            )}
+
+            {/* Mail list */}
+            <Scrollbar sx={{ flexGrow: 1 }}>
+              {loadingMails && (
+                <List disablePadding>
+                  {[...Array(6)].map((_, i) => (
+                    <Box
+                      key={i}
+                      sx={{
+                        px: 2,
+                        py: 1.5,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      <Skeleton variant="circular" width={36} height={36} sx={{ flexShrink: 0 }} />
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Skeleton width="35%" height={20} />
+                        <Skeleton width="70%" height={16} />
+                        <Skeleton width="50%" height={14} />
+                      </Box>
+                      <Skeleton width={40} height={14} />
+                    </Box>
+                  ))}
+                </List>
+              )}
+
+              {!loadingMails && mails.length === 0 && (
+                <Box
+                  sx={{
+                    py: 10,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
-                />
-              </Grid>
-            </Grid>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Cc"
-                  value={composeData.cc}
-                  onChange={(e) => setComposeData((d) => ({ ...d, cc: e.target.value }))}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Iconify icon="solar:users-group-rounded-bold-duotone" sx={{ color: 'text.disabled' }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Bcc"
-                  value={composeData.bcc}
-                  onChange={(e) => setComposeData((d) => ({ ...d, bcc: e.target.value }))}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Iconify icon="solar:letter-unread-bold-duotone" sx={{ color: 'text.disabled' }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-            </Grid>
+                >
+                  <Iconify
+                    icon="solar:inbox-bold-duotone"
+                    sx={{ width: 64, height: 64, color: 'text.disabled', mb: 1.5 }}
+                  />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    No messages
+                  </Typography>
+                  <Typography variant="body2" color="text.disabled">
+                    {searchQuery ? 'No emails match your search' : `Your ${folder} is empty`}
+                  </Typography>
+                </Box>
+              )}
+
+              {!loadingMails && mails.length > 0 && (
+                <List disablePadding>
+                  {mails.map((mail) => {
+                    const isUnread = mail.status === 'unread';
+                    const isChecked = selectedIds.includes(mail._id);
+                    const fromDisplay =
+                      typeof mail.from === 'string'
+                        ? mail.from
+                        : mail.from?.name || mail.from?.address || '';
+                    const initial = fromDisplay.charAt(0).toUpperCase() || '?';
+
+                    return (
+                      <Box
+                        key={mail._id}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          px: 2,
+                          py: 1.25,
+                          gap: 1.5,
+                          borderBottom: '1px solid',
+                          borderColor: 'divider',
+                          bgcolor: isUnread
+                            ? alpha(theme.palette.primary.main, 0.04)
+                            : 'transparent',
+                          '&:hover': {
+                            bgcolor: alpha(theme.palette.grey[500], 0.08),
+                            cursor: 'pointer',
+                          },
+                        }}
+                        onClick={() => handleOpenMail(mail._id)}
+                      >
+                        <Checkbox
+                          size="small"
+                          checked={isChecked}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSelectId(mail._id);
+                          }}
+                          sx={{ flexShrink: 0 }}
+                        />
+                        <Avatar
+                          sx={{
+                            width: 36,
+                            height: 36,
+                            fontSize: 14,
+                            fontWeight: 700,
+                            bgcolor: 'primary.lighter',
+                            color: 'primary.dark',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {initial}
+                        </Avatar>
+                        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            sx={{ mb: 0.25 }}
+                          >
+                            <Typography
+                              variant="body2"
+                              fontWeight={isUnread ? 700 : 400}
+                              noWrap
+                              sx={{ flexGrow: 1, mr: 1 }}
+                            >
+                              {fromDisplay || '(no sender)'}
+                            </Typography>
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              spacing={0.5}
+                              sx={{ flexShrink: 0 }}
+                            >
+                              {mail.attachmentCount > 0 && (
+                                <Iconify
+                                  icon="solar:paperclip-bold-duotone"
+                                  sx={{ width: 14, height: 14, color: 'text.disabled' }}
+                                />
+                              )}
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: isUnread ? 'text.primary' : 'text.secondary',
+                                  fontWeight: isUnread ? 600 : 400,
+                                }}
+                              >
+                                {formatMailDate(mail.createdAt)}
+                              </Typography>
+                            </Stack>
+                          </Stack>
+                          <Stack direction="row" alignItems="center">
+                            <Typography
+                              variant="body2"
+                              noWrap
+                              sx={{
+                                flexGrow: 1,
+                                color: isUnread ? 'text.primary' : 'text.secondary',
+                                fontWeight: isUnread ? 600 : 400,
+                                fontSize: '0.8125rem',
+                              }}
+                            >
+                              {mail.subject || '(no subject)'}
+                            </Typography>
+                          </Stack>
+                        </Box>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            starMutation.mutate({ id: mail._id, starred: mail.starred });
+                          }}
+                          sx={{
+                            flexShrink: 0,
+                            color: mail.starred ? 'warning.main' : 'text.disabled',
+                          }}
+                        >
+                          <Iconify
+                            icon={
+                              mail.starred
+                                ? 'solar:star-bold'
+                                : 'solar:star-outline-bold-duotone'
+                            }
+                            sx={{ width: 18, height: 18 }}
+                          />
+                        </IconButton>
+                      </Box>
+                    );
+                  })}
+                </List>
+              )}
+            </Scrollbar>
+          </Box>
+        )}
+      </Box>
+
+      {/* ── Compose dialog ── */}
+      <Dialog
+        open={composeOpen}
+        onClose={() => setComposeOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            height: '82vh',
+            display: 'flex',
+            flexDirection: 'column',
+          },
+        }}
+      >
+        {/* Compose header */}
+        <Box
+          sx={{
+            px: 3,
+            py: 2,
+            display: 'flex',
+            alignItems: 'center',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            flexShrink: 0,
+          }}
+        >
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            {composeData.subject.startsWith('Re:') ? 'Reply' : 'New Message'}
+          </Typography>
+          <IconButton size="small" onClick={() => setComposeOpen(false)}>
+            <Iconify icon="eva:close-fill" />
+          </IconButton>
+        </Box>
+
+        {/* Compose body */}
+        <Box sx={{ flexGrow: 1, overflow: 'auto', px: 3, py: 2 }}>
+          <Stack spacing={2}>
+            {/* From */}
+            <FormControl fullWidth size="small">
+              <InputLabel>From</InputLabel>
+              <Select
+                label="From"
+                value={composeFrom || fromOptions[0]?.address || ''}
+                onChange={(e) => setComposeFrom(e.target.value)}
+              >
+                {fromOptions.map((o) => (
+                  <MenuItem key={o.address} value={o.address}>
+                    {o.name !== o.address ? `${o.name} <${o.address}>` : o.address}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* To */}
             <TextField
               fullWidth
+              size="small"
+              label="To"
+              value={composeData.to}
+              onChange={(e) => setComposeData((d) => ({ ...d, to: e.target.value }))}
+            />
+
+            {/* CC/BCC toggle */}
+            {!showCcBcc ? (
+              <Box>
+                <Button
+                  size="small"
+                  color="inherit"
+                  sx={{ color: 'text.secondary', fontSize: '0.8rem' }}
+                  onClick={() => setShowCcBcc(true)}
+                >
+                  + CC / BCC
+                </Button>
+              </Box>
+            ) : (
+              <>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="CC"
+                  value={composeData.cc}
+                  onChange={(e) => setComposeData((d) => ({ ...d, cc: e.target.value }))}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="BCC"
+                  value={composeData.bcc}
+                  onChange={(e) => setComposeData((d) => ({ ...d, bcc: e.target.value }))}
+                />
+              </>
+            )}
+
+            {/* Subject */}
+            <TextField
+              fullWidth
+              size="small"
               label="Subject"
               value={composeData.subject}
               onChange={(e) => setComposeData((d) => ({ ...d, subject: e.target.value }))}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Iconify icon="solar:document-text-bold-duotone" sx={{ color: 'text.disabled' }} />
-                  </InputAdornment>
-                ),
-              }}
             />
-            <Box sx={{ flexGrow: 1, minHeight: 300 }}>
+
+            <Divider />
+
+            {/* Editor */}
+            <Box sx={{ minHeight: 220 }}>
               <ReactQuill
                 ref={quillRef}
                 theme="snow"
@@ -453,423 +1038,79 @@ export default function MailView() {
                 onChange={(val) => setComposeData((d) => ({ ...d, html: val }))}
                 modules={quillModules}
                 formats={quillFormats}
-                placeholder="Write your message..."
-                style={{ height: 280 }}
+                placeholder="Write your message…"
+                style={{ height: 200 }}
               />
             </Box>
+
+            {/* Attachment list */}
             {attachments.length > 0 && (
-              <Stack spacing={1} sx={{ mt: 4 }}>
-                <Typography variant="subtitle2">Attachments ({attachments.length})</Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
                 {attachments.map((f, i) => (
-                  <Stack
+                  <Chip
                     key={i}
-                    direction="row"
-                    alignItems="center"
-                    spacing={2}
-                    sx={{ p: 1.5, borderRadius: 1, border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}` }}
-                  >
-                    <Iconify icon="solar:file-bold-duotone" sx={{ color: 'primary.main', flexShrink: 0 }} />
-                    <Typography variant="body2" noWrap sx={{ flexGrow: 1 }}>{f.name}</Typography>
-                    <IconButton size="small" onClick={() => setAttachments((a) => a.filter((_, j) => j !== i))}>
-                      <Iconify icon="solar:close-circle-bold" sx={{ color: 'text.disabled' }} />
-                    </IconButton>
-                  </Stack>
+                    label={f.name}
+                    size="small"
+                    icon={<Iconify icon="solar:file-bold-duotone" />}
+                    onDelete={() =>
+                      setAttachments((a) => a.filter((_, j) => j !== i))
+                    }
+                  />
                 ))}
               </Stack>
             )}
-            <Stack direction="row" justifyContent="space-between" sx={{ mt: 2 }}>
-              <Box>
-                <input
-                  type="file"
-                  multiple
-                  id="attach-input"
-                  aria-label="Attach files"
-                  style={{ display: 'none' }}
-                  onChange={(e) => setAttachments((a) => [...a, ...Array.from(e.target.files)])}
-                />
-                <Button
-                  component="label"
-                  htmlFor="attach-input"
-                  variant="outlined"
-                  startIcon={<Iconify icon="solar:paperclip-bold-duotone" />}
-                >
-                  Attach Files
-                </Button>
-              </Box>
-              <Button variant="outlined" onClick={() => setComposeOpen(false)}>
-                Cancel
-              </Button>
-            </Stack>
           </Stack>
-        </Card>
-      </Box>
-    );
-  }
+        </Box>
 
-  if (selectedMailId) {
-    return (
-      <Box sx={{ height: 'calc(100vh - 110px)', display: 'flex', flexDirection: 'column' }}>
-        <Card sx={{ mb: 2, boxShadow: 0 }}>
-          <Toolbar sx={{ height: 72, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Tooltip title="Back">
-                <IconButton onClick={() => setSelectedMailId(null)}>
-                  <Iconify icon="solar:arrow-left-bold-duotone" width={24} />
-                </IconButton>
-              </Tooltip>
-              {!loadingDetail && selectedMail && (
-                <Typography variant="h6" noWrap>{selectedMail.subject || '(no subject)'}</Typography>
-              )}
-            </Stack>
-            {!loadingDetail && selectedMail && (
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Tooltip title="Reply">
-                  <IconButton onClick={() => { setSelectedMailId(null); handleOpenCompose(selectedMail); }}>
-                    <Iconify icon="solar:reply-bold-duotone" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title={selectedMail.starred ? 'Unstar' : 'Star'}>
-                  <IconButton onClick={() => starMutation.mutate({ id: selectedMail._id, starred: selectedMail.starred })}>
-                    <Iconify
-                      icon={selectedMail.starred ? 'solar:star-bold' : 'solar:star-outline-bold-duotone'}
-                      sx={{ color: selectedMail.starred ? 'warning.main' : 'text.secondary' }}
-                    />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Move to trash">
-                  <IconButton onClick={() => deleteMutation.mutate(selectedMail._id)}>
-                    <Iconify icon="solar:trash-bin-trash-bold-duotone" />
-                  </IconButton>
-                </Tooltip>
-              </Stack>
-            )}
-          </Toolbar>
-        </Card>
-
-        <Card sx={{ p: 3, flexGrow: 1, overflow: 'auto' }}>
-          {loadingDetail && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', pt: 5 }}>
-              <CircularProgress />
-            </Box>
-          )}
-          {!loadingDetail && selectedMail && (
-            <Stack spacing={3}>
-              <Stack direction="row" alignItems="flex-start" spacing={2}>
-                <Avatar sx={{ width: 48, height: 48, bgcolor: 'primary.main' }}>
-                  {getInitial(selectedMail.from)}
-                </Avatar>
-                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
-                    <Typography variant="subtitle1">
-                      {getParticipantDisplay(selectedMail.from)}
-                    </Typography>
-                    <Chip
-                      label={selectedMail.status}
-                      size="small"
-                      color={selectedMail.status === 'unread' ? 'info' : 'default'}
-                      sx={{ height: 22, fontSize: '0.7rem' }}
-                    />
-                  </Stack>
-                  {selectedMail.to?.length > 0 && (
-                    <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                      To: {selectedMail.to.map(getParticipantDisplay).join(', ')}
-                    </Typography>
-                  )}
-                  {selectedMail.labels?.length > 0 && (
-                    <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }} flexWrap="wrap">
-                      {selectedMail.labels.map((l) => (
-                        <Chip key={l} label={l} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
-                      ))}
-                    </Stack>
-                  )}
-                </Box>
-                <Typography variant="caption" sx={{ color: 'text.secondary', flexShrink: 0 }}>
-                  {fDateTime(selectedMail.createdAt)}
-                </Typography>
-              </Stack>
-
-              <Divider />
-
-              <Box sx={{ typography: 'body1' }}>
-                {selectedMail.html ? (
-                  <Box dangerouslySetInnerHTML={{ __html: selectedMail.html }} />
-                ) : (
-                  <Typography sx={{ whiteSpace: 'pre-line' }}>{selectedMail.text || '(no content)'}</Typography>
-                )}
-              </Box>
-
-              {selectedMail.attachments?.length > 0 && (
-                <Stack spacing={1.5}>
-                  <Typography variant="subtitle2">
-                    Attachments ({selectedMail.attachments.length})
-                  </Typography>
-                  {selectedMail.attachments.map((att, i) => (
-                    <Stack
-                      key={i}
-                      direction="row"
-                      alignItems="center"
-                      spacing={2}
-                      sx={{ p: 2, borderRadius: 1, border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}` }}
-                    >
-                      <Box sx={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 1, bgcolor: alpha(theme.palette.primary.main, 0.08) }}>
-                        <Iconify icon="solar:file-bold-duotone" sx={{ color: 'primary.main' }} />
-                      </Box>
-                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                        <Typography variant="subtitle2" noWrap>{att.filename || att.originalName}</Typography>
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{att.mimeType}</Typography>
-                      </Box>
-                    </Stack>
-                  ))}
-                </Stack>
-              )}
-
-              <Paper sx={{ p: 3, borderRadius: 2, bgcolor: 'background.neutral', border: `1px solid ${alpha(theme.palette.grey[500], 0.12)}` }}>
-                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Quick Reply</Typography>
-                <TextField fullWidth multiline rows={3} placeholder="Write a reply..." sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'background.paper' } }} />
-                <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 1.5 }}>
-                  <Button
-                    variant="contained"
-                    onClick={() => { setSelectedMailId(null); handleOpenCompose(selectedMail); }}
-                  >
-                    Open Full Reply
-                  </Button>
-                </Stack>
-              </Paper>
-            </Stack>
-          )}
-        </Card>
-      </Box>
-    );
-  }
-
-  return (
-    <Box sx={{ height: 'calc(100vh - 110px)', display: 'flex', flexDirection: 'column' }}>
-      <Card sx={{ boxShadow: 0, mb: 2 }}>
-        <Toolbar
+        {/* Compose footer */}
+        <Box
           sx={{
-            minHeight: 80,
-            py: 2,
-            display: 'block',
-            height: 'auto',
+            px: 3,
+            py: 1.5,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            flexShrink: 0,
           }}
         >
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={4}>
-              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
-                <InputLabel id="mailbox-select-label">Mailbox</InputLabel>
-                <Select
-                  labelId="mailbox-select-label"
-                  label="Mailbox"
-                  value={selectedMailboxEmail || userEmail}
-                  onChange={(e) => setSelectedMailboxEmail(e.target.value)}
-                >
-                  {fromOptions.map((o) => (
-                    <MenuItem key={o.address} value={o.address}>
-                      {o.name !== o.address ? `${o.name} <${o.address}>` : o.address}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <Button
-                variant="contained"
-                fullWidth
-                startIcon={<Iconify icon="solar:pen-bold" />}
-                onClick={() => handleOpenCompose()}
-              >
-                Compose
-              </Button>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <OutlinedInput
-                fullWidth
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={handleSearch}
-                placeholder="Search emails… (Enter)"
-                startAdornment={
-                  <InputAdornment position="start">
-                    <Iconify icon="eva:search-fill" sx={{ color: 'text.disabled', width: 20, height: 20 }} />
-                  </InputAdornment>
-                }
-                sx={{
-                  '& fieldset': {
-                    borderWidth: '1px !important',
-                    borderColor: `${alpha(theme.palette.grey[500], 0.32)} !important`,
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={1} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-              <IconButton onClick={() => queryClient.invalidateQueries({ queryKey: mailsKey })} aria-label="Refresh">
-                <Iconify icon="solar:refresh-bold-duotone" />
-              </IconButton>
-            </Grid>
-          </Grid>
-        </Toolbar>
-      </Card>
-
-      <Stack
-        direction="row"
-        spacing={0.5}
-        sx={{ mb: 2, px: 1, py: 0.5, borderRadius: 1, bgcolor: 'background.neutral', overflowX: 'auto', flexShrink: 0 }}
-      >
-        {FOLDERS.map((f) => (
+          <input
+            type="file"
+            multiple
+            id="compose-attach-input"
+            aria-label="Attach files"
+            style={{ display: 'none' }}
+            onChange={(e) =>
+              setAttachments((a) => [...a, ...Array.from(e.target.files)])
+            }
+          />
           <Button
-            key={f.key}
-            size="small"
-            startIcon={<Iconify icon={f.icon} />}
-            color={folder === f.key ? 'primary' : 'inherit'}
-            onClick={() => handleFolderChange(f.key)}
-            sx={{
-              px: 1.5,
-              borderRadius: 1,
-              whiteSpace: 'nowrap',
-              bgcolor: folder === f.key ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
-            }}
+            component="label"
+            htmlFor="compose-attach-input"
+            startIcon={<Iconify icon="solar:paperclip-bold-duotone" />}
+            color="inherit"
+            sx={{ color: 'text.secondary' }}
           >
-            {f.label}
-            {f.key === 'inbox' && unreadCount > 0 && (
-              <Badge color="error" badgeContent={unreadCount} max={99} sx={{ ml: 1 }} />
-            )}
+            Attach
           </Button>
-        ))}
-      </Stack>
-
-      <Card sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {hasSelection && (
-          <Stack
-            direction="row"
-            spacing={1}
-            alignItems="center"
-            sx={{ px: 2, py: 1, borderBottom: `1px solid ${theme.palette.divider}`, bgcolor: alpha(theme.palette.primary.main, 0.04) }}
+          <Box sx={{ flexGrow: 1 }} />
+          <Button onClick={() => setComposeOpen(false)} color="inherit">
+            Cancel
+          </Button>
+          <Button onClick={handleSaveDraft} disabled={isSendingMail} variant="outlined">
+            Save draft
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSend}
+            disabled={isSendingMail}
+            startIcon={<Iconify icon="solar:plain-2-bold-duotone" />}
           >
-            <Typography variant="body2" sx={{ color: 'text.secondary', mr: 1 }}>
-              {selectedIds.length} selected
-            </Typography>
-            <Button size="small" onClick={() => bulkReadMutation.mutate(selectedIds)}>Mark Read</Button>
-            <Button size="small" onClick={() => bulkUnreadMutation.mutate(selectedIds)}>Mark Unread</Button>
-            <Button size="small" color="error" onClick={() => bulkDeleteMutation.mutate(selectedIds)}>Delete</Button>
-            <Button size="small" onClick={() => setSelectedIds([])}>Clear</Button>
-          </Stack>
-        )}
-
-        {loadingMails && (
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexGrow: 1 }}>
-            <CircularProgress />
-          </Box>
-        )}
-        {!loadingMails && mails.length === 0 && (
-          <Box sx={{ p: 5, display: 'flex', alignItems: 'center', flexDirection: 'column', justifyContent: 'center', flexGrow: 1 }}>
-            <Iconify icon="solar:inbox-bold-duotone" sx={{ width: 80, height: 80, color: 'text.disabled', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>No emails</Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
-              {searchQuery ? 'No emails match your search' : `No emails in ${folder}`}
-            </Typography>
-          </Box>
-        )}
-        {!loadingMails && mails.length > 0 && (
-          <>
-            <Box sx={{ px: 2, py: 0.5, borderBottom: `1px solid ${theme.palette.divider}` }}>
-              <Checkbox
-                size="small"
-                checked={selectedIds.length === mails.length && mails.length > 0}
-                indeterminate={selectedIds.length > 0 && selectedIds.length < mails.length}
-                onChange={toggleSelectAll}
-              />
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {pagination.total || 0} emails
-              </Typography>
-            </Box>
-
-            <Scrollbar sx={{ flexGrow: 1 }}>
-              <List disablePadding>
-                {mails.map((mail) => {
-                  const isUnread = mail.status === 'unread';
-                  const isChecked = selectedIds.includes(mail._id);
-                  const fromDisplay = typeof mail.from === 'string' ? mail.from : (mail.from?.name || mail.from?.address || '');
-
-                  return (
-                    <ListItemButton
-                      key={mail._id}
-                      sx={{
-                        p: 2,
-                        borderBottom: `1px solid ${alpha(theme.palette.divider, 0.32)}`,
-                        bgcolor: isUnread ? alpha(theme.palette.grey[500], 0.06) : 'transparent',
-                        '&:hover': { bgcolor: alpha(theme.palette.grey[500], 0.12) },
-                      }}
-                      onClick={() => handleOpenMail(mail._id)}
-                    >
-                      <Checkbox
-                        size="small"
-                        checked={isChecked}
-                        onClick={(e) => { e.stopPropagation(); toggleSelectId(mail._id); }}
-                        sx={{ mr: 1 }}
-                      />
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: 'primary.lighter', color: 'primary.dark' }}>
-                          {getInitial(mail.from)}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <Box sx={{ flexGrow: 1, minWidth: 0, pr: 1 }}>
-                        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5 }}>
-                          <Typography
-                            variant="subtitle2"
-                            noWrap
-                            sx={{ fontWeight: isUnread ? 'fontWeightBold' : 'fontWeightRegular' }}
-                          >
-                            {fromDisplay}
-                          </Typography>
-                          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
-                            {mail.attachmentCount > 0 && (
-                              <Iconify icon="solar:paperclip-bold-duotone" sx={{ width: 16, height: 16, color: 'text.disabled' }} />
-                            )}
-                            <Typography variant="caption" sx={{ color: isUnread ? 'text.primary' : 'text.secondary' }}>
-                              {fDate(mail.createdAt)}
-                            </Typography>
-                          </Stack>
-                        </Stack>
-                        <Typography
-                          variant="body2"
-                          noWrap
-                          sx={{ mb: 0.25, fontWeight: isUnread ? 'fontWeightMedium' : 'fontWeightRegular', color: isUnread ? 'text.primary' : 'text.secondary' }}
-                        >
-                          {mail.subject || '(no subject)'}
-                        </Typography>
-                        <Typography variant="body2" noWrap sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
-                          {(mail.text || '').slice(0, 100)}
-                        </Typography>
-                      </Box>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => { e.stopPropagation(); starMutation.mutate({ id: mail._id, starred: mail.starred }); }}
-                        sx={{ flexShrink: 0, ml: 0.5 }}
-                      >
-                        <Iconify
-                          icon={mail.starred ? 'solar:star-bold' : 'solar:star-outline-bold-duotone'}
-                          sx={{ color: mail.starred ? 'warning.main' : 'text.disabled', width: 18, height: 18 }}
-                        />
-                      </IconButton>
-                    </ListItemButton>
-                  );
-                })}
-              </List>
-            </Scrollbar>
-
-            {totalPages > 1 && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 1.5, borderTop: `1px solid ${theme.palette.divider}` }}>
-                <Pagination
-                  count={totalPages}
-                  page={page}
-                  onChange={(_, p) => { setPage(p); setSelectedIds([]); }}
-                  size="small"
-                />
-              </Box>
-            )}
-          </>
-        )}
-      </Card>
+            {isSendingMail ? 'Sending…' : 'Send'}
+          </Button>
+        </Box>
+      </Dialog>
     </Box>
   );
 }

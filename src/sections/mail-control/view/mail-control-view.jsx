@@ -12,18 +12,21 @@ import {
   Card,
   Chip,
   Grid,
+  Menu,
   Stack,
+  Alert,
   Table,
   Button,
   Dialog,
   Switch,
-  Tooltip,
-  TableRow,
   MenuItem,
+  Skeleton,
+  TableRow,
   TableBody,
   TableCell,
   TableHead,
   TextField,
+  Container,
   Typography,
   IconButton,
   DialogTitle,
@@ -31,7 +34,6 @@ import {
   DialogActions,
   TableContainer,
   FormControlLabel,
-  CircularProgress,
 } from '@mui/material';
 
 import { usePermissions } from 'src/utils/permissions';
@@ -94,7 +96,11 @@ function CreateAccountDialog({ open, onClose, domains, onSaved }) {
       <form onSubmit={formik.handleSubmit}>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            {formik.status && <Typography color="error" variant="body2">{formik.status}</Typography>}
+            {formik.status && (
+              <Typography color="error" variant="body2">
+                {formik.status}
+              </Typography>
+            )}
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
                 <TextField
@@ -132,7 +138,9 @@ function CreateAccountDialog({ open, onClose, domains, onSaved }) {
                 >
                   <MenuItem value="">Select domain</MenuItem>
                   {domains.map((d) => (
-                    <MenuItem key={d._id} value={d._id}>{d.value}</MenuItem>
+                    <MenuItem key={d._id} value={d._id}>
+                      {d.value}
+                    </MenuItem>
                   ))}
                 </TextField>
               </Grid>
@@ -149,7 +157,13 @@ function CreateAccountDialog({ open, onClose, domains, onSaved }) {
               </Grid>
               <Grid item xs={12}>
                 <FormControlLabel
-                  control={<Switch name="isActive" checked={formik.values.isActive} onChange={formik.handleChange} />}
+                  control={
+                    <Switch
+                      name="isActive"
+                      checked={formik.values.isActive}
+                      onChange={formik.handleChange}
+                    />
+                  }
                   label="Active"
                 />
               </Grid>
@@ -170,7 +184,8 @@ function CreateAccountDialog({ open, onClose, domains, onSaved }) {
 CreateAccountDialog.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  domains: PropTypes.arrayOf(PropTypes.shape({ _id: PropTypes.string, value: PropTypes.string })).isRequired,
+  domains: PropTypes.arrayOf(PropTypes.shape({ _id: PropTypes.string, value: PropTypes.string }))
+    .isRequired,
   onSaved: PropTypes.func.isRequired,
 };
 
@@ -199,43 +214,47 @@ function EditAccountDialog({ open, onClose, account, onSaved }) {
   if (!account) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Edit mail account</DialogTitle>
       <form onSubmit={formik.handleSubmit}>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            {formik.status && <Typography color="error" variant="body2">{formik.status}</Typography>}
-            <Typography variant="body2" color="text.secondary">Email: {account.email}</Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={8}>
-                <TextField
-                  fullWidth
-                  label="Name"
-                  name="name"
-                  value={formik.values.name}
+            {formik.status && (
+              <Typography color="error" variant="body2">
+                {formik.status}
+              </Typography>
+            )}
+            <Typography variant="body2" color="text.secondary">
+              Email: <strong>{account.email}</strong>
+            </Typography>
+            <TextField
+              fullWidth
+              label="Name"
+              name="name"
+              value={formik.values.name}
+              onChange={formik.handleChange}
+              error={formik.touched.name && Boolean(formik.errors.name)}
+              helperText={formik.touched.name && formik.errors.name}
+            />
+            <TextField
+              fullWidth
+              label="Description"
+              name="description"
+              value={formik.values.description}
+              onChange={formik.handleChange}
+              multiline
+              rows={2}
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  name="isActive"
+                  checked={formik.values.isActive}
                   onChange={formik.handleChange}
-                  error={formik.touched.name && Boolean(formik.errors.name)}
-                  helperText={formik.touched.name && formik.errors.name}
                 />
-              </Grid>
-              <Grid item xs={12} md={4} sx={{ display: 'flex', alignItems: 'center' }}>
-                <FormControlLabel
-                  control={<Switch name="isActive" checked={formik.values.isActive} onChange={formik.handleChange} />}
-                  label="Active"
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Description"
-                  name="description"
-                  value={formik.values.description}
-                  onChange={formik.handleChange}
-                  multiline
-                  rows={2}
-                />
-              </Grid>
-            </Grid>
+              }
+              label="Active"
+            />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -255,6 +274,74 @@ EditAccountDialog.propTypes = {
   account: PropTypes.object,
   onSaved: PropTypes.func.isRequired,
 };
+
+function AccountRowMenu({ account, onEdit, onManage, onDelete, canEdit, canDelete }) {
+  const [anchor, setAnchor] = useState(null);
+  const open = Boolean(anchor);
+
+  return (
+    <>
+      <IconButton size="small" onClick={(e) => setAnchor(e.currentTarget)}>
+        <Iconify icon="eva:more-vertical-fill" />
+      </IconButton>
+      <Menu
+        anchorEl={anchor}
+        open={open}
+        onClose={() => setAnchor(null)}
+        PaperProps={{ sx: { minWidth: 160 } }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem
+          onClick={() => {
+            setAnchor(null);
+            onManage(account);
+          }}
+        >
+          <Iconify icon="solar:settings-bold-duotone" sx={{ mr: 1.5, color: 'text.secondary' }} />
+          Manage
+        </MenuItem>
+        {canEdit && (
+          <MenuItem
+            onClick={() => {
+              setAnchor(null);
+              onEdit(account);
+            }}
+          >
+            <Iconify icon="solar:pen-bold-duotone" sx={{ mr: 1.5, color: 'text.secondary' }} />
+            Quick edit
+          </MenuItem>
+        )}
+        {canDelete && (
+          <MenuItem
+            onClick={() => {
+              setAnchor(null);
+              onDelete(account);
+            }}
+            sx={{ color: 'error.main' }}
+          >
+            <Iconify icon="solar:trash-bin-trash-bold-duotone" sx={{ mr: 1.5 }} />
+            Delete
+          </MenuItem>
+        )}
+      </Menu>
+    </>
+  );
+}
+
+AccountRowMenu.propTypes = {
+  account: PropTypes.object.isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onManage: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  canEdit: PropTypes.bool,
+  canDelete: PropTypes.bool,
+};
+
+const TABS = [
+  { key: 'accounts', label: 'Accounts', icon: 'solar:mailbox-bold-duotone' },
+  { key: 'domains', label: 'Domains', icon: 'solar:global-bold-duotone' },
+];
 
 export default function MailControlView() {
   const navigate = useNavigate();
@@ -299,47 +386,62 @@ export default function MailControlView() {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 2 }}>Mail control</Typography>
-
-      <Stack direction="row" spacing={1} sx={{ mb: 3 }}>
-        <Button
-          variant={tab === 'accounts' ? 'contained' : 'outlined'}
-          onClick={() => setTab('accounts')}
-          startIcon={<Iconify icon="solar:mailbox-bold-duotone" />}
-        >
-          Accounts
-        </Button>
-        <Button
-          variant={tab === 'domains' ? 'contained' : 'outlined'}
-          onClick={() => setTab('domains')}
-          startIcon={<Iconify icon="solar:global-bold-duotone" />}
-        >
-          Domains
-        </Button>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      {/* Header */}
+      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" sx={{ mb: 3 }}>
+        <Box>
+          <Typography variant="h4" gutterBottom>
+            Mail control
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Manage mail accounts and SMTP domain configuration.
+          </Typography>
+        </Box>
+        {tab === 'accounts' && check(PERMISSIONS.ADD_MAIL_ACCOUNT) && (
+          <Button
+            variant="contained"
+            startIcon={<Iconify icon="solar:add-circle-bold-duotone" />}
+            onClick={() => setCreateOpen(true)}
+            disabled={!domains.length}
+          >
+            Add account
+          </Button>
+        )}
       </Stack>
 
+      {/* Tab nav */}
+      <Stack direction="row" spacing={0.5} sx={{ mb: 3 }}>
+        {TABS.map((t) => (
+          <Button
+            key={t.key}
+            variant={tab === t.key ? 'contained' : 'outlined'}
+            startIcon={<Iconify icon={t.icon} />}
+            onClick={() => setTab(t.key)}
+            sx={{ borderRadius: 2 }}
+          >
+            {t.label}
+          </Button>
+        ))}
+      </Stack>
+
+      {/* Domains tab */}
       {tab === 'domains' && <DomainListView />}
 
+      {/* Accounts tab */}
       {tab === 'accounts' && (
         <>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-            <Typography variant="h6">Mail accounts</Typography>
-            {check(PERMISSIONS.ADD_MAIL_ACCOUNT) && (
-              <Button
-                variant="contained"
-                startIcon={<Iconify icon="solar:add-circle-bold-duotone" />}
-                onClick={() => setCreateOpen(true)}
-                disabled={!domains.length}
-              >
-                Add account
-              </Button>
-            )}
-          </Stack>
           {!domains.length && (
-            <Typography variant="body2" color="warning.main" sx={{ mb: 2 }}>
-              Create at least one domain before adding mail accounts.
-            </Typography>
+            <Alert severity="warning" sx={{ mb: 3 }}>
+              Create at least one domain before adding mail accounts. Go to the{' '}
+              <Button
+                size="small"
+                onClick={() => setTab('domains')}
+                sx={{ p: 0, minWidth: 0, verticalAlign: 'baseline', textDecoration: 'underline' }}
+              >
+                Domains
+              </Button>{' '}
+              tab to get started.
+            </Alert>
           )}
 
           <Card>
@@ -348,72 +450,108 @@ export default function MailControlView() {
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Email</TableCell>
-                      <TableCell>Domain</TableCell>
-                      <TableCell>Owner</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell align="right">Actions</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Domain</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Owner</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600 }}>
+                        Actions
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {isLoading && (
-                      <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                          <CircularProgress size={28} />
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {isLoading &&
+                      [0, 1, 2, 3].map((i) => (
+                        <TableRow key={i}>
+                          {[0, 1, 2, 3, 4, 5].map((c) => (
+                            <TableCell key={c}>
+                              <Skeleton />
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+
                     {!isLoading && accounts.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 5 }}>
-                          <Typography variant="body2" color="text.secondary">No mail accounts.</Typography>
+                        <TableCell colSpan={6}>
+                          <Box sx={{ py: 6, textAlign: 'center' }}>
+                            <Iconify
+                              icon="solar:mailbox-bold-duotone"
+                              sx={{ width: 52, height: 52, color: 'text.disabled', mb: 1 }}
+                            />
+                            <Typography variant="h6" color="text.secondary" gutterBottom>
+                              No mail accounts
+                            </Typography>
+                            <Typography variant="body2" color="text.disabled" sx={{ mb: 2 }}>
+                              Add an account to manage inbound and outbound mail.
+                            </Typography>
+                            {check(PERMISSIONS.ADD_MAIL_ACCOUNT) && domains.length > 0 && (
+                              <Button
+                                variant="contained"
+                                startIcon={<Iconify icon="solar:add-circle-bold-duotone" />}
+                                onClick={() => setCreateOpen(true)}
+                              >
+                                Add account
+                              </Button>
+                            )}
+                          </Box>
                         </TableCell>
                       </TableRow>
                     )}
-                    {!isLoading && accounts.map((acc) => (
-                      <TableRow key={acc._id} hover>
-                        <TableCell>
-                          <Typography variant="subtitle2">{acc.name}</Typography>
-                          {acc.description && (
-                            <Typography variant="caption" color="text.secondary">{acc.description}</Typography>
-                          )}
-                        </TableCell>
-                        <TableCell><Typography variant="body2">{acc.email}</Typography></TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.secondary">
-                            {acc.domainId?.value || '—'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell><Typography variant="body2">{acc.owner}</Typography></TableCell>
-                        <TableCell>
-                          <Chip label={acc.isActive ? 'Active' : 'Inactive'} color={acc.isActive ? 'success' : 'default'} size="small" />
-                        </TableCell>
-                        <TableCell align="right">
-                          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                            <Tooltip title="Manage">
-                              <IconButton size="small" onClick={() => navigate(`/mail-control/accounts/${acc._id}`)}>
-                                <Iconify icon="solar:settings-bold-duotone" />
-                              </IconButton>
-                            </Tooltip>
-                            {check(PERMISSIONS.EDIT_MAIL_ACCOUNT) && (
-                              <Tooltip title="Quick edit">
-                                <IconButton size="small" onClick={() => setEditAccount(acc)}>
-                                  <Iconify icon="solar:pen-bold-duotone" />
-                                </IconButton>
-                              </Tooltip>
+
+                    {!isLoading &&
+                      accounts.map((acc) => (
+                        <TableRow key={acc._id} hover>
+                          <TableCell>
+                            <Typography variant="subtitle2">{acc.name}</Typography>
+                            {acc.description && (
+                              <Typography variant="caption" color="text.secondary">
+                                {acc.description}
+                              </Typography>
                             )}
-                            {check(PERMISSIONS.DELETE_MAIL_ACCOUNT) && (
-                              <Tooltip title="Delete">
-                                <IconButton size="small" color="error" onClick={() => setDeleteTarget(acc)}>
-                                  <Iconify icon="solar:trash-bin-trash-bold-duotone" />
-                                </IconButton>
-                              </Tooltip>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">{acc.email}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            {acc.domainId?.value ? (
+                              <Chip
+                                label={acc.domainId.value}
+                                size="small"
+                                variant="outlined"
+                                icon={<Iconify icon="solar:global-bold-duotone" />}
+                              />
+                            ) : (
+                              <Typography variant="body2" color="text.disabled">
+                                —
+                              </Typography>
                             )}
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary">
+                              {acc.owner}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={acc.isActive ? 'Active' : 'Inactive'}
+                              color={acc.isActive ? 'success' : 'default'}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <AccountRowMenu
+                              account={acc}
+                              onManage={(a) => navigate(`/mail-control/accounts/${a._id}`)}
+                              onEdit={(a) => setEditAccount(a)}
+                              onDelete={(a) => setDeleteTarget(a)}
+                              canEdit={check(PERMISSIONS.EDIT_MAIL_ACCOUNT)}
+                              canDelete={check(PERMISSIONS.DELETE_MAIL_ACCOUNT)}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -438,7 +576,8 @@ export default function MailControlView() {
             <DialogTitle>Delete mail account</DialogTitle>
             <DialogContent>
               <Typography>
-                Delete <strong>{deleteTarget?.name}</strong> ({deleteTarget?.email})?
+                Delete <strong>{deleteTarget?.name}</strong> ({deleteTarget?.email})? This action
+                cannot be undone.
               </Typography>
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -455,6 +594,6 @@ export default function MailControlView() {
           </Dialog>
         </>
       )}
-    </Box>
+    </Container>
   );
 }
