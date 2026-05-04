@@ -50,6 +50,7 @@ const statusColors = {
   active: 'success',
   pending: 'warning',
   disable: 'error',
+  setup: 'info',
 };
 
 const validationSchema = Yup.object({
@@ -83,7 +84,7 @@ const validationSchema = Yup.object({
   }),
   program: Yup.string(),
   classLevel: Yup.string(),
-  status: Yup.string().oneOf(['pending', 'active', 'disable']),
+  status: Yup.string().oneOf(['pending', 'active', 'disable', 'setup']),
 });
 
 export default function StudentDetailPage() {
@@ -458,6 +459,7 @@ export default function StudentDetailPage() {
                 studentId={id}
                 studentStatus={formik.values.status}
                 studentEmail={formik.values.contactInfo.email}
+                studentRegNumber={student?.regNumber}
                 onStatusChange={() => {
                   queryClient.invalidateQueries({ queryKey: ['student', id] });
                 }}

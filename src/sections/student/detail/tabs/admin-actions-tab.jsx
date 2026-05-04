@@ -29,7 +29,13 @@ import { PERMISSIONS } from 'src/permissions/constants';
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
 
-export default function AdminActionsTab({ studentId, studentStatus, studentEmail, onStatusChange }) {
+export default function AdminActionsTab({
+  studentId,
+  studentStatus,
+  studentEmail,
+  studentRegNumber,
+  onStatusChange,
+}) {
   const theme = useTheme();
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
@@ -39,6 +45,11 @@ export default function AdminActionsTab({ studentId, studentStatus, studentEmail
   const [sendSMS, setSendSMS] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [tempPassword, setTempPassword] = useState('');
+
+  const [openRevertSetup, setOpenRevertSetup] = useState(false);
+  const [sendEmailRevert, setSendEmailRevert] = useState(true);
+  const [sendSMSRevert, setSendSMSRevert] = useState(false);
+  const [isReverting, setIsReverting] = useState(false);
 
   const { mutate: disableStudent } = useMutation({
     mutationFn: () => StudentApi.adminDisableStudent(studentId),
@@ -103,6 +114,32 @@ export default function AdminActionsTab({ studentId, studentStatus, studentEmail
     resetPasswordMutation({
       sendEmail,
       sendSMS,
+    });
+  };
+
+  const { mutate: revertToSetupMutation } = useMutation({
+    mutationFn: (data) => StudentApi.adminRevertStudentToSetup(studentId, data),
+    onSuccess: (response) => {
+      setIsReverting(false);
+      setOpenRevertSetup(false);
+      setSendEmailRevert(true);
+      setSendSMSRevert(false);
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['student', studentId] });
+      enqueueSnackbar(response?.message || 'Student reverted to setup', { variant: 'success' });
+      if (onStatusChange) onStatusChange();
+    },
+    onError: (error) => {
+      setIsReverting(false);
+      enqueueSnackbar(error.message || 'Failed to revert student to setup', { variant: 'error' });
+    },
+  });
+
+  const handleRevertToSetup = () => {
+    setIsReverting(true);
+    revertToSetupMutation({
+      sendEmail: sendEmailRevert,
+      sendSMS: sendSMSRevert,
     });
   };
 
@@ -196,6 +233,45 @@ export default function AdminActionsTab({ studentId, studentStatus, studentEmail
                 fullWidth
               >
                 {studentStatus === 'active' ? 'Disable Student' : 'Enable Student'}
+              </Button>
+            </Card>
+          </Can>
+        </Grid>
+
+        {/* Revert to setup */}
+        <Grid item xs={12} md={6}>
+          <Can do={PERMISSIONS.EDIT_STUDENT}>
+            <Card
+              sx={{
+                p: 3,
+                boxShadow: (thm) => thm.shadows[2],
+                borderRadius: 2,
+                border: `1px solid ${theme.palette.info.main}20`,
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                <Iconify
+                  icon="eva:undo-fill"
+                  sx={{ fontSize: 32, color: theme.palette.info.main }}
+                />
+                <Box>
+                  <Typography variant="h6" fontWeight={600}>
+                    Revert to setup
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Set status to setup and reset password to the student&apos;s registration number
+                  </Typography>
+                </Box>
+              </Stack>
+              <Divider sx={{ my: 2 }} />
+              <Button
+                variant="outlined"
+                color="info"
+                startIcon={<Iconify icon="eva:undo-fill" />}
+                onClick={() => setOpenRevertSetup(true)}
+                fullWidth
+              >
+                Revert to setup
               </Button>
             </Card>
           </Can>
@@ -324,6 +400,72 @@ export default function AdminActionsTab({ studentId, studentStatus, studentEmail
           )}
         </DialogActions>
       </Dialog>
+
+      {/* Revert to setup dialog */}
+      <Dialog
+        open={openRevertSetup}
+        onClose={() => !isReverting && setOpenRevertSetup(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography variant="h6">Revert to setup</Typography>
+            <IconButton onClick={() => !isReverting && setOpenRevertSetup(false)} disabled={isReverting}>
+              <Iconify icon="eva:close-fill" />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            The student will need to sign in with their registration number as the password and complete the
+            setup flow again (including choosing a new password).
+          </Alert>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" component="span">
+              Registration number (will be the new password):{' '}
+            </Typography>
+            <Typography component="span" variant="subtitle2" sx={{ fontFamily: 'monospace' }}>
+              {studentRegNumber || '—'}
+            </Typography>
+          </Box>
+          <Stack spacing={2}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={sendEmailRevert}
+                  onChange={(e) => setSendEmailRevert(e.target.checked)}
+                  disabled={isReverting}
+                />
+              }
+              label="Notify student via email"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={sendSMSRevert}
+                  onChange={(e) => setSendSMSRevert(e.target.checked)}
+                  disabled={isReverting}
+                />
+              }
+              label="Notify student via SMS"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenRevertSetup(false)} disabled={isReverting}>
+            Cancel
+          </Button>
+          <LoadingButton
+            variant="contained"
+            color="info"
+            onClick={handleRevertToSetup}
+            loading={isReverting}
+          >
+            Revert to setup
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
@@ -332,6 +474,7 @@ AdminActionsTab.propTypes = {
   studentId: PropTypes.string.isRequired,
   studentStatus: PropTypes.string,
   studentEmail: PropTypes.string,
+  studentRegNumber: PropTypes.string,
   onStatusChange: PropTypes.func,
 };
 

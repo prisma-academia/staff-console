@@ -563,6 +563,7 @@ export const StudentApi = {
   adminEditStudent: (id, data) => apiClient.put(`student/admin/edit/${id}`, data),
   adminDisableStudent: (id) => apiClient.put(`student/admin/disable/${id}`),
   adminResetPassword: (id, data) => apiClient.post(`student/admin/reset-password/${id}`, data),
+  adminRevertStudentToSetup: (id, data) => apiClient.post(`student/admin/revert-to-setup/${id}`, data),
   generateRegNumber: (programId) => apiClient.get(`student/reg-number/${programId}`),
   register: (data) => apiClient.post('student/add-student', data),
   // Bulk upload methods

@@ -158,7 +158,7 @@ const AddFee = ({ open, setOpen }) => {
     },
     validationSchema,
     onSubmit: (values) => {
-      const { students, users, items, ...rest } = values;
+      const { students, users, items, amount, currentItem, ...rest } = values;
 
       const payload = {
         ...rest,
@@ -281,14 +281,32 @@ const AddFee = ({ open, setOpen }) => {
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <TextField
-                      label="Amount"
+                      label="Total amount"
                       name="amount"
-                      type="number"
+                      type="text"
                       fullWidth
-                      value={totalFromItems}
+                      InputLabelProps={{ shrink: true }}
+                      value={
+                        formik.values.items.length
+                          ? totalFromItems.toLocaleString(undefined, {
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 2,
+                            })
+                          : ''
+                      }
+                      placeholder="—"
                       error={Boolean(formik.errors.items)}
-                      helperText={formik.errors.items || 'Add items below; total is calculated automatically.'}
+                      helperText={
+                        (typeof formik.errors.items === 'string' && formik.errors.items) ||
+                        'Quantity × price per row. Only line items are sent; amount is set on the server.'
+                      }
                       disabled
+                      sx={{
+                        '& .MuiInputBase-input.Mui-disabled': {
+                          WebkitTextFillColor: theme.palette.text.primary,
+                          color: theme.palette.text.primary,
+                        },
+                      }}
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>

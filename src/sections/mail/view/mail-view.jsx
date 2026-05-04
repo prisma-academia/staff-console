@@ -7,10 +7,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
   Box,
+  Tab,
   List,
   Chip,
+  Tabs,
   Stack,
   Paper,
+  Badge,
   Button,
   Avatar,
   Select,
@@ -25,10 +28,7 @@ import {
   IconButton,
   InputLabel,
   FormControl,
-  ListItemIcon,
-  ListItemText,
   InputAdornment,
-  ListItemButton,
 } from '@mui/material';
 
 import { fDateTime } from 'src/utils/format-time';
@@ -350,7 +350,7 @@ export default function MailView() {
       <Paper
         elevation={0}
         sx={{
-          width: 240,
+          width: 200,
           flexShrink: 0,
           display: 'flex',
           flexDirection: 'column',
@@ -358,84 +358,37 @@ export default function MailView() {
           borderColor: 'divider',
           borderRadius: 0,
           overflow: 'hidden',
+          justifyContent: 'flex-start',
+          gap: 1.5,
+          p: 2,
         }}
       >
         {/* Account selector */}
-        <Box sx={{ p: 2, pb: 1.5 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Mailbox</InputLabel>
-            <Select
-              label="Mailbox"
-              value={selectedMailboxEmail || ''}
-              onChange={(e) => setSelectedMailboxEmail(e.target.value)}
-            >
-              {fromOptions.map((o) => (
-                <MenuItem key={o.address} value={o.address}>
-                  {o.name !== o.address ? o.name : o.address}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
+        <FormControl fullWidth size="small">
+          <InputLabel>Mailbox</InputLabel>
+          <Select
+            label="Mailbox"
+            value={selectedMailboxEmail || ''}
+            onChange={(e) => setSelectedMailboxEmail(e.target.value)}
+          >
+            {fromOptions.map((o) => (
+              <MenuItem key={o.address} value={o.address}>
+                {o.name !== o.address ? o.name : o.address}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
 
         {/* Compose button */}
-        <Box sx={{ px: 2, pb: 1.5 }}>
-          <Button
-            fullWidth
-            variant="contained"
-            startIcon={<Iconify icon="solar:pen-new-round-bold-duotone" />}
-            onClick={() => handleOpenCompose()}
-            sx={{ borderRadius: 2 }}
-          >
-            Compose
-          </Button>
-        </Box>
-
-        <Divider />
-
-        {/* Folder list */}
-        <List dense sx={{ py: 1, flexGrow: 1, overflowY: 'auto' }}>
-          {FOLDERS.map((f) => (
-            <ListItemButton
-              key={f.key}
-              selected={folder === f.key}
-              onClick={() => handleFolderChange(f.key)}
-              sx={{
-                borderRadius: 1.5,
-                mx: 1,
-                mb: 0.5,
-                '&.Mui-selected': {
-                  bgcolor: alpha(theme.palette.primary.main, 0.12),
-                  color: 'primary.main',
-                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.16) },
-                },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 34 }}>
-                <Iconify
-                  icon={f.icon}
-                  width={20}
-                  sx={{ color: folder === f.key ? 'primary.main' : 'text.secondary' }}
-                />
-              </ListItemIcon>
-              <ListItemText
-                primary={f.label}
-                primaryTypographyProps={{
-                  variant: 'body2',
-                  fontWeight: folder === f.key ? 600 : 400,
-                }}
-              />
-              {f.key === 'inbox' && unreadCount > 0 && (
-                <Chip
-                  label={unreadCount > 99 ? '99+' : unreadCount}
-                  size="small"
-                  color="primary"
-                  sx={{ height: 20, fontSize: '0.7rem', minWidth: 24, px: 0.5 }}
-                />
-              )}
-            </ListItemButton>
-          ))}
-        </List>
+        <Button
+          fullWidth
+          variant="contained"
+          startIcon={<Iconify icon="solar:pen-new-round-bold-duotone" />}
+          onClick={() => handleOpenCompose()}
+          sx={{ borderRadius: 2 }}
+        >
+          Compose
+        </Button>
       </Paper>
 
       {/* ── Main panel ── */}
@@ -448,6 +401,34 @@ export default function MailView() {
           bgcolor: 'background.paper',
         }}
       >
+        {/* Folder tabs */}
+        <Tabs
+          value={folder}
+          onChange={(_, v) => handleFolderChange(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0 }}
+        >
+          {FOLDERS.map((f) => (
+            <Tab
+              key={f.key}
+              value={f.key}
+              label={
+                f.key === 'inbox' && unreadCount > 0 ? (
+                  <Badge badgeContent={unreadCount > 99 ? '99+' : unreadCount} color="primary" max={99}>
+                    {f.label}
+                  </Badge>
+                ) : (
+                  f.label
+                )
+              }
+              icon={<Iconify icon={f.icon} width={18} />}
+              iconPosition="start"
+              sx={{ minHeight: 48, fontSize: '0.8125rem' }}
+            />
+          ))}
+        </Tabs>
+
         {selectedMailId ? (
           /* ── Detail view ── */
           <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
