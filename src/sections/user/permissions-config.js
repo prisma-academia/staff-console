@@ -7,6 +7,7 @@ export const PERMISSION_CATEGORIES = [
       { id: 'delete_student', label: 'Delete Student' },
       { id: 'view_student', label: 'View Student' },
       { id: 'view_reg_number', label: 'View Registration Number' },
+      { id: 'edit_reg_number', label: 'Edit Registration Number' },
     ],
   },
   {

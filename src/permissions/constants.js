@@ -4,6 +4,7 @@ export const PERMISSIONS = {
   DELETE_STUDENT: 'delete_student',
   VIEW_STUDENT: 'view_student',
   VIEW_REG_NUMBER: 'view_reg_number',
+  EDIT_REG_NUMBER: 'edit_reg_number',
 
   ADD_FEE: 'add_fee',
   EDIT_FEE: 'edit_fee',

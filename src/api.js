@@ -561,6 +561,7 @@ export const StudentApi = {
   },
   getStudentById: (id) => apiClient.get(`student/${id}`),
   adminEditStudent: (id, data) => apiClient.put(`student/admin/edit/${id}`, data),
+  adminEditRegNumber: (id, data) => apiClient.put(`student/admin/reg-number/${id}`, data),
   adminDisableStudent: (id) => apiClient.put(`student/admin/disable/${id}`),
   adminResetPassword: (id, data) => apiClient.post(`student/admin/reset-password/${id}`, data),
   adminRevertStudentToSetup: (id, data) => apiClient.post(`student/admin/revert-to-setup/${id}`, data),

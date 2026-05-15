@@ -15,6 +15,7 @@ import {
   Divider,
   useTheme,
   Checkbox,
+  TextField,
   Typography,
   IconButton,
   DialogTitle,
@@ -50,6 +51,10 @@ export default function AdminActionsTab({
   const [sendEmailRevert, setSendEmailRevert] = useState(true);
   const [sendSMSRevert, setSendSMSRevert] = useState(false);
   const [isReverting, setIsReverting] = useState(false);
+
+  const [openEditRegNumber, setOpenEditRegNumber] = useState(false);
+  const [newRegNumber, setNewRegNumber] = useState('');
+  const [isUpdatingRegNumber, setIsUpdatingRegNumber] = useState(false);
 
   const { mutate: disableStudent } = useMutation({
     mutationFn: () => StudentApi.adminDisableStudent(studentId),
@@ -141,6 +146,37 @@ export default function AdminActionsTab({
       sendEmail: sendEmailRevert,
       sendSMS: sendSMSRevert,
     });
+  };
+
+  const { mutate: editRegNumberMutation } = useMutation({
+    mutationFn: (data) => StudentApi.adminEditRegNumber(studentId, data),
+    onSuccess: (response) => {
+      setIsUpdatingRegNumber(false);
+      setOpenEditRegNumber(false);
+      setNewRegNumber('');
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['student', studentId] });
+      enqueueSnackbar(response?.message || 'Registration number updated', { variant: 'success' });
+    },
+    onError: (error) => {
+      setIsUpdatingRegNumber(false);
+      enqueueSnackbar(error.message || 'Failed to update registration number', { variant: 'error' });
+    },
+  });
+
+  const handleOpenEditRegNumber = () => {
+    setNewRegNumber(studentRegNumber || '');
+    setOpenEditRegNumber(true);
+  };
+
+  const handleEditRegNumber = () => {
+    const trimmed = newRegNumber.trim();
+    if (!trimmed) {
+      enqueueSnackbar('Registration number is required', { variant: 'error' });
+      return;
+    }
+    setIsUpdatingRegNumber(true);
+    editRegNumberMutation({ regNumber: trimmed });
   };
 
   return (
@@ -276,6 +312,45 @@ export default function AdminActionsTab({
             </Card>
           </Can>
         </Grid>
+
+        {/* Edit registration number */}
+        <Grid item xs={12} md={6}>
+          <Can do={PERMISSIONS.EDIT_REG_NUMBER}>
+            <Card
+              sx={{
+                p: 3,
+                boxShadow: (thm) => thm.shadows[2],
+                borderRadius: 2,
+                border: `1px solid ${theme.palette.secondary.main}20`,
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                <Iconify
+                  icon="eva:edit-2-fill"
+                  sx={{ fontSize: 32, color: theme.palette.secondary.main }}
+                />
+                <Box>
+                  <Typography variant="h6" fontWeight={600}>
+                    Edit Registration Number
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Change this student&apos;s registration number used for login
+                  </Typography>
+                </Box>
+              </Stack>
+              <Divider sx={{ my: 2 }} />
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<Iconify icon="eva:edit-2-fill" />}
+                onClick={handleOpenEditRegNumber}
+                fullWidth
+              >
+                Edit Registration Number
+              </Button>
+            </Card>
+          </Can>
+        </Grid>
       </Grid>
 
       {/* Reset Password Dialog */}
@@ -398,6 +473,62 @@ export default function AdminActionsTab({
               </LoadingButton>
             </>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit registration number dialog */}
+      <Dialog
+        open={openEditRegNumber}
+        onClose={() => !isUpdatingRegNumber && setOpenEditRegNumber(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography variant="h6">Edit Registration Number</Typography>
+            <IconButton
+              onClick={() => !isUpdatingRegNumber && setOpenEditRegNumber(false)}
+              disabled={isUpdatingRegNumber}
+            >
+              <Iconify icon="eva:close-fill" />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            The student must use the new registration number to log in. Active sessions may require
+            re-login if the update cannot migrate their session.
+          </Alert>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Current registration number
+            </Typography>
+            <Typography variant="subtitle2" sx={{ fontFamily: 'monospace' }}>
+              {studentRegNumber || '—'}
+            </Typography>
+          </Box>
+          <TextField
+            fullWidth
+            label="New registration number"
+            value={newRegNumber}
+            onChange={(e) => setNewRegNumber(e.target.value)}
+            disabled={isUpdatingRegNumber}
+            required
+            inputProps={{ style: { fontFamily: 'monospace' } }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenEditRegNumber(false)} disabled={isUpdatingRegNumber}>
+            Cancel
+          </Button>
+          <LoadingButton
+            variant="contained"
+            color="secondary"
+            onClick={handleEditRegNumber}
+            loading={isUpdatingRegNumber}
+          >
+            Save
+          </LoadingButton>
         </DialogActions>
       </Dialog>
 
