@@ -7,10 +7,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
   Box,
-  Tab,
   List,
   Chip,
-  Tabs,
   Stack,
   Paper,
   Badge,
@@ -28,7 +26,10 @@ import {
   IconButton,
   InputLabel,
   FormControl,
+  ListItemIcon,
+  ListItemText,
   InputAdornment,
+  ListItemButton,
 } from '@mui/material';
 
 import { fDateTime } from 'src/utils/format-time';
@@ -346,11 +347,11 @@ export default function MailView() {
         bgcolor: 'background.default',
       }}
     >
-      {/* ── Sidebar ── */}
+      {/* ── Folder nav bar ── */}
       <Paper
         elevation={0}
         sx={{
-          width: 200,
+          width: 240,
           flexShrink: 0,
           display: 'flex',
           flexDirection: 'column',
@@ -358,7 +359,6 @@ export default function MailView() {
           borderColor: 'divider',
           borderRadius: 0,
           overflow: 'hidden',
-          justifyContent: 'flex-start',
           gap: 1.5,
           p: 2,
         }}
@@ -389,6 +389,53 @@ export default function MailView() {
         >
           Compose
         </Button>
+
+        <Divider sx={{ my: 0.5 }} />
+
+        {/* Folder list */}
+        <Scrollbar sx={{ flexGrow: 1, mx: -1 }}>
+          <List disablePadding sx={{ px: 1 }}>
+            {FOLDERS.map((f) => {
+              const active = folder === f.key;
+              return (
+                <ListItemButton
+                  key={f.key}
+                  selected={active}
+                  onClick={() => handleFolderChange(f.key)}
+                  sx={{
+                    borderRadius: 1.5,
+                    mb: 0.5,
+                    minHeight: 44,
+                    '&.Mui-selected': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                      color: 'primary.main',
+                      '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.12) },
+                    },
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 36, color: active ? 'primary.main' : 'text.secondary' }}>
+                    <Iconify icon={f.icon} width={22} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={f.label}
+                    primaryTypographyProps={{
+                      variant: 'body2',
+                      fontWeight: active ? 700 : 500,
+                    }}
+                  />
+                  {f.key === 'inbox' && unreadCount > 0 && (
+                    <Badge
+                      badgeContent={unreadCount > 99 ? '99+' : unreadCount}
+                      color="primary"
+                      max={99}
+                      sx={{ mr: 1.5 }}
+                    />
+                  )}
+                </ListItemButton>
+              );
+            })}
+          </List>
+        </Scrollbar>
       </Paper>
 
       {/* ── Main panel ── */}
@@ -401,34 +448,6 @@ export default function MailView() {
           bgcolor: 'background.paper',
         }}
       >
-        {/* Folder tabs */}
-        <Tabs
-          value={folder}
-          onChange={(_, v) => handleFolderChange(v)}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{ borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0 }}
-        >
-          {FOLDERS.map((f) => (
-            <Tab
-              key={f.key}
-              value={f.key}
-              label={
-                f.key === 'inbox' && unreadCount > 0 ? (
-                  <Badge badgeContent={unreadCount > 99 ? '99+' : unreadCount} color="primary" max={99}>
-                    {f.label}
-                  </Badge>
-                ) : (
-                  f.label
-                )
-              }
-              icon={<Iconify icon={f.icon} width={18} />}
-              iconPosition="start"
-              sx={{ minHeight: 48, fontSize: '0.8125rem' }}
-            />
-          ))}
-        </Tabs>
-
         {selectedMailId ? (
           /* ── Detail view ── */
           <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -635,6 +654,13 @@ export default function MailView() {
                 onChange={toggleSelectAll}
                 sx={{ mr: 0.5 }}
               />
+              <Typography
+                variant="subtitle1"
+                fontWeight={700}
+                sx={{ flexShrink: 0, textTransform: 'capitalize', mr: 1 }}
+              >
+                {FOLDERS.find((f) => f.key === folder)?.label || folder}
+              </Typography>
               <TextField
                 size="small"
                 placeholder={`Search ${folder}…`}
