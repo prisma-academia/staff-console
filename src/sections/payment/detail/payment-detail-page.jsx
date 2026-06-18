@@ -216,6 +216,7 @@ export default function PaymentDetailPage() {
 
   const payer = getStudent(payment);
   const studentId = typeof payer === 'object' ? payer?._id || payer?.id : payer;
+  const isCompleted = payment.status === 'Completed';
 
   return (
     <Container maxWidth="xl">
@@ -244,23 +245,27 @@ export default function PaymentDetailPage() {
                 Edit payment
               </Button>
             </Can>
-            <LoadingButton
-              variant="outlined"
-              startIcon={<Iconify icon="eva:printer-fill" />}
-              onClick={handlePrintReceipt}
-              loading={printingReceipt}
-            >
-              Print receipt
-            </LoadingButton>
-            <LoadingButton
-              variant="contained"
-              color="info"
-              startIcon={<Iconify icon="eva:checkmark-circle-2-fill" />}
-              loading={isValidating}
-              onClick={() => validatePayment()}
-            >
-              Validate payment
-            </LoadingButton>
+            {isCompleted && (
+              <LoadingButton
+                variant="outlined"
+                startIcon={<Iconify icon="eva:printer-fill" />}
+                onClick={handlePrintReceipt}
+                loading={printingReceipt}
+              >
+                Print receipt
+              </LoadingButton>
+            )}
+            {!isCompleted && (
+              <LoadingButton
+                variant="contained"
+                color="info"
+                startIcon={<Iconify icon="eva:checkmark-circle-2-fill" />}
+                loading={isValidating}
+                onClick={() => validatePayment()}
+              >
+                Validate payment
+              </LoadingButton>
+            )}
             <Button variant="outlined" startIcon={<Iconify icon="eva:arrow-back-fill" />} onClick={() => navigate('/payment')}>
               Back
             </Button>

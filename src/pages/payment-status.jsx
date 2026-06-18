@@ -33,6 +33,7 @@ export default function PaymentStatusPage() {
 
   const isSuccess = status === 'success';
   const isFailed = status === 'failed';
+  const isPending = status === 'pending';
   const hasParams = Boolean(status && reference);
 
   useEffect(() => {
@@ -158,7 +159,33 @@ export default function PaymentStatusPage() {
               </Stack>
             )}
 
-            {hasParams && !verifying && !isSuccess && !isFailed && (
+            {hasParams && !verifying && isPending && (
+              <Stack spacing={2} alignItems="center" textAlign="center">
+                <Iconify icon="mdi:clock-outline" width={52} sx={{ color: 'warning.main' }} />
+                <Typography variant="h6" color="warning.main">
+                  Payment pending
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  The payment has not been completed yet. You can validate again later from the
+                  payment details page.
+                </Typography>
+                {reference && (
+                  <Typography variant="caption" color="text.secondary">
+                    Reference: {reference}
+                  </Typography>
+                )}
+                {verifyError && (
+                  <Alert severity="warning" sx={{ width: '100%' }}>
+                    {verifyError}
+                  </Alert>
+                )}
+                <Button variant="outlined" onClick={handleBack}>
+                  Back to payments
+                </Button>
+              </Stack>
+            )}
+
+            {hasParams && !verifying && !isSuccess && !isFailed && !isPending && (
               <Stack spacing={2} alignItems="center" textAlign="center">
                 <Iconify icon="mdi:help-circle-outline" width={48} sx={{ color: 'text.secondary' }} />
                 <Typography variant="h6">Unknown status</Typography>
