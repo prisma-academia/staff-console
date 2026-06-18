@@ -14,6 +14,7 @@ import {
   Tooltip,
   useTheme,
   MenuItem,
+  Chip,
   Container,
   TextField,
   Typography,
@@ -70,9 +71,13 @@ export default function AppSessionView() {
 
   const createMutation = useMutation({
     mutationFn: (body) => createSession(body),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-sessions'] });
-      enqueueSnackbar('Session created successfully', { variant: 'success' });
+      const msg =
+        variables?.status === 'active'
+          ? 'Session created. Any previously active session was set to inactive.'
+          : 'Session created successfully';
+      enqueueSnackbar(msg, { variant: 'success' });
       setOpenAdd(false);
       resetForm();
     },
@@ -81,9 +86,13 @@ export default function AppSessionView() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, body }) => updateSession(id, body),
-    onSuccess: () => {
+    onSuccess: (_, { body }) => {
       queryClient.invalidateQueries({ queryKey: ['admin-sessions'] });
-      enqueueSnackbar('Session updated successfully', { variant: 'success' });
+      const msg =
+        body?.status === 'active'
+          ? 'Session updated. Any other active session was set to inactive.'
+          : 'Session updated successfully';
+      enqueueSnackbar(msg, { variant: 'success' });
       setEditingSession(null);
       resetForm();
     },
@@ -164,7 +173,17 @@ export default function AppSessionView() {
     { id: 'startDate', label: 'Start Date', cellSx: { width: '14%' }, renderCell: (row) => formatDate(row.startDate) },
     { id: 'endDate', label: 'End Date', cellSx: { width: '14%' }, renderCell: (row) => formatDate(row.endDate) },
     { id: 'closingDate', label: 'Closing Date', cellSx: { width: '14%' }, renderCell: (row) => formatDate(row.closingDate) },
-    { id: 'status', label: 'Status', cellSx: { width: '10%' }, renderCell: (row) => <Typography variant="body2">{row.status ?? '—'}</Typography> },
+    {
+      id: 'status',
+      label: 'Status',
+      cellSx: { width: '10%' },
+      renderCell: (row) =>
+        row.status === 'active' ? (
+          <Chip label="Active" color="success" size="small" />
+        ) : (
+          <Typography variant="body2">{row.status ?? '—'}</Typography>
+        ),
+    },
     {
       id: 'action',
       label: '',

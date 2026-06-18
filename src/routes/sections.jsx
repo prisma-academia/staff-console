@@ -28,6 +28,7 @@ const AppSettingsPage = lazy(() => import('src/pages/app-settings'));
 const LoginPage = lazy(() => import('src/pages/login'));
 const ProgramPage = lazy(() => import('src/pages/program'));
 const PaymentPage = lazy(() => import('src/pages/payment'));
+const PaymentStatusPage = lazy(() => import('src/pages/payment-status'));
 const PaymentNewPage = lazy(() => import('src/pages/payment-new'));
 const PaymentEditPage = lazy(() => import('src/pages/payment-edit'));
 const PaymentDetailPage = lazy(() => import('src/sections/payment/detail/payment-detail-page'));
@@ -197,6 +198,14 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <PaymentPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'payment/status',
+          element: (
+            <PrivateRoute>
+              <PaymentStatusPage />
             </PrivateRoute>
           ),
         },
