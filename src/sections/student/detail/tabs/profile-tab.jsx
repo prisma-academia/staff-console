@@ -13,16 +13,7 @@ import {
 
 import Iconify from 'src/components/iconify';
 import CustomSelect from 'src/components/select';
-
-const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-};
+import { formatDateOnly } from 'src/utils/format-date-only';
 
 const stateOptions = [
   'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
@@ -247,7 +238,7 @@ export default function ProfileTab({ formik, editMode, student, programs, classL
                   Date of Birth
                 </Typography>
                 <Typography variant="body1" fontWeight={500} gutterBottom>
-                  {formatDate(student?.personalInfo?.dateOfBirth)}
+                  {formatDateOnly(student?.personalInfo?.dateOfBirth)}
                 </Typography>
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -271,7 +262,7 @@ export default function ProfileTab({ formik, editMode, student, programs, classL
                   Enrollment Date
                 </Typography>
                 <Typography variant="body1" fontWeight={500} gutterBottom>
-                  {formatDate(student?.enrollmentDate)}
+                  {formatDateOnly(student?.enrollmentDate)}
                 </Typography>
               </Grid>
               <Grid item xs={12}>

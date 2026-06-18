@@ -42,6 +42,7 @@ import { UserApi, programApi, classLevelApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
 import CustomSelect from 'src/components/select';
+import { formatDateOnly, toDateOnlyInputValue } from 'src/utils/format-date-only';
 
 // Tab Panel component for organizing content
 function TabPanel(props) {
@@ -317,7 +318,7 @@ export default function StudentDetails({ open, setOpen, student }) {
 
   if (!student) return null;
 
-  const formatDate = (dateString) => {
+  const formatTimestamp = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -595,7 +596,7 @@ export default function StudentDetails({ open, setOpen, student }) {
                           label="Date of Birth"
                           type="date"
                           name="personalInfo.dateOfBirth"
-                          value={formik.values.personalInfo.dateOfBirth ? new Date(formik.values.personalInfo.dateOfBirth).toISOString().split('T')[0] : ''}
+                          value={toDateOnlyInputValue(formik.values.personalInfo.dateOfBirth)}
                           onChange={formik.handleChange}
                           error={formik.touched.personalInfo?.dateOfBirth && Boolean(formik.errors.personalInfo?.dateOfBirth)}
                           helperText={formik.touched.personalInfo?.dateOfBirth && formik.errors.personalInfo?.dateOfBirth}
@@ -698,7 +699,7 @@ export default function StudentDetails({ open, setOpen, student }) {
                           Date of Birth
                         </Typography>
                         <Typography variant="body1" fontWeight={500} gutterBottom>
-                          {formatDate(studentData.personalInfo.dateOfBirth)}
+                          {formatDateOnly(studentData.personalInfo.dateOfBirth)}
                         </Typography>
                       </Grid>
                       <Grid item xs={12} sm={6}>
@@ -722,7 +723,7 @@ export default function StudentDetails({ open, setOpen, student }) {
                           Enrollment Date
                         </Typography>
                         <Typography variant="body1" fontWeight={500} gutterBottom>
-                          {formatDate(studentData.enrollmentDate)}
+                          {formatDateOnly(studentData.enrollmentDate)}
                         </Typography>
                       </Grid>
                       <Grid item xs={12}>
@@ -938,7 +939,7 @@ export default function StudentDetails({ open, setOpen, student }) {
                           <TableCell>{payment.description}</TableCell>
                           <TableCell>{payment.fee?.feeType || 'N/A'}</TableCell>
                           <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
-                          <TableCell align="center">{formatDate(payment.createdAt)}</TableCell>
+                          <TableCell align="center">{formatTimestamp(payment.createdAt)}</TableCell>
                           <TableCell align="center">{payment.reference || 'N/A'}</TableCell>
                           <TableCell align="center">
                             <Chip 

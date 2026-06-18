@@ -28,6 +28,7 @@ import { PERMISSIONS } from 'src/permissions/constants';
 import { AuditApi, StudentApi, programApi, classLevelApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
+import { toDateOnlyInputValue } from 'src/utils/format-date-only';
 import Can from 'src/components/permission/can';
 
 import TabPanel from './tabs/tab-panel';
@@ -155,7 +156,7 @@ export default function StudentDetailPage() {
         lastName: student?.personalInfo?.lastName || '',
         middleName: student?.personalInfo?.middleName || '',
         gender: student?.personalInfo?.gender || '',
-        dateOfBirth: student?.personalInfo?.dateOfBirth ? new Date(student.personalInfo.dateOfBirth).toISOString().split('T')[0] : '',
+        dateOfBirth: toDateOnlyInputValue(student?.personalInfo?.dateOfBirth),
       },
       contactInfo: {
         email: student?.contactInfo?.email || '',
@@ -194,7 +195,7 @@ export default function StudentDetailPage() {
         lastName: student?.personalInfo?.lastName || '',
         middleName: student?.personalInfo?.middleName || '',
         gender: student?.personalInfo?.gender || '',
-        dateOfBirth: student?.personalInfo?.dateOfBirth ? new Date(student.personalInfo.dateOfBirth).toISOString().split('T')[0] : '',
+        dateOfBirth: toDateOnlyInputValue(student?.personalInfo?.dateOfBirth),
       })) {
         payload.personalInfo = values.personalInfo;
       }
