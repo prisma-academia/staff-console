@@ -2,7 +2,7 @@ import * as Yup from 'yup';
 import PropTypes from 'prop-types';
 import { useFormik } from 'formik';
 import { useSnackbar } from 'notistack';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, Navigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
@@ -19,8 +19,10 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
 
 import { paymentApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
+import Can from 'src/components/permission/can';
 
 // ----------------------------------------------------------------------
 
@@ -156,34 +158,51 @@ export default function EditPaymentPage() {
 
   if (isLoading) {
     return (
-      <Container maxWidth="md">
-        <Box sx={{ py: 4, textAlign: 'center' }}>
-          <Typography>Loading payment…</Typography>
-        </Box>
-      </Container>
+      <Can
+        do={PERMISSIONS.EDIT_PAYMENT}
+        showErrorOnDenied
+        fallback={<Navigate to="/payment" replace />}
+      >
+        <Container maxWidth="md">
+          <Box sx={{ py: 4, textAlign: 'center' }}>
+            <Typography>Loading payment…</Typography>
+          </Box>
+        </Container>
+      </Can>
     );
   }
 
   if (error || !payment) {
     return (
-      <Container maxWidth="md">
-        <Box sx={{ py: 4, textAlign: 'center' }}>
-          <Typography variant="h6" gutterBottom>
-            Payment not found
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {error?.message || 'The requested payment could not be loaded.'}
-          </Typography>
-          <Button variant="contained" onClick={() => navigate('/payment')}>
-            Back to payments
-          </Button>
-        </Box>
-      </Container>
+      <Can
+        do={PERMISSIONS.EDIT_PAYMENT}
+        showErrorOnDenied
+        fallback={<Navigate to="/payment" replace />}
+      >
+        <Container maxWidth="md">
+          <Box sx={{ py: 4, textAlign: 'center' }}>
+            <Typography variant="h6" gutterBottom>
+              Payment not found
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {error?.message || 'The requested payment could not be loaded.'}
+            </Typography>
+            <Button variant="contained" onClick={() => navigate('/payment')}>
+              Back to payments
+            </Button>
+          </Box>
+        </Container>
+      </Can>
     );
   }
 
   return (
-    <Container maxWidth="md">
+    <Can
+      do={PERMISSIONS.EDIT_PAYMENT}
+      showErrorOnDenied
+      fallback={<Navigate to="/payment" replace />}
+    >
+      <Container maxWidth="md">
         <Box sx={{ pb: 5, pt: 4 }}>
           <Breadcrumbs sx={{ mb: 3 }}>
             <Link to="/payment" style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -310,5 +329,6 @@ export default function EditPaymentPage() {
           </Card>
         </Box>
       </Container>
+    </Can>
   );
 }

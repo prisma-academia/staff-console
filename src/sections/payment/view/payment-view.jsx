@@ -27,6 +27,8 @@ import {
   classLevelApi,
 } from 'src/api';
 
+import { PERMISSIONS } from 'src/permissions/constants';
+
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
@@ -328,7 +330,7 @@ export default function PaymentPage() {
                 <Iconify icon="eva:eye-fill" />
               </IconButton>
             </Tooltip>
-            <Can do="edit_payment">
+            <Can do={PERMISSIONS.EDIT_PAYMENT}>
               <Tooltip title="Edit payment">
                 <IconButton
                   onClick={(e) => {
@@ -360,7 +362,7 @@ export default function PaymentPage() {
             </Typography>
           </Box>
           <Stack direction="row" spacing={2}>
-            <Can do="add_payment">
+            <Can do={PERMISSIONS.ADD_PAYMENT}>
               <Button
                 variant="contained"
                 startIcon={<Iconify icon="eva:plus-fill" />}
