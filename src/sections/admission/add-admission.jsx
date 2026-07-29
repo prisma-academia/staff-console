@@ -39,6 +39,29 @@ const validationSchema = Yup.object().shape({
   programme: Yup.string().required("Programme is required"),
 });
 
+const TEMPLATE_HEADERS = ["number", "email", "programme"];
+
+// Header names accepted for each canonical column, normalized to lowercase
+// alphanumerics. Keeps the Applications CSV export ("number", "email",
+// "programme") and hand-made files with prettier headers both importable.
+const HEADER_ALIASES = {
+  number: "number",
+  applicationnumber: "number",
+  admissionnumber: "number",
+  matricnumber: "number",
+  email: "email",
+  emailaddress: "email",
+  programme: "programme",
+  program: "programme",
+  course: "programme",
+};
+
+const normalizeHeader = (header) => {
+  const trimmed = String(header ?? "").trim();
+  const key = trimmed.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return HEADER_ALIASES[key] ?? trimmed;
+};
+
 const AddAdmission = ({ open, setOpen }) => {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
@@ -73,6 +96,8 @@ const AddAdmission = ({ open, setOpen }) => {
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
+        transformHeader: normalizeHeader,
+        transform: (value) => (typeof value === "string" ? value.trim() : value),
         complete: ({ data }) => {
           const validatedRows = data.map((row, index) => {
             try {
@@ -87,7 +112,17 @@ const AddAdmission = ({ open, setOpen }) => {
             }
           });
           setRows(validatedRows);
-          enqueueSnackbar("File uploaded successfully", { variant: "success" });
+          const invalidCount = validatedRows.filter((row) => row._error).length;
+          if (invalidCount > 0) {
+            enqueueSnackbar(
+              `File uploaded: ${validatedRows.length - invalidCount} of ${validatedRows.length} rows are valid, ${invalidCount} have errors.`,
+              { variant: "warning" }
+            );
+          } else {
+            enqueueSnackbar(`File uploaded successfully: ${validatedRows.length} rows.`, {
+              variant: "success",
+            });
+          }
         },
         error: () => {
           enqueueSnackbar("Error reading file. Please try again.", {
@@ -159,7 +194,25 @@ const AddAdmission = ({ open, setOpen }) => {
       setIsProcessing(false);
       return;
     }
+    const skipped = rows.length - validData.length;
+    if (skipped > 0) {
+      enqueueSnackbar(`${skipped} of ${rows.length} rows have errors and will be skipped.`, {
+        variant: "warning",
+      });
+    }
     mutate(validData);
+  };
+
+  const handleDownloadTemplate = () => {
+    const csv = [TEMPLATE_HEADERS.join(","), "ADM/2025/001,applicant@example.com,Computer Science"].join("\n");
+    const url = window.URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "admissions-template.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   const programmeOptions = programmes || [];
@@ -227,17 +280,32 @@ const AddAdmission = ({ open, setOpen }) => {
                 <Typography variant="h4" sx={{ fontWeight: 600 }}>
                   Add New Admissions
                 </Typography>
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  startIcon={<Iconify icon="eva:upload-outline" />}
-                  component="label"
-                  sx={{ minWidth: 140 }}
-                >
-                  Upload CSV
-                  <input type="file" accept=".csv" hidden onChange={handleFileUpload} />
-                </Button>
+                <Stack direction="row" spacing={1.5}>
+                  <Button
+                    variant="text"
+                    color="primary"
+                    startIcon={<Iconify icon="eva:download-outline" />}
+                    onClick={handleDownloadTemplate}
+                  >
+                    Download template
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<Iconify icon="eva:upload-outline" />}
+                    component="label"
+                    sx={{ minWidth: 140 }}
+                  >
+                    Upload CSV
+                    <input type="file" accept=".csv" hidden onChange={handleFileUpload} />
+                  </Button>
+                </Stack>
               </Stack>
+
+              <Typography variant="caption" color="text.secondary">
+                CSV columns: <strong>{TEMPLATE_HEADERS.join(", ")}</strong>. A CSV exported from
+                Applications works as-is &mdash; extra columns are ignored.
+              </Typography>
 
               {/* Session (required; only active sessions) */}
               <FormControl fullWidth size="small" sx={{ maxWidth: 320 }} required>

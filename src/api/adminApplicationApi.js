@@ -152,6 +152,13 @@ export const getApplicationReceiptPdf = async (id) => {
 
 export const exportApplicationsCsv = async (params) => adminGetBlob('application/export-csv', params);
 
+/**
+ * Number of applications the CSV export would contain for the given filters.
+ * Takes the same params as exportApplicationsCsv. Returns { ok, data: { count } }.
+ */
+export const countApplicationsForExport = async (params = {}) =>
+  adminGet('application/export-csv/count', params);
+
 export const updateApplication = async (id, body) => {
   const result = await adminPut(`application/${id}`, body);
   return result;
@@ -235,6 +242,7 @@ export default {
   getApplicationById,
   getApplicationReceiptPdf,
   exportApplicationsCsv,
+  countApplicationsForExport,
   updateApplication,
   validateApplicationPayment,
   listAdmissions,

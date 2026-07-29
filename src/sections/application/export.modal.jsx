@@ -33,19 +33,41 @@ import {
   CircularProgress,
 } from '@mui/material';
 
-import { listSessions, listProgrammes, exportApplicationsCsv } from 'src/api/adminApplicationApi';
+import {
+  listSessions,
+  listProgrammes,
+  exportApplicationsCsv,
+  countApplicationsForExport,
+} from 'src/api/adminApplicationApi';
 
 const EXPORT_STATUS_OPTIONS = [
-  { value: '', label: 'All' },
+  { value: '', label: 'All statuses' },
+  { value: 'paid', label: 'Paid (admission-ready)' },
   { value: 'not paid', label: 'Not paid' },
-  { value: 'paid', label: 'Paid' },
   { value: 'rejected', label: 'Rejected' },
 ];
+
+const DEFAULT_STATUS = 'paid';
+const COUNT_DEBOUNCE_MS = 400;
+const FILTER_KEYS = ['sessionId', 'status', 'programme', 'startDate', 'endDate'];
+
+/**
+ * Single source of truth for the export query params, so the record count and the
+ * downloaded file can never be built from different filters.
+ */
+const buildExportParams = ({ sessionId, status, programme, startDate, endDate }) => {
+  const params = { sessionId };
+  if (status) params.status = status;
+  if (programme) params.programme = programme;
+  if (startDate) params.startDate = startDate;
+  if (endDate) params.endDate = endDate;
+  return params;
+};
 
 export default function ExportModal({ open, onClose }) {
   const theme = useTheme();
   const [sessionId, setSessionId] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(DEFAULT_STATUS);
   const [programme, setProgramme] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -69,7 +91,7 @@ export default function ExportModal({ open, onClose }) {
   useEffect(() => {
     if (open) {
       setSessionId('');
-      setStatus('');
+      setStatus(DEFAULT_STATUS);
       setProgramme('');
       setStartDate('');
       setEndDate('');
@@ -78,12 +100,46 @@ export default function ExportModal({ open, onClose }) {
     }
   }, [open]);
 
+  const dateRangeInvalid = Boolean(startDate && endDate && new Date(startDate) > new Date(endDate));
+
+  const filters = { sessionId, status, programme, startDate, endDate };
+
+  // Debounce the filters so typing in a date field does not fire a request per keystroke
+  const [debouncedFilters, setDebouncedFilters] = useState(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const timer = setTimeout(
+      () => setDebouncedFilters({ sessionId, status, programme, startDate, endDate }),
+      COUNT_DEBOUNCE_MS
+    );
+    return () => clearTimeout(timer);
+  }, [open, sessionId, status, programme, startDate, endDate]);
+
+  const countEnabled = open && !!sessionId && !dateRangeInvalid && !!debouncedFilters;
+  const {
+    data: countResult,
+    isFetching: isCounting,
+    isError: isCountError,
+  } = useQuery({
+    queryKey: ['export-applications-count', debouncedFilters],
+    queryFn: () => countApplicationsForExport(buildExportParams(debouncedFilters)),
+    enabled: countEnabled,
+  });
+
+  const recordCount = countResult?.data?.count;
+  // Filters changed but the debounced query has not caught up yet
+  const countStale =
+    countEnabled && FILTER_KEYS.some((key) => debouncedFilters[key] !== filters[key]);
+  const countPending =
+    countEnabled && !isCountError && (isCounting || countStale || recordCount === undefined);
+  const hasNoRecords = countEnabled && !countPending && !isCountError && recordCount === 0;
+
   const handleExport = async () => {
     if (!sessionId) {
       setError('Please select a session');
       return;
     }
-    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+    if (dateRangeInvalid) {
       setError('Start date cannot be after end date');
       return;
     }
@@ -91,12 +147,7 @@ export default function ExportModal({ open, onClose }) {
     setError('');
     try {
       setIsExporting(true);
-      const params = { sessionId };
-      if (status) params.status = status;
-      if (programme) params.programme = programme;
-      if (startDate) params.startDate = startDate;
-      if (endDate) params.endDate = endDate;
-      const { blob, filename } = await exportApplicationsCsv(params);
+      const { blob, filename } = await exportApplicationsCsv(buildExportParams(filters));
 
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -165,6 +216,7 @@ export default function ExportModal({ open, onClose }) {
               <Info color="primary" sx={{ mt: 0.2 }} />
               <Typography variant="body2" color="text.secondary">
                 Export applications as CSV by selecting a session. Optionally filter by status, programme, and date range (created date).
+                The exported file can be uploaded directly in Admissions &rarr; New Admissions.
               </Typography>
             </Stack>
           </Paper>
@@ -308,6 +360,28 @@ export default function ExportModal({ open, onClose }) {
               </Stack>
             </Box>
           </Stack>
+
+          {sessionId && !dateRangeInvalid && (
+            <Box sx={{ mt: 3 }}>
+              {countPending && (
+                <Alert severity="info" icon={<CircularProgress size={18} />}>
+                  Counting matching applications...
+                </Alert>
+              )}
+              {!countPending && isCountError && (
+                <Alert severity="warning">Could not determine how many applications match these filters.</Alert>
+              )}
+              {!countPending && !isCountError && recordCount > 0 && (
+                <Alert severity="success">
+                  <strong>{recordCount.toLocaleString()}</strong>{' '}
+                  {recordCount === 1 ? 'application matches' : 'applications match'} these filters.
+                </Alert>
+              )}
+              {hasNoRecords && (
+                <Alert severity="warning">No applications match these filters. Adjust them and try again.</Alert>
+              )}
+            </Box>
+          )}
         </Box>
       </DialogContent>
 
@@ -330,7 +404,7 @@ export default function ExportModal({ open, onClose }) {
           <Button
             variant="contained"
             onClick={handleExport}
-            disabled={!sessionId || isExporting}
+            disabled={!sessionId || isExporting || dateRangeInvalid || hasNoRecords}
             startIcon={isExporting ? <CircularProgress size={20} color="inherit" /> : <Download />}
             sx={{
               borderRadius: 1.5,
