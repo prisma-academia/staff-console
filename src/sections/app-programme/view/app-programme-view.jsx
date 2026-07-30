@@ -43,6 +43,9 @@ export default function AppProgrammeView() {
     price: '',
     acceptanceFee: '',
     duration: '',
+    durationUnit: 'Years',
+    modeOfStudy: '',
+    professionalTitle: '',
     category: '',
     status: 'active',
   });
@@ -95,6 +98,9 @@ export default function AppProgrammeView() {
       price: '',
       acceptanceFee: '',
       duration: '',
+      durationUnit: 'Years',
+      modeOfStudy: '',
+      professionalTitle: '',
       category: '',
       status: 'active',
     });
@@ -110,6 +116,9 @@ export default function AppProgrammeView() {
       price: row.price ?? '',
       acceptanceFee: row.acceptanceFee ?? '',
       duration: row.duration ?? '',
+      durationUnit: row.durationUnit ?? 'Years',
+      modeOfStudy: row.modeOfStudy ?? '',
+      professionalTitle: row.professionalTitle ?? '',
       category: row.category ?? '',
       status: row.status ?? 'active',
     });
@@ -132,7 +141,10 @@ export default function AppProgrammeView() {
       code: formValues.code.trim(),
       price: numPrice,
       acceptanceFee: numAcceptanceFee,
-      duration: formValues.duration,
+      duration: Number(formValues.duration),
+      durationUnit: formValues.durationUnit,
+      modeOfStudy: formValues.modeOfStudy.trim(),
+      professionalTitle: formValues.professionalTitle.trim(),
       category: formValues.category.trim(),
       status: formValues.status,
     });
@@ -158,7 +170,10 @@ export default function AppProgrammeView() {
         code: formValues.code.trim(),
         price: numPrice,
         acceptanceFee: numAcceptanceFee,
-        duration: formValues.duration,
+        duration: Number(formValues.duration),
+        durationUnit: formValues.durationUnit,
+        modeOfStudy: formValues.modeOfStudy.trim(),
+        professionalTitle: formValues.professionalTitle.trim(),
         category: formValues.category.trim(),
         status: formValues.status,
       },
@@ -240,15 +255,29 @@ export default function AppProgrammeView() {
           required
         />
       </Grid>
-      <Grid item xs={12} sm={6}>
+      <Grid item xs={12} sm={3}>
         <TextField
           fullWidth
+          type="number"
           label="Duration"
           value={formValues.duration}
           onChange={(e) => setFormValues((p) => ({ ...p, duration: e.target.value }))}
-          placeholder="e.g. 2 years"
+          placeholder="3"
+          inputProps={{ min: 1 }}
           required
         />
+      </Grid>
+      <Grid item xs={12} sm={3}>
+        <TextField
+          select
+          fullWidth
+          label="Duration unit"
+          value={formValues.durationUnit}
+          onChange={(e) => setFormValues((p) => ({ ...p, durationUnit: e.target.value }))}
+        >
+          <MenuItem value="Years">Years</MenuItem>
+          <MenuItem value="Months">Months</MenuItem>
+        </TextField>
       </Grid>
       <Grid item xs={12} sm={6}>
         <TextField
@@ -257,6 +286,26 @@ export default function AppProgrammeView() {
           value={formValues.category}
           onChange={(e) => setFormValues((p) => ({ ...p, category: e.target.value }))}
           required
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label="Mode of study"
+          value={formValues.modeOfStudy}
+          onChange={(e) => setFormValues((p) => ({ ...p, modeOfStudy: e.target.value }))}
+          placeholder="Full time"
+          helperText="Shown on the admission letter; a session intake can override it."
+        />
+      </Grid>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          label="Professional title"
+          value={formValues.professionalTitle}
+          onChange={(e) => setFormValues((p) => ({ ...p, professionalTitle: e.target.value }))}
+          placeholder="Health Information Technician"
+          helperText="Used in the admission letter's closing paragraph."
         />
       </Grid>
       <Grid item xs={12} sm={6}>

@@ -186,6 +186,46 @@ export const createBatchAdmissions = async (body) => {
   return result;
 };
 
+export const getAdmissionById = async (id) => {
+  const result = await adminGet(`admission/${id}`);
+  return result;
+};
+
+/**
+ * GET the admission letter PDF. Returns { blob, filename } for opening or downloading.
+ */
+export const getAdmissionLetterPdf = async (id) => adminGetBlob(`admission/pdf/${id}`);
+
+/**
+ * GET the admission letter rendered as standalone HTML, for in-app preview.
+ * Returns raw markup, not the usual { ok, data } envelope.
+ */
+export const getAdmissionLetterPreview = async (id) => {
+  const url = buildUrl(`admission/preview/${id}`);
+  const response = await fetch(url, { method: 'GET', headers: getHeaders({ 'Content-Type': undefined }) });
+  const text = await response.text();
+  if (!response.ok) {
+    let message = response.statusText || 'Request failed';
+    try {
+      message = JSON.parse(text).message || message;
+    } catch {
+      /* non-JSON error body */
+    }
+    const err = new Error(message);
+    err.status = response.status;
+    throw err;
+  }
+  return text;
+};
+
+// --- Admission letter settings (application-api) ---
+
+export const getLetterSettings = async () => adminGet('letter-settings');
+
+export const updateLetterSettings = async (body) => adminPut('letter-settings', body);
+
+export const resetLetterSettings = async () => adminPost('letter-settings/reset', {});
+
 // --- Sessions (application-api) ---
 
 export const listSessions = async () => {
@@ -248,6 +288,12 @@ export default {
   listAdmissions,
   createAdmission,
   createBatchAdmissions,
+  getAdmissionById,
+  getAdmissionLetterPdf,
+  getAdmissionLetterPreview,
+  getLetterSettings,
+  updateLetterSettings,
+  resetLetterSettings,
   listSessions,
   createSession,
   updateSession,

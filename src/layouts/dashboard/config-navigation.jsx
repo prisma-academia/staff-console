@@ -66,6 +66,12 @@ const useNavConfig = () => {
           permission: PERMISSIONS.VIEW_ADMISSION,
         },
         {
+          title: 'Admission Letter',
+          path: '/admission/letter-settings',
+          icon: <Iconify icon="eva:file-text-fill" width={24} />,
+          permission: PERMISSIONS.VIEW_ADMISSION,
+        },
+        {
           title: 'Session',
           path: '/application/sessions',
           icon: <Iconify icon="eva:calendar-fill" width={24} />,

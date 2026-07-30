@@ -7,14 +7,15 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import {
   Card,
   Grid,
+  Chip,
   Stack,
   alpha,
   Button,
   Dialog,
+  Divider,
   Tooltip,
   useTheme,
   MenuItem,
-  Chip,
   Container,
   TextField,
   Typography,
@@ -25,11 +26,49 @@ import {
 } from '@mui/material';
 
 import { PERMISSIONS } from 'src/permissions/constants';
-import { listSessions, createSession, updateSession, deleteSession } from 'src/api/adminApplicationApi';
+import { listSessions, createSession, updateSession, deleteSession, listProgrammes } from 'src/api/adminApplicationApi';
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
 import { GenericTable } from 'src/components/generic-table';
+
+// The admission letter reads these dates off the session; each is optional and
+// simply drops its row out of the letter when unset.
+const EMPTY_REGISTRATION = {
+  opensAt: '',
+  closesAt: '',
+  lateOpensAt: '',
+  lateClosesAt: '',
+  acceptanceFeeDeadline: '',
+};
+
+const REGISTRATION_FIELDS = [
+  { key: 'opensAt', label: 'Registration opens' },
+  { key: 'closesAt', label: 'Registration closes' },
+  { key: 'lateOpensAt', label: 'Late registration opens' },
+  { key: 'lateClosesAt', label: 'Late registration closes' },
+  { key: 'acceptanceFeeDeadline', label: 'Acceptance fee deadline' },
+];
+
+/** 'YYYY-MM-DD' for a date input, or '' when unset. */
+const toDateInput = (value) => (value ? new Date(value).toISOString().slice(0, 10) : '');
+
+/** Only keys with a value, as ISO strings — empty dates must not be sent as ''. */
+const toRegistrationPayload = (registration) =>
+  Object.entries(registration || {}).reduce((acc, [key, value]) => {
+    if (value) acc[key] = new Date(value).toISOString();
+    return acc;
+  }, {});
+
+/** Drops rows the user added but never assigned a programme to. */
+const cleanIntakes = (intakes) =>
+  (intakes || [])
+    .filter((intake) => intake.programme)
+    .map((intake) => ({
+      programme: intake.programme,
+      ...(intake.set ? { set: intake.set } : {}),
+      ...(intake.modeOfStudy ? { modeOfStudy: intake.modeOfStudy } : {}),
+    }));
 
 const formatDate = (dateString) => {
   if (!dateString) return '—';
@@ -58,6 +97,8 @@ export default function AppSessionView() {
     closingDate: '',
     announcement: '',
     status: 'active',
+    registration: { ...EMPTY_REGISTRATION },
+    intakes: [],
   });
 
   const { data, isLoading } = useQuery({
@@ -99,6 +140,12 @@ export default function AppSessionView() {
     onError: (e) => enqueueSnackbar(e.message || 'Failed to update session', { variant: 'error' }),
   });
 
+  const { data: programmesResult } = useQuery({
+    queryKey: ['admin-programmes'],
+    queryFn: () => listProgrammes(),
+  });
+  const programmes = programmesResult?.data ?? [];
+
   const deleteMutation = useMutation({
     mutationFn: (id) => deleteSession(id),
     onSuccess: () => {
@@ -117,6 +164,8 @@ export default function AppSessionView() {
       closingDate: '',
       announcement: '',
       status: 'active',
+      registration: { ...EMPTY_REGISTRATION },
+      intakes: [],
     });
   };
 
@@ -131,6 +180,15 @@ export default function AppSessionView() {
       closingDate: row.closingDate ? new Date(row.closingDate).toISOString().slice(0, 16) : '',
       announcement: row.announcement ?? '',
       status: row.status ?? 'active',
+      registration: REGISTRATION_FIELDS.reduce(
+        (acc, field) => ({ ...acc, [field.key]: toDateInput(row.registration?.[field.key]) }),
+        {}
+      ),
+      intakes: (row.intakes ?? []).map((intake) => ({
+        programme: intake.programme?._id ?? intake.programme ?? '',
+        set: intake.set ?? '',
+        modeOfStudy: intake.modeOfStudy ?? '',
+      })),
     });
   };
 
@@ -146,6 +204,8 @@ export default function AppSessionView() {
       closingDate: new Date(formValues.closingDate).toISOString(),
       announcement: formValues.announcement,
       status: formValues.status,
+      registration: toRegistrationPayload(formValues.registration),
+      intakes: cleanIntakes(formValues.intakes),
     });
   };
 
@@ -164,9 +224,23 @@ export default function AppSessionView() {
         closingDate: new Date(formValues.closingDate).toISOString(),
         announcement: formValues.announcement,
         status: formValues.status,
+        registration: toRegistrationPayload(formValues.registration),
+        intakes: cleanIntakes(formValues.intakes),
       },
     });
   };
+
+  const addIntake = () =>
+    setFormValues((p) => ({ ...p, intakes: [...(p.intakes ?? []), { programme: '', set: '', modeOfStudy: '' }] }));
+
+  const updateIntake = (index, key, value) =>
+    setFormValues((p) => ({
+      ...p,
+      intakes: p.intakes.map((intake, i) => (i === index ? { ...intake, [key]: value } : intake)),
+    }));
+
+  const removeIntake = (index) =>
+    setFormValues((p) => ({ ...p, intakes: p.intakes.filter((_, i) => i !== index) }));
 
   const columns = [
     { id: 'name', label: 'Name', cellSx: { width: '18%' }, renderCell: (row) => <Typography variant="subtitle2">{row.name}</Typography> },
@@ -275,6 +349,93 @@ export default function AppSessionView() {
           rows={3}
           required
         />
+      </Grid>
+
+      <Grid item xs={12}>
+        <Divider textAlign="left" sx={{ mt: 1 }}>
+          <Typography variant="overline" color="text.secondary">
+            Registration window (admission letter)
+          </Typography>
+        </Divider>
+        <Typography variant="caption" color="text.secondary">
+          Optional. Any date left blank is omitted from the admission letter.
+        </Typography>
+      </Grid>
+
+      {REGISTRATION_FIELDS.map((field) => (
+        <Grid item xs={12} sm={6} md={4} key={field.key}>
+          <TextField
+            fullWidth
+            type="date"
+            label={field.label}
+            value={formValues.registration?.[field.key] ?? ''}
+            onChange={(e) =>
+              setFormValues((p) => ({
+                ...p,
+                registration: { ...p.registration, [field.key]: e.target.value },
+              }))
+            }
+            InputLabelProps={{ shrink: true }}
+          />
+        </Grid>
+      ))}
+
+      <Grid item xs={12}>
+        <Divider textAlign="left" sx={{ mt: 1 }}>
+          <Typography variant="overline" color="text.secondary">
+            Intakes
+          </Typography>
+        </Divider>
+        <Typography variant="caption" color="text.secondary">
+          One row per programme running in this session — this is where the set (e.g. &quot;VI&quot;) on the
+          admission letter comes from, so two programmes can be at different set numbers.
+        </Typography>
+      </Grid>
+
+      {(formValues.intakes ?? []).map((intake, index) => (
+        // eslint-disable-next-line react/no-array-index-key
+        <Grid item xs={12} key={index}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="center">
+            <TextField
+              select
+              fullWidth
+              label="Programme"
+              value={intake.programme}
+              onChange={(e) => updateIntake(index, 'programme', e.target.value)}
+            >
+              {programmes.map((prog) => (
+                <MenuItem key={prog._id} value={prog._id}>
+                  {prog.name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Set"
+              placeholder="VI"
+              sx={{ minWidth: 120 }}
+              value={intake.set}
+              onChange={(e) => updateIntake(index, 'set', e.target.value)}
+            />
+            <TextField
+              label="Mode of study"
+              placeholder="Full time"
+              sx={{ minWidth: 180 }}
+              value={intake.modeOfStudy}
+              onChange={(e) => updateIntake(index, 'modeOfStudy', e.target.value)}
+            />
+            <Tooltip title="Remove intake">
+              <IconButton color="error" onClick={() => removeIntake(index)}>
+                <Iconify icon="eva:trash-2-outline" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        </Grid>
+      ))}
+
+      <Grid item xs={12}>
+        <Button size="small" startIcon={<Iconify icon="eva:plus-fill" />} onClick={addIntake}>
+          Add intake
+        </Button>
       </Grid>
     </Grid>
   );

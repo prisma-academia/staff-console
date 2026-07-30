@@ -20,6 +20,7 @@ const UserDetailPage = lazy(() => import('src/sections/user/detail/user-detail-p
 const UserAddPage = lazy(() => import('src/sections/user/add/user-add-page'));
 const GroupsPage = lazy(() => import('src/pages/groups'));
 const AdmissionPage = lazy(() => import('src/pages/admission'));
+const AdmissionLetterSettingsPage = lazy(() => import('src/pages/admission-letter-settings'));
 const StudentPage = lazy(() => import('src/pages/student'));
 const StudentIntakePage = lazy(() => import('src/pages/student-intake'));
 const StudentDetailPage = lazy(() => import('src/sections/student/detail/student-detail-page'));
@@ -158,6 +159,14 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <AdmissionPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'admission/letter-settings',
+          element: (
+            <PrivateRoute>
+              <AdmissionLetterSettingsPage />
             </PrivateRoute>
           ),
         },

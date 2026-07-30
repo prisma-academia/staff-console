@@ -9,6 +9,7 @@ import {
   alpha,
   Button,
   Select,
+  Tooltip,
   useTheme,
   MenuItem,
   Container,
@@ -25,6 +26,7 @@ import { GenericTable } from 'src/components/generic-table';
 
 import AddAdmission from '../add-admission';
 import AddStudentModal from '../add-student';
+import AdmissionLetterModal from '../admission-letter-modal';
 
 const columns = [
   {
@@ -94,6 +96,7 @@ export default function AdmissionPage() {
   const [openModal, setOpenModal] = useState(false);
   const [openAdmsModal, setOpenAdmsModal] = useState(false);
   const [modalObj, setModalObj] = useState(null);
+  const [letterObj, setLetterObj] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortBy] = useState('createdAt');
@@ -185,20 +188,38 @@ export default function AdmissionPage() {
         ...col,
         renderCell: (row) => (
           <Stack direction="row" spacing={1}>
-            <IconButton
-              color="primary"
-              size="small"
-              sx={{
-                boxShadow: `0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
-                '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.1) },
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleOpen(row);
-              }}
-            >
-              <Iconify icon="eva:edit-fill" />
-            </IconButton>
+            <Tooltip title="Admission letter">
+              <IconButton
+                color="primary"
+                size="small"
+                sx={{
+                  boxShadow: `0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.1) },
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLetterObj(row);
+                }}
+              >
+                <Iconify icon="eva:file-text-fill" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Create student record">
+              <IconButton
+                color="primary"
+                size="small"
+                sx={{
+                  boxShadow: `0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.1) },
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpen(row);
+                }}
+              >
+                <Iconify icon="eva:edit-fill" />
+              </IconButton>
+            </Tooltip>
           </Stack>
         ),
       };
@@ -209,6 +230,14 @@ export default function AdmissionPage() {
   return (
     <Container maxWidth="xl">
       {modalObj && <AddStudentModal open={openModal} handleClose={handleClose} object={modalObj} />}
+
+      {letterObj && (
+        <AdmissionLetterModal
+          open={Boolean(letterObj)}
+          onClose={() => setLetterObj(null)}
+          admission={letterObj}
+        />
+      )}
 
       <Box sx={{ pb: 5, pt: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
