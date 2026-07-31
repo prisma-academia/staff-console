@@ -1,46 +1,45 @@
 import * as Yup from 'yup';
-import { useState } from 'react';
-import PropTypes from 'prop-types';
 import { useFormik } from 'formik';
 import { useSnackbar } from 'notistack';
+import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { LoadingButton } from '@mui/lab';
 import {
   Box,
+  Chip,
   Card,
-  Grid,
   Stack,
   Alert,
   Button,
-  Divider,
-  Tooltip,
-  Checkbox,
-  TextField,
-  Container,
-  Accordion,
-  IconButton,
+  Dialog,
   Typography,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   LinearProgress,
-  FormControlLabel,
-  AccordionSummary,
-  AccordionDetails,
+  DialogContentText,
 } from '@mui/material';
 
 import { PERMISSIONS } from 'src/permissions/constants';
-import { getLetterSettings, resetLetterSettings, updateLetterSettings } from 'src/api/adminApplicationApi';
+import {
+  getLetterSettings,
+  getLetterVariables,
+  resetLetterSettings,
+  updateLetterSettings,
+  previewLetterSettings,
+} from 'src/api/adminApplicationApi';
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
 
+import LetterEditor from '../editor/letter-editor';
+import LetterPreview from '../preview/letter-preview';
+import LetterSettingsDrawer from '../settings/letter-settings-drawer';
+
 // ----------------------------------------------------------------------
 
-const TOKEN_HELP =
-  'Placeholders: {{applicantName}} {{applicationId}} {{admissionNumber}} {{date}} {{programmeName}} ' +
-  '{{programmeCode}} {{programmeTitle}} {{professionalTitle}} {{set}} {{duration}} {{modeOfStudy}} ' +
-  '{{sessionName}} {{acceptanceFee}} {{acceptanceFeeDeadline}} {{registrationOpens}} {{registrationCloses}} ' +
-  '{{lateRegistrationOpens}} {{lateRegistrationCloses}} {{institutionName}} {{institutionShortName}}. ' +
-  'Wrap text in [[ ... ]] to drop it entirely when a placeholder inside it has no value.';
+const PREVIEW_DEBOUNCE_MS = 600;
 
 const validationSchema = Yup.object({
   branding: Yup.object({
@@ -52,90 +51,19 @@ const validationSchema = Yup.object({
     name: Yup.string().required('Institution name is required'),
   }),
   letter: Yup.object({
-    title: Yup.string().required('Letter title is required'),
+    bodyHtml: Yup.string().required('The letter cannot be empty'),
   }),
 });
 
-// ----------------------------------------------------------------------
-
-/** Add/remove/reorder editor for the document and note lists. */
-function ListEditor({ label, helper, items, onChange }) {
-  const update = (index, value) => {
-    const next = [...items];
-    next[index] = value;
-    onChange(next);
-  };
-  const remove = (index) => onChange(items.filter((_, i) => i !== index));
-  const move = (index, delta) => {
-    const target = index + delta;
-    if (target < 0 || target >= items.length) return;
-    const next = [...items];
-    [next[index], next[target]] = [next[target], next[index]];
-    onChange(next);
-  };
-
-  return (
-    <Stack spacing={1.5}>
-      <Typography variant="subtitle2">{label}</Typography>
-      {helper && (
-        <Typography variant="caption" color="text.secondary">
-          {helper}
-        </Typography>
-      )}
-      {items.length === 0 && (
-        <Typography variant="body2" color="text.secondary">
-          No entries yet.
-        </Typography>
-      )}
-      {items.map((item, index) => (
-        // eslint-disable-next-line react/no-array-index-key
-        <Stack key={index} direction="row" spacing={1} alignItems="flex-start">
-          <TextField
-            fullWidth
-            multiline
-            size="small"
-            value={item}
-            onChange={(e) => update(index, e.target.value)}
-          />
-          <Tooltip title="Move up">
-            <span>
-              <IconButton size="small" disabled={index === 0} onClick={() => move(index, -1)}>
-                <Iconify icon="eva:arrow-up-fill" />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title="Move down">
-            <span>
-              <IconButton
-                size="small"
-                disabled={index === items.length - 1}
-                onClick={() => move(index, 1)}
-              >
-                <Iconify icon="eva:arrow-down-fill" />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title="Remove">
-            <IconButton size="small" color="error" onClick={() => remove(index)}>
-              <Iconify icon="eva:trash-2-outline" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      ))}
-      <Box>
-        <Button size="small" startIcon={<Iconify icon="eva:plus-fill" />} onClick={() => onChange([...items, ''])}>
-          Add
-        </Button>
-      </Box>
-    </Stack>
-  );
-}
-
-ListEditor.propTypes = {
-  label: PropTypes.string,
-  helper: PropTypes.string,
-  items: PropTypes.array,
-  onChange: PropTypes.func,
+/**
+ * Every variable the body refers to, whether inserted as a chip or typed by
+ * hand. Mirrors `collectVariableKeys` on the server.
+ */
+const collectVariableKeys = (html) => {
+  const keys = new Set();
+  String(html || '').replace(/data-var=["']([\w.]+)["']/g, (_match, key) => keys.add(key));
+  String(html || '').replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match, key) => keys.add(key));
+  return Array.from(keys);
 };
 
 // ----------------------------------------------------------------------
@@ -143,21 +71,32 @@ ListEditor.propTypes = {
 export default function AdmissionLetterSettingsView() {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
-  const [expanded, setExpanded] = useState('branding');
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [admissionId, setAdmissionId] = useState(null);
 
   const { data: result, isLoading } = useQuery({
     queryKey: ['letter-settings'],
     queryFn: () => getLetterSettings(),
   });
 
+  const { data: variableResult } = useQuery({
+    queryKey: ['letter-variables'],
+    queryFn: () => getLetterVariables(),
+    staleTime: Infinity,
+  });
+
   const settings = result?.data;
+  const variables = useMemo(() => variableResult?.data || [], [variableResult]);
 
   const updateMutation = useMutation({
     mutationFn: (values) => updateLetterSettings(values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['letter-settings'] });
       queryClient.invalidateQueries({ queryKey: ['admission-letter-preview'] });
-      enqueueSnackbar('Admission letter settings saved', { variant: 'success' });
+      enqueueSnackbar('Admission letter saved', { variant: 'success' });
     },
     onError: (error) => enqueueSnackbar(error?.message || 'Error saving settings', { variant: 'error' }),
   });
@@ -167,9 +106,15 @@ export default function AdmissionLetterSettingsView() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['letter-settings'] });
       queryClient.invalidateQueries({ queryKey: ['admission-letter-preview'] });
-      enqueueSnackbar('Admission letter settings reset to defaults', { variant: 'success' });
+      setResetOpen(false);
+      enqueueSnackbar('Admission letter reset to defaults', { variant: 'success' });
     },
     onError: (error) => enqueueSnackbar(error?.message || 'Error resetting settings', { variant: 'error' }),
+  });
+
+  const previewMutation = useMutation({
+    mutationFn: (payload) => previewLetterSettings(payload),
+    onSuccess: (response) => setPreviewHtml(response?.data?.html || ''),
   });
 
   const formik = useFormik({
@@ -206,19 +151,13 @@ export default function AdmissionLetterSettingsView() {
         title: settings?.signatory?.title || '',
       },
       letter: {
+        // An install that predates the editor has no body yet; the API sends a
+        // document composed from its existing structured wording so the author
+        // starts from their current letter rather than a blank page.
+        bodyHtml: settings?.letter?.bodyHtml || result?.starterBodyHtml || '',
         title: settings?.letter?.title || '',
-        introParagraph: settings?.letter?.introParagraph || '',
-        basisParagraph: settings?.letter?.basisParagraph || '',
-        programDetailsHeading: settings?.letter?.programDetailsHeading || '',
-        conditionsHeading: settings?.letter?.conditionsHeading || '',
-        acceptanceFeeClause: settings?.letter?.acceptanceFeeClause || '',
-        documentsIntro: settings?.letter?.documentsIntro || '',
         documents: settings?.letter?.documents || [],
-        notesHeading: settings?.letter?.notesHeading || '',
         notes: settings?.letter?.notes || [],
-        closingParagraph: settings?.letter?.closingParagraph || '',
-        signOff: settings?.letter?.signOff || '',
-        enclosure: settings?.letter?.enclosure || '',
         labels: {
           name: settings?.letter?.labels?.name || '',
           applicationId: settings?.letter?.labels?.applicationId || '',
@@ -244,321 +183,196 @@ export default function AdmissionLetterSettingsView() {
     onSubmit: (values) => updateMutation.mutate(values),
   });
 
-  const handleSection = (section) => (event, isExpanded) => setExpanded(isExpanded ? section : false);
+  const { values, dirty } = formik;
 
-  const text = (name, label, extra = {}) => (
-    <TextField
-      fullWidth
-      size="small"
-      name={name}
-      label={label}
-      value={name.split('.').reduce((acc, part) => (acc == null ? acc : acc[part]), formik.values) ?? ''}
-      onChange={formik.handleChange}
-      onBlur={formik.handleBlur}
-      {...extra}
-    />
+  // --- Live preview -----------------------------------------------------
+  // Values are read through a ref so the debounce timer never fires with a
+  // stale draft, and the effect keys off a serialised copy so it re-arms on any
+  // change — body text, branding or the chosen admission alike.
+  const valuesRef = useRef(values);
+  valuesRef.current = values;
+
+  const previewRef = useRef(previewMutation.mutate);
+  previewRef.current = previewMutation.mutate;
+
+  const previewKey = useMemo(() => JSON.stringify(values), [values]);
+
+  const refreshPreview = useCallback(() => {
+    previewRef.current({ settings: valuesRef.current, admissionId });
+  }, [admissionId]);
+
+  useEffect(() => {
+    if (isLoading) return undefined;
+    const timer = setTimeout(refreshPreview, PREVIEW_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [previewKey, admissionId, isLoading, refreshPreview]);
+
+  // --- Guards -----------------------------------------------------------
+  // The router here is a plain BrowserRouter, so there is no data-router
+  // blocker to hook into; this catches the tab-close case and the header shows
+  // an explicit unsaved badge for in-app navigation.
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const warn = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
+  const unknownVariables = useMemo(
+    () => collectVariableKeys(values.letter.bodyHtml).filter((key) => !variables.some((item) => item.key === key)),
+    [values.letter.bodyHtml, variables]
   );
+
+  const busy = updateMutation.isPending || resetMutation.isPending;
 
   if (isLoading) {
     return (
-      <Container maxWidth="xl">
-        <Box sx={{ py: 5 }}>
-          <LinearProgress />
-        </Box>
-      </Container>
+      <Box sx={{ py: 5, px: 3 }}>
+        <LinearProgress />
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl">
-      <Box sx={{ pb: 5, pt: 4 }}>
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          alignItems={{ sm: 'center' }}
-          justifyContent="space-between"
-          spacing={2}
-          sx={{ mb: 3 }}
-        >
-          <Box>
+    <Box sx={{ px: { xs: 2, md: 3 }, pt: 3, pb: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* ---- Header ---- */}
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        alignItems={{ md: 'center' }}
+        justifyContent="space-between"
+        spacing={2}
+        sx={{ mb: 2 }}
+      >
+        <Box>
+          <Stack direction="row" alignItems="center" spacing={1}>
             <Typography variant="h4" fontWeight={700}>
               Admission Letter
             </Typography>
-            <Typography variant="body2" color="text.secondary" mt={1}>
-              Branding and wording used to generate every admission letter
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={2}>
-            <Can do={PERMISSIONS.EDIT_ADMISSION}>
-              <Button
-                variant="outlined"
-                color="inherit"
-                startIcon={<Iconify icon="eva:refresh-fill" />}
-                onClick={() => resetMutation.mutate()}
-                disabled={resetMutation.isPending}
-              >
-                Reset to defaults
-              </Button>
-            </Can>
-            <Can do={PERMISSIONS.EDIT_ADMISSION}>
-              <LoadingButton
-                variant="contained"
-                loading={updateMutation.isPending}
-                onClick={formik.handleSubmit}
-                startIcon={<Iconify icon="eva:save-fill" />}
-              >
-                Save changes
-              </LoadingButton>
-            </Can>
+            {dirty && <Chip size="small" color="warning" variant="soft" label="Unsaved changes" />}
           </Stack>
+          <Typography variant="body2" color="text.secondary" mt={0.5}>
+            Write the letter exactly as it should print. Type <strong>{'{{'}</strong> to insert a variable.
+          </Typography>
+        </Box>
+
+        <Stack direction="row" spacing={1.5} flexWrap="wrap">
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<Iconify icon="eva:options-2-outline" />}
+            onClick={() => setDrawerOpen(true)}
+          >
+            Design &amp; data
+          </Button>
+
+          <Can do={PERMISSIONS.EDIT_ADMISSION}>
+            <Button
+              variant="outlined"
+              color="inherit"
+              startIcon={<Iconify icon="eva:refresh-fill" />}
+              onClick={() => setResetOpen(true)}
+              disabled={busy}
+            >
+              Reset
+            </Button>
+          </Can>
+
+          <Can do={PERMISSIONS.EDIT_ADMISSION}>
+            <LoadingButton
+              variant="contained"
+              loading={updateMutation.isPending}
+              onClick={formik.handleSubmit}
+              startIcon={<Iconify icon="eva:save-fill" />}
+            >
+              Save changes
+            </LoadingButton>
+          </Can>
         </Stack>
+      </Stack>
 
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Registration dates and the set (e.g. &quot;Set VI&quot;) are not configured here — they belong to
-          each intake and are edited on the Session page. Everything below applies to all letters.
+      {formik.submitCount > 0 && Object.keys(formik.errors).length > 0 && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {formik.errors.institution?.name || formik.errors.letter?.bodyHtml || 'Some settings need attention.'}
         </Alert>
+      )}
 
-        <Card sx={{ p: 0 }}>
-          <form onSubmit={formik.handleSubmit}>
-            {/* ---- Branding ---- */}
-            <Accordion expanded={expanded === 'branding'} onChange={handleSection('branding')} disableGutters>
-              <AccordionSummary expandIcon={<Iconify icon="eva:arrow-ios-downward-fill" />}>
-                <Typography variant="subtitle1">Logo, letterhead &amp; watermark</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    {text('branding.logoUrl', 'Logo URL or file path', {
-                      helperText: 'Shown in the letter header. Leave blank to fall back to TEMPLATE_LOGO_PATH.',
-                    })}
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    {text('branding.watermarkUrl', 'Watermark URL or file path', {
-                      helperText: 'Defaults to the logo when blank.',
-                    })}
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    {text('branding.letterheadUrl', 'Letterhead image URL or file path', {
-                      helperText: 'Only used when "Use letterhead image" is ticked.',
-                    })}
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    {text('branding.signatureImageUrl', 'Signature image URL or file path')}
-                  </Grid>
+      {unknownVariables.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+            <span>These variables cannot be resolved and will print as nothing:</span>
+            {unknownVariables.map((key) => (
+              <Chip key={key} size="small" color="warning" variant="outlined" label={`{{${key}}}`} />
+            ))}
+          </Stack>
+        </Alert>
+      )}
 
-                  <Grid item xs={12} md={6}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          name="branding.showLetterhead"
-                          checked={formik.values.branding.showLetterhead}
-                          onChange={formik.handleChange}
-                        />
-                      }
-                      label="Use letterhead image instead of the composed header"
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          name="branding.showWatermark"
-                          checked={formik.values.branding.showWatermark}
-                          onChange={formik.handleChange}
-                        />
-                      }
-                      label="Show watermark on every page"
-                    />
-                  </Grid>
+      {/* ---- Editor + preview ---- */}
+      <Card
+        sx={{
+          flexGrow: 1,
+          minHeight: 0,
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) minmax(0, 1fr)' },
+          overflow: 'hidden',
+        }}
+      >
+        <Box sx={{ minWidth: 0, minHeight: { xs: '60vh', lg: 0 }, borderRight: { lg: '1px solid' }, borderColor: { lg: 'divider' } }}>
+          <Can
+            do={PERMISSIONS.EDIT_ADMISSION}
+            fallback={
+              <LetterEditor value={values.letter.bodyHtml} variables={variables} disabled onChange={() => {}} />
+            }
+          >
+            <LetterEditor
+              value={values.letter.bodyHtml}
+              variables={variables}
+              disabled={busy}
+              onChange={(html) => formik.setFieldValue('letter.bodyHtml', html)}
+            />
+          </Can>
+        </Box>
 
-                  <Grid item xs={12} md={4}>
-                    {text('branding.watermarkOpacity', 'Watermark opacity (0–1)', {
-                      type: 'number',
-                      inputProps: { step: 0.01, min: 0, max: 1 },
-                      error: Boolean(formik.touched.branding?.watermarkOpacity && formik.errors.branding?.watermarkOpacity),
-                      helperText: formik.touched.branding?.watermarkOpacity && formik.errors.branding?.watermarkOpacity,
-                    })}
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    {text('branding.watermarkWidth', 'Watermark width (px)', { type: 'number' })}
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    {text('branding.logoHeight', 'Header logo height (px)', { type: 'number' })}
-                  </Grid>
+        <Box sx={{ minWidth: 0, minHeight: { xs: '60vh', lg: 0 } }}>
+          <LetterPreview
+            html={previewHtml}
+            isPending={previewMutation.isPending}
+            isError={previewMutation.isError}
+            error={previewMutation.error}
+            admissionId={admissionId}
+            onAdmissionChange={setAdmissionId}
+            onRefresh={refreshPreview}
+          />
+        </Box>
+      </Card>
 
-                  <Grid item xs={12} md={3}>{text('branding.primaryColor', 'Primary colour')}</Grid>
-                  <Grid item xs={12} md={3}>{text('branding.headingColor', 'Heading colour')}</Grid>
-                  <Grid item xs={12} md={3}>{text('branding.bodyColor', 'Body colour')}</Grid>
-                  <Grid item xs={12} md={3}>{text('branding.borderAccentColor', 'Accent rule colour')}</Grid>
-                </Grid>
-              </AccordionDetails>
-            </Accordion>
+      <LetterSettingsDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        formik={formik}
+        disabled={busy}
+      />
 
-            <Divider />
-
-            {/* ---- Institution ---- */}
-            <Accordion expanded={expanded === 'institution'} onChange={handleSection('institution')} disableGutters>
-              <AccordionSummary expandIcon={<Iconify icon="eva:arrow-ios-downward-fill" />}>
-                <Typography variant="subtitle1">Institution</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={8}>
-                    {text('institution.name', 'Institution name', {
-                      required: true,
-                      error: Boolean(formik.touched.institution?.name && formik.errors.institution?.name),
-                      helperText: formik.touched.institution?.name && formik.errors.institution?.name,
-                    })}
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    {text('institution.shortName', 'Short name', { helperText: 'Used in the PDF filename.' })}
-                  </Grid>
-                  <Grid item xs={12} md={6}>{text('institution.address', 'Address')}</Grid>
-                  <Grid item xs={12} md={6}>{text('institution.location', 'Location')}</Grid>
-                  <Grid item xs={12} md={4}>{text('institution.phone', 'Phone')}</Grid>
-                  <Grid item xs={12} md={4}>{text('institution.email', 'Email')}</Grid>
-                  <Grid item xs={12} md={4}>{text('institution.website', 'Website')}</Grid>
-                </Grid>
-              </AccordionDetails>
-            </Accordion>
-
-            <Divider />
-
-            {/* ---- Signatory ---- */}
-            <Accordion expanded={expanded === 'signatory'} onChange={handleSection('signatory')} disableGutters>
-              <AccordionSummary expandIcon={<Iconify icon="eva:arrow-ios-downward-fill" />}>
-                <Typography variant="subtitle1">Signatory</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    {text('signatory.name', 'Name', { helperText: 'e.g. Mallam Usman Alhaji Saleh' })}
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    {text('signatory.honorifics', 'Honorifics', { helperText: 'e.g. Amb. P, MIPAM, MNAEP, FCPA' })}
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    {text('signatory.subtitle', 'Subtitle', {
-                      helperText: 'Printed in brackets, e.g. Wakilin Tsaftar Fika',
-                    })}
-                  </Grid>
-                  <Grid item xs={12} md={6}>{text('signatory.title', 'Title', { helperText: 'e.g. Registrar' })}</Grid>
-                </Grid>
-              </AccordionDetails>
-            </Accordion>
-
-            <Divider />
-
-            {/* ---- Letter content ---- */}
-            <Accordion expanded={expanded === 'content'} onChange={handleSection('content')} disableGutters>
-              <AccordionSummary expandIcon={<Iconify icon="eva:arrow-ios-downward-fill" />}>
-                <Typography variant="subtitle1">Letter content</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  {TOKEN_HELP}
-                </Alert>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    {text('letter.title', 'Letter title', {
-                      required: true,
-                      error: Boolean(formik.touched.letter?.title && formik.errors.letter?.title),
-                      helperText: formik.touched.letter?.title && formik.errors.letter?.title,
-                    })}
-                  </Grid>
-                  <Grid item xs={12} md={6}>{text('letter.signOff', 'Sign-off line (optional)')}</Grid>
-
-                  <Grid item xs={12}>
-                    {text('letter.introParagraph', 'Opening paragraph', { multiline: true, minRows: 2 })}
-                  </Grid>
-                  <Grid item xs={12}>
-                    {text('letter.basisParagraph', 'Basis-of-admission paragraph', { multiline: true, minRows: 2 })}
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>{text('letter.programDetailsHeading', 'Program details heading')}</Grid>
-                  <Grid item xs={12} md={6}>{text('letter.conditionsHeading', 'Conditions heading')}</Grid>
-
-                  <Grid item xs={12}>
-                    {text('letter.acceptanceFeeClause', 'Acceptance fee clause', { multiline: true, minRows: 2 })}
-                  </Grid>
-                  <Grid item xs={12}>{text('letter.documentsIntro', 'Documents intro line')}</Grid>
-
-                  <Grid item xs={12}>
-                    <ListEditor
-                      label="Required documents"
-                      helper="Used when an admission has no per-student requirements list of its own."
-                      items={formik.values.letter.documents}
-                      onChange={(next) => formik.setFieldValue('letter.documents', next)}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12}>{text('letter.notesHeading', 'Important notes heading')}</Grid>
-                  <Grid item xs={12}>
-                    <ListEditor
-                      label="Important notes"
-                      items={formik.values.letter.notes}
-                      onChange={(next) => formik.setFieldValue('letter.notes', next)}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    {text('letter.closingParagraph', 'Closing paragraph', { multiline: true, minRows: 2 })}
-                  </Grid>
-                  <Grid item xs={12} md={6}>{text('letter.enclosure', 'Enclosure')}</Grid>
-                </Grid>
-              </AccordionDetails>
-            </Accordion>
-
-            <Divider />
-
-            {/* ---- Labels ---- */}
-            <Accordion expanded={expanded === 'labels'} onChange={handleSection('labels')} disableGutters>
-              <AccordionSummary expandIcon={<Iconify icon="eva:arrow-ios-downward-fill" />}>
-                <Typography variant="subtitle1">Field labels</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={4}>{text('letter.labels.name', 'Name label')}</Grid>
-                  <Grid item xs={12} md={4}>{text('letter.labels.applicationId', 'Application ID label')}</Grid>
-                  <Grid item xs={12} md={4}>{text('letter.labels.date', 'Date label')}</Grid>
-                  <Grid item xs={12} md={4}>{text('letter.labels.duration', 'Duration label')}</Grid>
-                  <Grid item xs={12} md={4}>{text('letter.labels.session', 'Session label')}</Grid>
-                  <Grid item xs={12} md={4}>{text('letter.labels.set', 'Set label')}</Grid>
-                  <Grid item xs={12} md={4}>{text('letter.labels.modeOfStudy', 'Mode of study label')}</Grid>
-                  <Grid item xs={12} md={4}>{text('letter.labels.registrationOpens', 'Registration opens label')}</Grid>
-                  <Grid item xs={12} md={4}>{text('letter.labels.registrationCloses', 'Registration closes label')}</Grid>
-                  <Grid item xs={12} md={4}>
-                    {text('letter.labels.lateRegistrationOpens', 'Late registration opens label')}
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    {text('letter.labels.lateRegistrationCloses', 'Late registration closes label')}
-                  </Grid>
-                  <Grid item xs={12} md={4}>{text('letter.labels.enclosure', 'Enclosure label')}</Grid>
-                </Grid>
-              </AccordionDetails>
-            </Accordion>
-
-            <Divider />
-
-            {/* ---- Output ---- */}
-            <Accordion expanded={expanded === 'output'} onChange={handleSection('output')} disableGutters>
-              <AccordionSummary expandIcon={<Iconify icon="eva:arrow-ios-downward-fill" />}>
-                <Typography variant="subtitle1">Currency &amp; file name</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={3}>{text('currency.code', 'Currency code')}</Grid>
-                  <Grid item xs={12} md={3}>{text('currency.symbol', 'Currency symbol')}</Grid>
-                  <Grid item xs={12} md={6}>
-                    {text('fileNameTemplate', 'Download file name', {
-                      helperText: 'Supports {institution}, {applicant}, {admissionNumber}, {applicationId}.',
-                    })}
-                  </Grid>
-                </Grid>
-              </AccordionDetails>
-            </Accordion>
-          </form>
-        </Card>
-      </Box>
-    </Container>
+      {/* ---- Reset confirmation ---- */}
+      <Dialog open={resetOpen} onClose={() => setResetOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Reset the admission letter?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This replaces the letter and every setting with the defaults. Anything you have written here is lost.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setResetOpen(false)}>
+            Cancel
+          </Button>
+          <LoadingButton color="error" variant="contained" loading={resetMutation.isPending} onClick={() => resetMutation.mutate()}>
+            Reset
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }

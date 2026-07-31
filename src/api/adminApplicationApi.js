@@ -226,6 +226,21 @@ export const updateLetterSettings = async (body) => adminPut('letter-settings', 
 
 export const resetLetterSettings = async () => adminPost('letter-settings/reset', {});
 
+/**
+ * The {{token}} vocabulary the renderer can resolve, for the editor's insert
+ * menu. Served from the API so the console never carries its own copy of a list
+ * that only the renderer can be authoritative about.
+ */
+export const getLetterVariables = async () => adminGet('letter-settings/variables');
+
+/**
+ * Renders unsaved letter settings so the console can show a live preview.
+ * Pass an `admissionId` to preview against a real applicant; omit it for sample
+ * data. This endpoint never persists anything.
+ */
+export const previewLetterSettings = async ({ settings, admissionId } = {}) =>
+  adminPost('letter-settings/preview', { settings, admissionId: admissionId || null });
+
 // --- Sessions (application-api) ---
 
 export const listSessions = async () => {
