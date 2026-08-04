@@ -24,6 +24,7 @@ export const PERMISSIONS = {
   VIEW_ADMISSION: 'view_admission',
   ADD_ADMISSION: 'add_admission',
   EDIT_ADMISSION: 'edit_admission',
+  DELETE_ADMISSION: 'delete_admission',
 
   VIEW_APP_SESSION: 'view_app_session',
   ADD_APP_SESSION: 'add_app_session',

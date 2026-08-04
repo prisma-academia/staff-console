@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useSnackbar } from 'notistack';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
+import LoadingButton from '@mui/lab/LoadingButton';
 import {
   Chip,
   Card,
   Stack,
   alpha,
   Button,
+  Dialog,
   Select,
   Tooltip,
   useTheme,
@@ -17,11 +20,16 @@ import {
   Typography,
   InputLabel,
   FormControl,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 
-import { listSessions, listAdmissions, listProgrammes } from 'src/api/adminApplicationApi';
+import { PERMISSIONS } from 'src/permissions/constants';
+import { listSessions, listAdmissions, listProgrammes, deleteAdmission } from 'src/api/adminApplicationApi';
 
 import Iconify from 'src/components/iconify';
+import Can from 'src/components/permission/can';
 import { GenericTable } from 'src/components/generic-table';
 
 import AddAdmission from '../add-admission';
@@ -93,10 +101,13 @@ const columns = [
 
 export default function AdmissionPage() {
   const theme = useTheme();
+  const { enqueueSnackbar } = useSnackbar();
+  const queryClient = useQueryClient();
   const [openModal, setOpenModal] = useState(false);
   const [openAdmsModal, setOpenAdmsModal] = useState(false);
   const [modalObj, setModalObj] = useState(null);
   const [letterObj, setLetterObj] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortBy] = useState('createdAt');
@@ -153,6 +164,16 @@ export default function AdmissionPage() {
       if (!result.ok) throw new Error(result.message);
       return result;
     },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => deleteAdmission(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admissions'] });
+      enqueueSnackbar('Admission deleted successfully', { variant: 'success' });
+      setDeleteConfirm(null);
+    },
+    onError: (e) => enqueueSnackbar(e.message || 'Failed to delete admission', { variant: 'error' }),
   });
 
   const rows = data?.data?.data ?? [];
@@ -220,6 +241,20 @@ export default function AdmissionPage() {
                 <Iconify icon="eva:edit-fill" />
               </IconButton>
             </Tooltip>
+            <Can do={PERMISSIONS.DELETE_ADMISSION}>
+              <Tooltip title="Delete">
+                <IconButton
+                  color="error"
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteConfirm(row);
+                  }}
+                >
+                  <Iconify icon="eva:trash-2-fill" />
+                </IconButton>
+              </Tooltip>
+            </Can>
           </Stack>
         ),
       };
@@ -364,6 +399,26 @@ export default function AdmissionPage() {
       </Box>
 
       <AddAdmission open={openAdmsModal} setOpen={setOpenAdmsModal} />
+
+      <Dialog open={Boolean(deleteConfirm)} onClose={() => setDeleteConfirm(null)}>
+        <DialogTitle>Delete Admission</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete admission &quot;{deleteConfirm?.number}&quot;?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+          <LoadingButton
+            loading={deleteMutation.isPending}
+            color="error"
+            variant="contained"
+            onClick={() => deleteConfirm && deleteMutation.mutate(deleteConfirm._id)}
+          >
+            Delete
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

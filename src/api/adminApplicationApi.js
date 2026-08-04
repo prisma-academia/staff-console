@@ -191,6 +191,11 @@ export const getAdmissionById = async (id) => {
   return result;
 };
 
+export const deleteAdmission = async (id) => {
+  const result = await adminDelete(`admission/${id}`);
+  return result;
+};
+
 /**
  * GET the admission letter PDF. Returns { blob, filename } for opening or downloading.
  */
@@ -304,6 +309,7 @@ export default {
   createAdmission,
   createBatchAdmissions,
   getAdmissionById,
+  deleteAdmission,
   getAdmissionLetterPdf,
   getAdmissionLetterPreview,
   getLetterSettings,
