@@ -19,8 +19,13 @@ import {
   MenuItem,
   TextField,
   Typography,
+  IconButton,
   useMediaQuery,
+  InputAdornment,
+  CircularProgress,
 } from '@mui/material';
+
+import Iconify from 'src/components/iconify';
 
 import { stateList } from '../../assets/state-list';
 import { StudentApi, programApi, classLevelApi } from '../../api';
@@ -40,11 +45,44 @@ const stateOptions = [
 
 const emergencyContactRelationshipOptions = ['Parent', 'Sibling', 'Uncle/Aunt', 'Spouse', 'Guardian', 'Other'];
 
+// The admission record comes from the application API, where `programme` may be an
+// object or a plain name string. The Program select below is driven by the academia
+// API's programmes, so the admission's programme has to be matched back onto one of
+// those options before it can be used (reg number generation needs that program id).
+const admissionProgrammeId = (programme) => {
+  if (!programme) return '';
+  if (typeof programme === 'string') return programme;
+  return programme._id || programme.id || '';
+};
+
+const admissionProgrammeName = (programme) => {
+  if (!programme) return '';
+  if (typeof programme === 'string') return programme;
+  return programme.name || programme.code || '';
+};
+
+const matchProgramme = (programmes, programme) => {
+  const id = admissionProgrammeId(programme);
+  const name = admissionProgrammeName(programme).trim().toLowerCase();
+  return (
+    programmes.find((p) => p._id === id) ||
+    (name &&
+      programmes.find(
+        (p) =>
+          (p.name || '').trim().toLowerCase() === name ||
+          (p.code || '').trim().toLowerCase() === name
+      )) ||
+    null
+  );
+};
+
 const AddStudentModal = ({ open, handleClose, object }) => {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [isGeneratingRegNumber, setIsGeneratingRegNumber] = React.useState(false);
+  const programmeResolved = React.useRef(false);
   const validationSchema = Yup.object({
     personalInfo: Yup.object({
       firstName: Yup.string().required('First name is required'),
@@ -103,7 +141,8 @@ const AddStudentModal = ({ open, handleClose, object }) => {
       sendEmail: true,
       sendSMS: false,
       regNumber: '',
-      program: object.programme || '',
+      // Resolved from the admission's programme once the programme list loads.
+      program: '',
       classLevel: '',
       guardianInfo: {
         guardianName: '',
@@ -144,6 +183,16 @@ const AddStudentModal = ({ open, handleClose, object }) => {
     queryFn: classLevelApi.getClassLevels,
   });
 
+  const { setFieldValue } = formik;
+
+  // Preselect the programme the applicant was admitted into, once the options arrive.
+  React.useEffect(() => {
+    if (programmeResolved.current || !programmeOptions?.length) return;
+    programmeResolved.current = true;
+    const match = matchProgramme(programmeOptions, object.programme);
+    if (match) setFieldValue('program', match._id);
+  }, [programmeOptions, object.programme, setFieldValue]);
+
   const addStudent = async (credentials) => {
     const payload = {
       ...credentials,
@@ -177,6 +226,39 @@ const AddStudentModal = ({ open, handleClose, object }) => {
     const selectedState = e.target.value;
     formik.setFieldValue('contactInfo.state', selectedState);
     formik.setFieldValue('contactInfo.lga', '');
+  };
+
+  // A generated number encodes the programme, so it is dropped when the programme changes.
+  const handleProgramChange = (e) => {
+    formik.setFieldValue('program', e.target.value);
+    formik.setFieldValue('regNumber', '');
+  };
+
+  const handleGenerateRegNumber = async () => {
+    if (!formik.values.program) {
+      enqueueSnackbar({ message: 'Please select a program first', variant: 'warning' });
+      return;
+    }
+
+    setIsGeneratingRegNumber(true);
+    try {
+      const response = await StudentApi.generateRegNumber(formik.values.program);
+      // API returns { regNumber: "..." } from result.data
+      const regNumber = response?.regNumber || response;
+      if (regNumber && typeof regNumber === 'string') {
+        formik.setFieldValue('regNumber', regNumber);
+        enqueueSnackbar({ message: 'Registration number generated successfully', variant: 'success' });
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (error) {
+      enqueueSnackbar({
+        message: error.message || 'Failed to generate registration number',
+        variant: 'error',
+      });
+    } finally {
+      setIsGeneratingRegNumber(false);
+    }
   };
 
   const selectedStateKey = formik.values.contactInfo.state === 'FCT' ? 'FCT' : formik.values.contactInfo.state;
@@ -413,7 +495,7 @@ const AddStudentModal = ({ open, handleClose, object }) => {
                       fullWidth
                       select
                       value={formik.values.program}
-                      onChange={formik.handleChange}
+                      onChange={handleProgramChange}
                       error={formik.touched.program && Boolean(formik.errors.program)}
                       helperText={formik.touched.program && formik.errors.program}
                     >
@@ -441,6 +523,49 @@ const AddStudentModal = ({ open, handleClose, object }) => {
                         </MenuItem>
                       ))}
                     </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      name="regNumber"
+                      label="Registration Number"
+                      fullWidth
+                      value={formik.values.regNumber}
+                      onChange={formik.handleChange}
+                      error={formik.touched.regNumber && Boolean(formik.errors.regNumber)}
+                      helperText={
+                        (formik.touched.regNumber && formik.errors.regNumber) ||
+                        'Leave blank to generate on save, or generate it now from the selected program'
+                      }
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Iconify icon="mdi:identifier" />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={handleGenerateRegNumber}
+                              disabled={!formik.values.program || isGeneratingRegNumber}
+                              title={
+                                formik.values.program
+                                  ? 'Generate registration number'
+                                  : 'Select a program first'
+                              }
+                              aria-label="Generate registration number"
+                              edge="end"
+                              size="small"
+                            >
+                              {isGeneratingRegNumber ? (
+                                <CircularProgress size={20} />
+                              ) : (
+                                <Iconify icon="mdi:refresh" />
+                              )}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
                   </Grid>
                 </Grid>
               </Box>
