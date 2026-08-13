@@ -5,6 +5,8 @@ import { Link as RouterLink } from 'react-router-dom';
 
 import { Box, Button, MenuItem, Container, TextField, Typography } from '@mui/material';
 
+import { formatProgrammeLabel } from 'src/utils/format-programme';
+
 import { PERMISSIONS } from 'src/permissions/constants';
 import { courseApi, SessionApi, programApi } from 'src/api';
 
@@ -105,7 +107,7 @@ export default function AssessmentByCourseView({ courseId }) {
               <MenuItem value="">Select program</MenuItem>
               {programList.map((p) => (
                 <MenuItem key={p._id} value={p._id}>
-                  {p.name || p.code || p._id}
+                  {formatProgrammeLabel(p)}
                 </MenuItem>
               ))}
             </TextField>

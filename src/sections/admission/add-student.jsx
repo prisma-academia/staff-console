@@ -25,6 +25,8 @@ import {
   CircularProgress,
 } from '@mui/material';
 
+import { formatProgrammeLabel } from 'src/utils/format-programme';
+
 import Iconify from 'src/components/iconify';
 
 import { stateList } from '../../assets/state-list';
@@ -501,7 +503,7 @@ const AddStudentModal = ({ open, handleClose, object }) => {
                     >
                       {(programmeOptions || []).map((program) => (
                         <MenuItem key={program._id} value={program._id}>
-                          {program.name}
+                          {formatProgrammeLabel(program)}
                         </MenuItem>
                       ))}
                     </TextField>

@@ -4,7 +4,7 @@ import * as React from 'react';
 import PropTypes from 'prop-types';
 import { useFormik } from 'formik';
 import { useSnackbar } from 'notistack';
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
@@ -37,12 +37,14 @@ import {
   CircularProgress
 } from '@mui/material';
 
+import { toProgrammeOptions } from 'src/utils/format-programme';
+import { formatDateOnly, toDateOnlyInputValue } from 'src/utils/format-date-only';
+
 import config from 'src/config';
 import { UserApi, programApi, classLevelApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
 import CustomSelect from 'src/components/select';
-import { formatDateOnly, toDateOnlyInputValue } from 'src/utils/format-date-only';
 
 // Tab Panel component for organizing content
 function TabPanel(props) {
@@ -310,6 +312,8 @@ export default function StudentDetails({ open, setOpen, student }) {
     enabled: !!editMode && !!open,
   });
 
+  const programSelectData = useMemo(() => toProgrammeOptions(programs), [programs]);
+
   const { data: classLevels, isLoading: isLoadingClassLevels } = useQuery({
     queryKey: ['classLevels'],
     queryFn: classLevelApi.getClassLevels,
@@ -499,7 +503,7 @@ export default function StudentDetails({ open, setOpen, student }) {
                     <Grid container spacing={3}>
                       <Grid item xs={12} md={6}>
                         <CustomSelect 
-                          data={programs || []} 
+                          data={programSelectData}
                           label="Program"
                           name="program"
                           formik={formik}

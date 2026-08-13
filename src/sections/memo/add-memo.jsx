@@ -2,8 +2,8 @@ import * as Yup from 'yup';
 import PropTypes from 'prop-types';
 import { useFormik } from 'formik';
 import ReactQuill from 'react-quill';
-import React, { useState } from 'react';
 import 'react-quill/dist/quill.snow.css';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 
 import LoadingButton from '@mui/lab/LoadingButton';
@@ -21,6 +21,8 @@ import {
   Typography,
   useMediaQuery,
 } from '@mui/material';
+
+import { toProgrammeOptions } from 'src/utils/format-programme';
 
 import CustomSelect from 'src/components/select';
 
@@ -45,6 +47,8 @@ const AddDocumentModal = ({ open, setOpen }) => {
     queryKey: ['programs'],
     queryFn: programApi.getPrograms,
   });
+
+  const programmeSelectData = useMemo(() => toProgrammeOptions(programmeOptions), [programmeOptions]);
 
   const { data: classLevelOptions } = useQuery({
     queryKey: ['classlevel'],
@@ -149,7 +153,7 @@ const AddDocumentModal = ({ open, setOpen }) => {
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <CustomSelect
-                      data={programmeOptions}
+                      data={programmeSelectData}
                       multiple
                       label="Program"
                       name="programs"

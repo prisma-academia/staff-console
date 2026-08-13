@@ -20,6 +20,8 @@ import {
   FormControlLabel,
 } from '@mui/material';
 
+import { toProgrammeOptions } from 'src/utils/format-programme';
+
 import { courseApi, programApi, AssessmentApi } from 'src/api';
 
 import CustomSelect from 'src/components/select';
@@ -39,7 +41,7 @@ const AddAssessment = ({ open, setOpen, sessionId, programId, courseId }) => {
     queryFn: () => courseApi.getCourses(),
   });
 
-  const programList = Array.isArray(programs) ? programs : [];
+  const programSelectData = useMemo(() => toProgrammeOptions(programs), [programs]);
   const courseList = useMemo(() => (Array.isArray(courses) ? courses : []), [courses]);
 
   const createMutation = useMutation({
@@ -186,7 +188,7 @@ const AddAssessment = ({ open, setOpen, sessionId, programId, courseId }) => {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <CustomSelect
-                  data={programList.map((p) => ({ _id: p._id, name: p.name || p.code || p._id }))}
+                  data={programSelectData}
                   label="Program"
                   name="program"
                   formik={formik}

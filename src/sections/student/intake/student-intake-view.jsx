@@ -28,6 +28,8 @@ import {
   FormControlLabel,
 } from '@mui/material';
 
+import { formatProgrammeLabel } from 'src/utils/format-programme';
+
 import { StudentApi, programApi, classLevelApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -282,7 +284,7 @@ export default function StudentIntakeView() {
                 <MenuItem value="">Select program</MenuItem>
                 {programs.map((program) => (
                   <MenuItem key={program._id} value={program._id}>
-                    {program.name}
+                    {formatProgrammeLabel(program)}
                   </MenuItem>
                 ))}
               </Select>

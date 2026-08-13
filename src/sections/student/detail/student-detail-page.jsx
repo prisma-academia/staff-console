@@ -3,8 +3,8 @@ import * as Yup from 'yup';
 import { useFormik } from 'formik';
 import { useSnackbar } from 'notistack';
 import { Helmet } from 'react-helmet-async';
-import { useRef, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useRef, useMemo, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import LoadingButton from '@mui/lab/LoadingButton';
@@ -23,12 +23,14 @@ import {
   LinearProgress,
 } from '@mui/material';
 
+import { toProgrammeOptions } from 'src/utils/format-programme';
+import { toDateOnlyInputValue } from 'src/utils/format-date-only';
+
 import config from 'src/config';
 import { PERMISSIONS } from 'src/permissions/constants';
 import { AuditApi, StudentApi, programApi, classLevelApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
-import { toDateOnlyInputValue } from 'src/utils/format-date-only';
 import Can from 'src/components/permission/can';
 
 import TabPanel from './tabs/tab-panel';
@@ -109,6 +111,8 @@ export default function StudentDetailPage() {
     queryFn: programApi.getPrograms,
     enabled: !!editMode,
   });
+
+  const programSelectData = useMemo(() => toProgrammeOptions(programs), [programs]);
 
   const { data: classLevels = [] } = useQuery({
     queryKey: ['classLevels'],
@@ -442,7 +446,7 @@ export default function StudentDetailPage() {
                 formik={formik}
                 editMode={editMode}
                 student={student}
-                programs={programs}
+                programs={programSelectData}
                 classLevels={classLevels}
               />
             </TabPanel>

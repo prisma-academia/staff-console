@@ -35,6 +35,8 @@ import {
   TableContainer,
 } from '@mui/material';
 
+import { toProgrammeOptions } from 'src/utils/format-programme';
+
 import Iconify from 'src/components/iconify';
 import CustomSelect from 'src/components/select';
 
@@ -69,6 +71,8 @@ const AddFee = ({ open, setOpen }) => {
     queryKey: ['programs'],
     queryFn: programApi.getPrograms,
   });
+
+  const programSelectData = useMemo(() => toProgrammeOptions(programOptions), [programOptions]);
 
   const { data: classLevelOptions } = useQuery({
     queryKey: ['classlevel'],
@@ -325,7 +329,7 @@ const AddFee = ({ open, setOpen }) => {
 
                   <Grid item xs={12} sm={6}>
                     <CustomSelect
-                      data={programOptions}
+                      data={programSelectData}
                       label="Program(s)"
                       name="programs"
                       formik={formik}

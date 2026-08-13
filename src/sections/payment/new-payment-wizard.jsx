@@ -28,6 +28,8 @@ import { alpha, useTheme } from '@mui/material/styles';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { formatProgrammeLabel } from 'src/utils/format-programme';
+
 import { FeeApi, paymentApi, programApi, classLevelApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -374,7 +376,7 @@ export default function NewPaymentWizard() {
                     <MenuItem value="">All programs</MenuItem>
                     {programsList.map((p) => (
                       <MenuItem key={p._id} value={String(p._id)}>
-                        {p.name || p._id}
+                        {formatProgrammeLabel(p)}
                       </MenuItem>
                     ))}
                   </Select>

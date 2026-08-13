@@ -13,6 +13,8 @@ import {
   CardActionArea,
 } from '@mui/material';
 
+import { formatProgrammeLabel } from 'src/utils/format-programme';
+
 import { courseApi, SessionApi, programApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -87,7 +89,7 @@ export default function AssessmentCoursesView() {
             <MenuItem value="">Select program</MenuItem>
             {programList.map((p) => (
               <MenuItem key={p._id} value={p._id}>
-                {p.name || p.code || p._id}
+                {formatProgrammeLabel(p)}
               </MenuItem>
             ))}
           </TextField>

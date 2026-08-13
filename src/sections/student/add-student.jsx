@@ -28,6 +28,8 @@ import {
   CircularProgress,
 } from '@mui/material';
 
+import { formatProgrammeLabel } from 'src/utils/format-programme';
+
 import { stateList } from 'src/assets/state-list';
 import { StudentApi, programApi, classLevelApi } from 'src/api';
 
@@ -339,7 +341,7 @@ export default function AddStudent({ open, setOpen, onStageStudent }) {
                         >
                           {(programs || []).map((program) => (
                             <MenuItem key={program._id} value={program._id}>
-                              {program.name}
+                              {formatProgrammeLabel(program)}
                             </MenuItem>
                           ))}
                         </TextField>

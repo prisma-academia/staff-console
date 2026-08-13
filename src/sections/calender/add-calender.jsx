@@ -1,7 +1,7 @@
-import React from 'react';
 import * as Yup from 'yup';
 import PropTypes from 'prop-types';
 import { useFormik } from 'formik';
+import React, { useMemo } from 'react';
 import { useSnackbar } from 'notistack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -22,6 +22,8 @@ import {
   FormControlLabel,
 } from '@mui/material';
 
+import { toProgrammeOptions } from 'src/utils/format-programme';
+
 import config from 'src/config';
 import { useAuthStore } from 'src/store';
 
@@ -41,6 +43,8 @@ const CreateEventModal = ({ open, setOpen }) => {
     queryKey: ['programs'],
     queryFn: programApi.getPrograms,
   });
+
+  const programSelectData = useMemo(() => toProgrammeOptions(programOptions), [programOptions]);
 
   const { data: classLevelOptions } = useQuery({
     queryKey: ['classlevel'],
@@ -230,7 +234,7 @@ const CreateEventModal = ({ open, setOpen }) => {
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <CustomSelect
-                      data={programOptions}
+                      data={programSelectData}
                       multiple
                       label="Programs"
                       name="programs"

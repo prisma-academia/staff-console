@@ -24,6 +24,8 @@ import {
   TableContainer,
 } from '@mui/material';
 
+import { toProgrammeOptions } from 'src/utils/format-programme';
+
 import { PERMISSIONS } from 'src/permissions/constants';
 import {
   ResultApi,
@@ -211,10 +213,7 @@ export default function ResultTableView() {
     () => (classLevelOptions || []).map((c) => ({ _id: c._id, name: c.name || c._id })),
     [classLevelOptions]
   );
-  const programSelectData = useMemo(
-    () => (programOptions || []).map((p) => ({ _id: p._id, name: p.name || p.code || p._id })),
-    [programOptions]
-  );
+  const programSelectData = useMemo(() => toProgrammeOptions(programOptions), [programOptions]);
   const sessionSelectData = useMemo(
     () => (sessionOptions || []).map((s) => ({ _id: s._id, name: s.name || s.code || s._id })),
     [sessionOptions]

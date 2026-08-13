@@ -1,9 +1,9 @@
 import * as Yup from 'yup';
 import PropTypes from 'prop-types';
 import { useFormik } from 'formik';
-import React, { useState } from 'react';
 import { useSnackbar } from 'notistack';
 import { useDropzone } from 'react-dropzone';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import LoadingButton from '@mui/lab/LoadingButton';
@@ -23,6 +23,8 @@ import {
   FormControlLabel,
 } from '@mui/material';
 
+import { toProgrammeOptions } from 'src/utils/format-programme';
+
 import config from 'src/config';
 import { useAuthStore } from 'src/store';
 
@@ -41,6 +43,8 @@ const AddDocumentFileModal = ({ open, setOpen }) => {
     queryKey: ['programs'],
     queryFn: programApi.getPrograms,
   });
+
+  const programmeSelectData = useMemo(() => toProgrammeOptions(programmeOptions), [programmeOptions]);
 
   const { data: classLevelOptions } = useQuery({
     queryKey: ['classlevel'],
@@ -216,7 +220,7 @@ const AddDocumentFileModal = ({ open, setOpen }) => {
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <CustomSelect
-                      data={programmeOptions}
+                      data={programmeSelectData}
                       multiple
                       label="Program"
                       name="programs"

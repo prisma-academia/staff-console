@@ -15,6 +15,8 @@ import FormControl from '@mui/material/FormControl';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 
+import { formatProgrammeLabel } from 'src/utils/format-programme';
+
 export const ADVANCED_FILTER_INITIAL = {
   reference: '',
   gateway: '',
@@ -223,7 +225,7 @@ export default function PaymentAdvancedFiltersDialog({
               <MenuItem value="">All programs</MenuItem>
               {(programList || []).map((program) => (
                 <MenuItem key={program._id} value={program._id}>
-                  {program.name || program.code}
+                  {formatProgrammeLabel(program)}
                 </MenuItem>
               ))}
             </Select>

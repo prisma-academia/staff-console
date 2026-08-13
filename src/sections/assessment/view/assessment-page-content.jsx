@@ -4,6 +4,8 @@ import { useMemo, useState, useEffect } from 'react';
 
 import { Box, Card, Stack, Button, MenuItem, Container, TextField, Typography } from '@mui/material';
 
+import { formatProgrammeLabel } from 'src/utils/format-programme';
+
 import { courseApi, programApi, SessionApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -122,7 +124,7 @@ export default function AssessmentPageContent() {
               <MenuItem value="">Select program</MenuItem>
               {programList.map((p) => (
                 <MenuItem key={p._id} value={p._id}>
-                  {p.name || p.code || p._id}
+                  {formatProgrammeLabel(p)}
                 </MenuItem>
               ))}
             </TextField>

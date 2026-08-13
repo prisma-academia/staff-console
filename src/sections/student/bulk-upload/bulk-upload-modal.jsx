@@ -33,6 +33,8 @@ import {
   FormControlLabel,
 } from '@mui/material';
 
+import { formatProgrammeLabel } from 'src/utils/format-programme';
+
 import { StudentApi, programApi, classLevelApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -345,7 +347,7 @@ export default function BulkUploadModal({ open, setOpen }) {
                         <MenuItem value="">Select program</MenuItem>
                         {(programs || []).map((p) => (
                           <MenuItem key={p._id} value={p._id}>
-                            {p.name}
+                            {formatProgrammeLabel(p)}
                           </MenuItem>
                         ))}
                       </Select>
