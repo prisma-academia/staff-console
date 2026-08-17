@@ -8,6 +8,8 @@ import TableCell from '@mui/material/TableCell';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 
+import { getProgramTypeColor } from 'src/utils/program-types';
+
 import Iconify from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
@@ -50,11 +52,7 @@ export default function ProgramTableRow({
         <Chip 
           label={type || 'N/A'} 
           size="small" 
-          color={(() => {
-            if (type === 'ND') return 'primary';
-            if (type === 'Basic') return 'secondary';
-            return 'default';
-          })()}
+          color={getProgramTypeColor(type)}
           variant="outlined"
         />
       </TableCell>

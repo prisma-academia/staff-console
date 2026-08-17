@@ -10,6 +10,8 @@ import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
 import { Box, Chip, Dialog, IconButton, DialogTitle, DialogContent, DialogActions, DialogContentText } from '@mui/material';
 
+import { getProgramTypeColor } from 'src/utils/program-types';
+
 import { programApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -95,7 +97,7 @@ export default function ProgramPage() {
         <Chip 
           label={row.type || 'N/A'} 
           size="small" 
-          color={row.type === 'ND' ? 'primary' : 'secondary'}
+          color={getProgramTypeColor(row.type)}
           variant="outlined"
         />
       )

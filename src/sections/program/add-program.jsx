@@ -22,6 +22,8 @@ import {
   FormControlLabel,
 } from '@mui/material';
 
+import { PROGRAM_TYPES, programTypeOptions, PROGRAM_TYPES_SENTENCE } from 'src/utils/program-types';
+
 import { programApi, userGroupApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -43,11 +45,6 @@ const AddProgram = ({ open, setOpen }) => {
     () => (userGroups || []).filter((group) => group.type === 'department'),
     [userGroups]
   );
-
-  const programTypes = [
-    { _id: 'ND', name: 'ND' },
-    { _id: 'Basic', name: 'Basic' },
-  ];
 
   const { mutate, isPending } = useMutation({
     mutationFn: programApi.createProgram,
@@ -78,7 +75,9 @@ const AddProgram = ({ open, setOpen }) => {
   const validationSchema = Yup.object({
     name: Yup.string().required('Program name is required'),
     code: Yup.string().required('Program code is required'),
-    type: Yup.string().oneOf(['ND', 'Basic'], 'Program type must be either ND or Basic').required('Program type is required'),
+    type: Yup.string()
+      .oneOf(PROGRAM_TYPES, `Program type must be one of ${PROGRAM_TYPES_SENTENCE}`)
+      .required('Program type is required'),
     durationInYears: Yup.number()
       .positive('Duration must be a positive number')
       .required('Duration in years is required'),
@@ -198,7 +197,7 @@ const AddProgram = ({ open, setOpen }) => {
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <CustomSelect
-                      data={programTypes}
+                      data={programTypeOptions}
                       label="Program Type"
                       name="type"
                       formik={formik}

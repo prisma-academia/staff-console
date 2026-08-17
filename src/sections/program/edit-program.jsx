@@ -22,6 +22,8 @@ import {
   FormControlLabel,
 } from '@mui/material';
 
+import { PROGRAM_TYPES, programTypeOptions, PROGRAM_TYPES_SENTENCE } from 'src/utils/program-types';
+
 import { programApi, userGroupApi } from 'src/api';
 
 import CustomSelect from 'src/components/select';
@@ -49,11 +51,6 @@ const EditProgram = ({ open, setOpen, programId }) => {
     () => (userGroups || []).filter((group) => group.type === 'department'),
     [userGroups]
   );
-
-  const programTypes = [
-    { _id: 'ND', name: 'ND' },
-    { _id: 'Basic', name: 'Basic' },
-  ];
 
   const { mutate, isPending } = useMutation({
     mutationFn: (data) => programApi.updateProgram(programId, data),
@@ -84,7 +81,7 @@ const EditProgram = ({ open, setOpen, programId }) => {
   const validationSchema = Yup.object({
     name: Yup.string(),
     code: Yup.string(),
-    type: Yup.string().oneOf(['ND', 'Basic'], 'Program type must be either ND or Basic'),
+    type: Yup.string().oneOf(PROGRAM_TYPES, `Program type must be one of ${PROGRAM_TYPES_SENTENCE}`),
     durationInYears: Yup.number().positive('Duration must be a positive number'),
     totalCreditsRequired: Yup.number().positive('Total credits must be a positive number'),
     department: Yup.string().nullable(),
@@ -236,7 +233,7 @@ const EditProgram = ({ open, setOpen, programId }) => {
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <CustomSelect
-                      data={programTypes}
+                      data={programTypeOptions}
                       label="Program Type"
                       name="type"
                       formik={formik}
