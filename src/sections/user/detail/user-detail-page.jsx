@@ -51,7 +51,7 @@ const statusColors = {
 
 const validationSchema = Yup.object({
   email: Yup.string().email('Invalid email').required('Email is required'),
-  role: Yup.string().oneOf(['admin', 'staff', 'instructor']).required('Role is required'),
+  role: Yup.string().required('Role is required'),
   firstName: Yup.string().required('First name is required'),
   lastName: Yup.string().required('Last name is required'),
   middleName: Yup.string(),
@@ -184,6 +184,45 @@ export default function UserDetailPage() {
     },
   });
 
+  // Fields rendered on the Profile tab - used to send the user to the tab that
+  // holds the blocking error instead of leaving Save looking unresponsive.
+  const profileFields = [
+    'email',
+    'role',
+    'firstName',
+    'lastName',
+    'middleName',
+    'dateOfBirth',
+    'gender',
+    'phone',
+    'employeeId',
+    'hireDate',
+    'department',
+    'qualifications',
+    'groups',
+  ];
+
+  const handleSave = async () => {
+    const errors = await formik.validateForm();
+    const errorKeys = Object.keys(errors);
+
+    if (errorKeys.length) {
+      formik.setTouched(
+        errorKeys.reduce((acc, key) => ({ ...acc, [key]: true }), {}),
+        false
+      );
+      if (errorKeys.some((key) => profileFields.includes(key))) {
+        setTabValue(0);
+      }
+      enqueueSnackbar(`Cannot save: ${errorKeys.map((key) => errors[key]).join(', ')}`, {
+        variant: 'error',
+      });
+      return;
+    }
+
+    formik.handleSubmit();
+  };
+
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
@@ -289,7 +328,7 @@ export default function UserDetailPage() {
                     <Can do={PERMISSIONS.EDIT_USER}>
                       <LoadingButton
                         variant="contained"
-                        onClick={formik.handleSubmit}
+                        onClick={handleSave}
                         loading={formik.isSubmitting}
                         startIcon={<Iconify icon="eva:save-fill" />}
                       >

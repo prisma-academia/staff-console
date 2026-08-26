@@ -83,7 +83,7 @@ export default function EditUser({ open, setOpen, user }) {
 
   const validationSchema = Yup.object({
     email: Yup.string().email('Invalid email').required('Email is required'),
-    role: Yup.string().oneOf(['admin', 'staff', 'instructor']).required('Role is required'),
+    role: Yup.string().required('Role is required'),
     firstName: Yup.string().required('First name is required'),
     lastName: Yup.string().required('Last name is required'),
     middleName: Yup.string(),
@@ -147,6 +147,24 @@ export default function EditUser({ open, setOpen, user }) {
 
   const handleClose = () => {
     setOpen(false);
+  };
+
+  const handleSave = async () => {
+    const errors = await formik.validateForm();
+    const errorKeys = Object.keys(errors);
+
+    if (errorKeys.length) {
+      formik.setTouched(
+        errorKeys.reduce((acc, key) => ({ ...acc, [key]: true }), {}),
+        false
+      );
+      enqueueSnackbar(`Cannot save: ${errorKeys.map((key) => errors[key]).join(', ')}`, {
+        variant: 'error',
+      });
+      return;
+    }
+
+    formik.handleSubmit();
   };
 
   return (
@@ -342,7 +360,12 @@ export default function EditUser({ open, setOpen, user }) {
               <Button variant="outlined" color="inherit" onClick={handleClose}>
                 Cancel
               </Button>
-              <LoadingButton loading={formik.isSubmitting} variant="contained" type="submit">
+              <LoadingButton
+                loading={formik.isSubmitting}
+                variant="contained"
+                type="button"
+                onClick={handleSave}
+              >
                 Update User
               </LoadingButton>
             </Stack>
