@@ -567,6 +567,11 @@ export const StudentApi = {
   adminRevertStudentToSetup: (id, data) => apiClient.post(`student/admin/revert-to-setup/${id}`, data),
   generateRegNumber: (programId) => apiClient.get(`student/reg-number/${programId}`),
   register: (data) => apiClient.post('student/add-student', data),
+  // Bulk action methods
+  bulkMoveStudents: (data) => apiClient.post('student/admin/bulk/move', data),
+  bulkUpdateStudentStatus: (data) => apiClient.post('student/admin/bulk/status', data),
+  bulkDeleteStudents: (data) => apiClient.post('student/admin/bulk/delete', data),
+
   // Bulk upload methods
   downloadBulkUploadTemplate: async (format = 'xlsx') => {
     const { token } = useAuthStore.getState();

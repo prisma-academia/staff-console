@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
@@ -21,6 +22,7 @@ import Iconify from 'src/components/iconify';
 import { GenericTable } from 'src/components/generic-table';
 
 import { StudentApi } from '../../../api';
+import { StudentBulkActions } from '../bulk-actions';
 
 const columns = [
   { 
@@ -121,10 +123,20 @@ export default function StudentView() {
   const theme = useTheme();
   const navigate = useNavigate();
 
+  const [selected, setSelected] = useState([]);
+  // GenericTable owns the selection state, so remounting it is how we clear the
+  // checkboxes once a bulk action has been applied.
+  const [tableKey, setTableKey] = useState(0);
+
   const { data, isLoading } = useQuery({
     queryKey: ['students'],
     queryFn: () => StudentApi.getStudents(),
   });
+
+  const handleBulkActionCompleted = () => {
+    setSelected([]);
+    setTableKey((key) => key + 1);
+  };
 
   const handleRowClick = (row) => {
     navigate(`/student/${row._id}`);
@@ -210,6 +222,7 @@ export default function StudentView() {
           borderRadius: 2,
         }}>
           <GenericTable
+            key={tableKey}
             data={data}
             columns={columnsWithActions}
             rowIdField="_id"
@@ -224,9 +237,13 @@ export default function StudentView() {
             customTableHead={null}
             renderRow={null}
             onRowClick={handleRowClick}
+            onSelectionChange={setSelected}
             toolbarProps={{
               searchPlaceholder: 'Search students...',
               toolbarTitle: 'Students',
+              customSelectedActions: (
+                <StudentBulkActions selected={selected} onCompleted={handleBulkActionCompleted} />
+              ),
             }}
           />
         </Card>
