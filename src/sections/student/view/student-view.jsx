@@ -16,13 +16,16 @@ import {
   Typography
 } from '@mui/material';
 
+import { usePermissions } from 'src/utils/permissions';
+
 import config from 'src/config';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
 import { GenericTable } from 'src/components/generic-table';
 
 import { StudentApi } from '../../../api';
-import { StudentBulkActions } from '../bulk-actions';
+import { StudentBulkActionsModal } from '../bulk-actions';
 
 const columns = [
   { 
@@ -123,20 +126,18 @@ export default function StudentView() {
   const theme = useTheme();
   const navigate = useNavigate();
 
-  const [selected, setSelected] = useState([]);
-  // GenericTable owns the selection state, so remounting it is how we clear the
-  // checkboxes once a bulk action has been applied.
-  const [tableKey, setTableKey] = useState(0);
+  const { check } = usePermissions();
+  const [bulkOpen, setBulkOpen] = useState(false);
+
+  const canBulkOperate =
+    check(PERMISSIONS.EDIT_STUDENT) ||
+    check(PERMISSIONS.DELETE_STUDENT) ||
+    check(PERMISSIONS.VIEW_STUDENT);
 
   const { data, isLoading } = useQuery({
     queryKey: ['students'],
     queryFn: () => StudentApi.getStudents(),
   });
-
-  const handleBulkActionCompleted = () => {
-    setSelected([]);
-    setTableKey((key) => key + 1);
-  };
 
   const handleRowClick = (row) => {
     navigate(`/student/${row._id}`);
@@ -206,6 +207,16 @@ export default function StudentView() {
             >
               Student Intake
             </Button>
+            {canBulkOperate && (
+              <Button
+                variant="outlined"
+                startIcon={<Iconify icon="eva:options-2-fill" />}
+                onClick={() => setBulkOpen(true)}
+                sx={{ px: 3 }}
+              >
+                Bulk Operations
+              </Button>
+            )}
             <Button
               variant="outlined"
               startIcon={<Iconify icon="eva:download-fill" />}
@@ -222,14 +233,13 @@ export default function StudentView() {
           borderRadius: 2,
         }}>
           <GenericTable
-            key={tableKey}
             data={data}
             columns={columnsWithActions}
             rowIdField="_id"
-            withCheckbox
+            withCheckbox={false}
             withToolbar
             withPagination
-            selectable
+            selectable={false}
             isLoading={isLoading}
             emptyRowsHeight={53}
             noDataComponent={null}
@@ -237,17 +247,15 @@ export default function StudentView() {
             customTableHead={null}
             renderRow={null}
             onRowClick={handleRowClick}
-            onSelectionChange={setSelected}
             toolbarProps={{
               searchPlaceholder: 'Search students...',
               toolbarTitle: 'Students',
-              customSelectedActions: (
-                <StudentBulkActions selected={selected} onCompleted={handleBulkActionCompleted} />
-              ),
             }}
           />
         </Card>
       </Box>
+
+      <StudentBulkActionsModal open={bulkOpen} setOpen={setBulkOpen} />
     </Container>
   );
 }

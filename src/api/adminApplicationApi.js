@@ -197,6 +197,16 @@ export const deleteAdmission = async (id) => {
 };
 
 /**
+ * Re-query the payment gateway for an admission's acceptance-fee payment and mark it
+ * accepted. `reference` is only needed when the admission has no stored reference.
+ */
+export const validateAdmissionPayment = async (id, reference) => {
+  const body = reference ? { reference } : {};
+  const result = await adminPost(`admission/${id}/validate-payment`, body);
+  return result;
+};
+
+/**
  * GET the admission letter PDF. Returns { blob, filename } for opening or downloading.
  */
 export const getAdmissionLetterPdf = async (id) => adminGetBlob(`admission/pdf/${id}`);
@@ -310,6 +320,7 @@ export default {
   createBatchAdmissions,
   getAdmissionById,
   deleteAdmission,
+  validateAdmissionPayment,
   getAdmissionLetterPdf,
   getAdmissionLetterPreview,
   getLetterSettings,

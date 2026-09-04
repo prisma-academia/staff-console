@@ -1,1 +1,1 @@
-export { default as StudentBulkActions } from './student-bulk-actions';
+export { default as StudentBulkActionsModal } from './student-bulk-actions-modal';

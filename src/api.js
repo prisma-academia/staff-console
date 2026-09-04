@@ -571,6 +571,39 @@ export const StudentApi = {
   bulkMoveStudents: (data) => apiClient.post('student/admin/bulk/move', data),
   bulkUpdateStudentStatus: (data) => apiClient.post('student/admin/bulk/status', data),
   bulkDeleteStudents: (data) => apiClient.post('student/admin/bulk/delete', data),
+  // Returns a blob, so it bypasses apiClient (which unwraps JSON).
+  bulkExportStudents: async ({ studentIds, format = 'xlsx' }) => {
+    const { token } = useAuthStore.getState();
+    const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
+    const url = `${config.baseUrl}${apiVersion}/student/admin/bulk/export`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ studentIds, format }),
+    });
+    if (!res.ok) {
+      let errorMessage = 'Failed to export students';
+      try {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const errorJson = await res.json();
+          errorMessage = errorJson.message || errorJson.error || errorMessage;
+        } else {
+          const errorText = await res.text();
+          if (errorText) errorMessage = errorText;
+        }
+      } catch {
+        errorMessage = res.statusText || errorMessage;
+      }
+      const err = new Error(errorMessage);
+      err.status = res.status;
+      throw err;
+    }
+    return res.blob();
+  },
 
   // Bulk upload methods
   downloadBulkUploadTemplate: async (format = 'xlsx') => {

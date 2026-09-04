@@ -15,6 +15,7 @@ import {
   Tooltip,
   useTheme,
   MenuItem,
+  TextField,
   Container,
   IconButton,
   Typography,
@@ -26,7 +27,13 @@ import {
 } from '@mui/material';
 
 import { PERMISSIONS } from 'src/permissions/constants';
-import { listSessions, listAdmissions, listProgrammes, deleteAdmission } from 'src/api/adminApplicationApi';
+import {
+  listSessions,
+  listAdmissions,
+  listProgrammes,
+  deleteAdmission,
+  validateAdmissionPayment,
+} from 'src/api/adminApplicationApi';
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
@@ -83,7 +90,14 @@ const columns = [
         declined: { label: 'Declined', color: 'error' },
       };
       const config = statusConfig[status] || { label: row?.status || 'Pending', color: 'default' };
-      return <Chip label={config.label} color={config.color} size="small" sx={{ borderRadius: 1 }} />;
+      return (
+        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+          <Chip label={config.label} color={config.color} size="small" sx={{ borderRadius: 1 }} />
+          {row?.payment?.paid && (
+            <Chip label="Fee paid" color="success" variant="outlined" size="small" sx={{ borderRadius: 1 }} />
+          )}
+        </Stack>
+      );
     },
   },
   {
@@ -108,6 +122,8 @@ export default function AdmissionPage() {
   const [modalObj, setModalObj] = useState(null);
   const [letterObj, setLetterObj] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [validateConfirm, setValidateConfirm] = useState(null);
+  const [validateReference, setValidateReference] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortBy] = useState('createdAt');
@@ -176,6 +192,25 @@ export default function AdmissionPage() {
     onError: (e) => enqueueSnackbar(e.message || 'Failed to delete admission', { variant: 'error' }),
   });
 
+  const closeValidate = () => {
+    setValidateConfirm(null);
+    setValidateReference('');
+  };
+
+  const validateMutation = useMutation({
+    mutationFn: async ({ id, reference }) => {
+      const res = await validateAdmissionPayment(id, reference);
+      if (!res.ok) throw new Error(res.message || 'Validation failed');
+      return res;
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['admissions'] });
+      enqueueSnackbar(res.message || 'Payment validated successfully', { variant: 'success' });
+      closeValidate();
+    },
+    onError: (e) => enqueueSnackbar(e.message || 'Failed to validate payment', { variant: 'error' }),
+  });
+
   const rows = data?.data?.data ?? [];
   const pagination = data?.data?.pagination ?? {
     total: 0,
@@ -225,6 +260,26 @@ export default function AdmissionPage() {
                 <Iconify icon="eva:file-text-fill" />
               </IconButton>
             </Tooltip>
+            {!(row.status === 'accepted' && row.payment?.paid) && (
+              <Can do={PERMISSIONS.EDIT_ADMISSION}>
+                <Tooltip title="Validate acceptance payment">
+                  <IconButton
+                    color="success"
+                    size="small"
+                    sx={{
+                      boxShadow: `0 0 2px ${alpha(theme.palette.success.main, 0.2)}`,
+                      '&:hover': { bgcolor: alpha(theme.palette.success.main, 0.1) },
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setValidateConfirm(row);
+                    }}
+                  >
+                    <Iconify icon="eva:checkmark-circle-2-fill" />
+                  </IconButton>
+                </Tooltip>
+              </Can>
+            )}
             <Tooltip title="Create student record">
               <IconButton
                 color="primary"
@@ -416,6 +471,53 @@ export default function AdmissionPage() {
             onClick={() => deleteConfirm && deleteMutation.mutate(deleteConfirm._id)}
           >
             Delete
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(validateConfirm)} onClose={closeValidate} fullWidth maxWidth="xs">
+        <DialogTitle>Validate Acceptance Payment</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Typography>
+              Re-query the payment gateway for admission &quot;{validateConfirm?.number}&quot;. If the
+              transaction was successful the admission will be marked as accepted.
+            </Typography>
+            {validateConfirm?.payment?.reference ? (
+              <Typography variant="body2" color="text.secondary">
+                Stored reference: {validateConfirm.payment.reference}
+              </Typography>
+            ) : (
+              <Typography variant="body2" color="warning.main">
+                No payment reference is stored for this admission. Enter the Paystack reference
+                from the applicant&apos;s receipt below.
+              </Typography>
+            )}
+            <TextField
+              label="Paystack reference (optional override)"
+              size="small"
+              fullWidth
+              value={validateReference}
+              onChange={(e) => setValidateReference(e.target.value)}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeValidate}>Cancel</Button>
+          <LoadingButton
+            loading={validateMutation.isPending}
+            color="success"
+            variant="contained"
+            disabled={!validateConfirm?.payment?.reference && !validateReference.trim()}
+            onClick={() =>
+              validateConfirm &&
+              validateMutation.mutate({
+                id: validateConfirm._id,
+                reference: validateReference.trim() || undefined,
+              })
+            }
+          >
+            Validate payment
           </LoadingButton>
         </DialogActions>
       </Dialog>
