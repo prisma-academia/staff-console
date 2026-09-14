@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
 import { 
@@ -12,8 +12,9 @@ import {
   Typography
 } from '@mui/material';
 
-import config from 'src/config';
-import { useAuthStore } from 'src/store';
+import useServerTable from 'src/hooks/use-server-table';
+
+import { InstructorApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
 import { GenericTable } from 'src/components/generic-table';
@@ -22,7 +23,7 @@ import AddInstructorModal from '../add-instructor';
 
 const columns = [
   { 
-    id: 'employeeId', 
+    id: 'employeeId',
     label: 'ID', 
     align: 'left', 
     cellSx: { width: '15%' },
@@ -33,7 +34,8 @@ const columns = [
     )
   },
   { 
-    id: 'fullname', 
+    id: 'fullname',
+    sortKey: 'lastName',
     label: 'Full Name', 
     cellSx: { width: '20%' },
     renderCell: (row) => (
@@ -43,7 +45,7 @@ const columns = [
     )
   },
   { 
-    id: 'department', 
+    id: 'department',
     label: 'Department', 
     cellSx: { width: '20%' } 
   },
@@ -58,7 +60,8 @@ const columns = [
     )
   },
   { 
-    id: 'gender', 
+    id: 'gender',
+    sortKey: 'gender',
     label: 'Gender', 
     cellSx: { width: '10%' },
     renderCell: (row) => (
@@ -73,32 +76,17 @@ export default function InstructorPage() {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
 
-  const token = useAuthStore((state) => state.token);
+  const table = useServerTable({ defaultSortBy: 'lastName', defaultSortOrder: 'asc' });
+  const { queryParams } = table;
 
-  async function getInstructor() {
-    const response = await fetch(`${config.baseUrl}/api/v1/instructor/instructors`, {
-      headers: {
-        'Content-Type': 'application/json',
-        authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorMessage = await response.text();
-      throw new Error(errorMessage);
-    }
-
-    const result = await response.json();
-    if (result.ok) {
-      return result.data;
-    }
-    throw new Error(result.message);
-  }
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['instructors'],
-    queryFn: getInstructor,
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['instructors', 'page', queryParams],
+    queryFn: () => InstructorApi.getInstructorsPage(queryParams),
+    placeholderData: keepPreviousData,
   });
+
+  const rows = data?.data ?? [];
+  const total = data?.pagination?.total ?? 0;
 
   return (
     <Container maxWidth="xl">
@@ -143,7 +131,7 @@ export default function InstructorPage() {
           borderRadius: 2,
         }}>
           <GenericTable
-            data={data}
+            data={rows}
             columns={columns}
             rowIdField="_id"
             withCheckbox
@@ -151,8 +139,13 @@ export default function InstructorPage() {
             withPagination
             selectable
             isLoading={isLoading}
+            isFetching={isFetching}
+            error={error}
+            count={total}
+            {...table.tableProps}
             emptyRowsHeight={53}
             toolbarProps={{
+              ...table.searchProps,
               searchPlaceholder: 'Search instructors...',
               toolbarTitle: 'Instructors List',
             }}

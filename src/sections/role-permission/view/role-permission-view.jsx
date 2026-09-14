@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useSnackbar } from 'notistack';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 
 import Card from '@mui/material/Card';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
 import { Box, Popover, Divider, MenuItem, IconButton } from '@mui/material';
+
+import useServerTable from 'src/hooks/use-server-table';
 
 import { RolePermissionApi } from 'src/api';
 import { PERMISSIONS } from 'src/permissions/constants';
@@ -140,7 +142,8 @@ RolePermissionActions.propTypes = {
 
 const columns = [
   { 
-    id: 'role', 
+    id: 'role',
+    sortKey: 'role',
     label: 'Role', 
     align: 'left', 
     cellSx: { width: '20%' },
@@ -159,7 +162,8 @@ const columns = [
     )
   },
   { 
-    id: 'isActive', 
+    id: 'isActive',
+    sortKey: 'isActive',
     label: 'Status',
     cellSx: { width: '15%' },
     renderCell: (row) => (
@@ -180,7 +184,8 @@ const columns = [
     }
   },
   { 
-    id: 'createdAt', 
+    id: 'createdAt',
+    sortKey: 'createdAt',
     label: 'Created At',
     cellSx: { width: '15%' },
     renderCell: (row) => (
@@ -199,10 +204,17 @@ export default function RolePermissionView() {
   const theme = useTheme();
   const [openAddModal, setOpenAddModal] = useState(false);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['role-permissions'],
-    queryFn: () => RolePermissionApi.getRolePermissions(),
+  const table = useServerTable({ defaultSortBy: 'role', defaultSortOrder: 'asc' });
+  const { queryParams } = table;
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['role-permissions', 'page', queryParams],
+    queryFn: () => RolePermissionApi.getRolePermissionsPage(queryParams),
+    placeholderData: keepPreviousData,
   });
+
+  const rows = data?.data ?? [];
+  const total = data?.pagination?.total ?? 0;
 
   return (
     <Container maxWidth="xl">
@@ -227,7 +239,7 @@ export default function RolePermissionView() {
           borderRadius: 2,
         }}>
           <GenericTable
-            data={data}
+            data={rows}
             columns={columns}
             rowIdField="_id"
             withCheckbox
@@ -235,8 +247,13 @@ export default function RolePermissionView() {
             withPagination
             selectable
             isLoading={isLoading}
+            isFetching={isFetching}
+            error={error}
+            count={total}
+            {...table.tableProps}
             emptyRowsHeight={53}
             toolbarProps={{
+              ...table.searchProps,
               searchPlaceholder: 'Search roles...',
               toolbarTitle: 'Roles List',
             }}

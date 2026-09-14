@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
 import { 
@@ -12,8 +12,9 @@ import {
   Typography
 } from '@mui/material';
 
-import config from 'src/config';
-import { useAuthStore } from 'src/store';
+import useServerTable from 'src/hooks/use-server-table';
+
+import { DocumentApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
 import { GenericTable } from 'src/components/generic-table';
@@ -22,7 +23,8 @@ import AddDocument from '../add-document';
 
 const columns = [
   { 
-    id: 'title', 
+    id: 'title',
+    sortKey: 'title',
     label: 'Title', 
     align: 'left', 
     cellSx: { width: '25%' },
@@ -63,7 +65,8 @@ const columns = [
     )
   },
   { 
-    id: 'size', 
+    id: 'size',
+    sortKey: 'size',
     label: 'Size', 
     cellSx: { width: '10%' } 
   },
@@ -73,32 +76,17 @@ export default function DocumentPage() {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
 
-  const token = useAuthStore((state) => state.token);
+  const table = useServerTable({ defaultSortBy: 'createdAt', defaultSortOrder: 'desc' });
+  const { queryParams } = table;
 
-  async function getDocuments() {
-    const response = await fetch(`${config.baseUrl}/api/v1/document`, {
-      headers: {
-        'Content-Type': 'application/json',
-        authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorMessage = await response.text();
-      throw new Error(errorMessage);
-    }
-
-    const result = await response.json();
-    if (result.ok) {
-      return result.data;
-    }
-    throw new Error(result.message);
-  }
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['documents'],
-    queryFn: getDocuments,
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['documents', 'page', queryParams],
+    queryFn: () => DocumentApi.getDocumentsPage(queryParams),
+    placeholderData: keepPreviousData,
   });
+
+  const rows = data?.data ?? [];
+  const total = data?.pagination?.total ?? 0;
 
   return (
     <Container maxWidth="xl">
@@ -143,7 +131,7 @@ export default function DocumentPage() {
           borderRadius: 2,
         }}>
           <GenericTable
-            data={data}
+            data={rows}
             columns={columns}
             rowIdField="_id"
             withCheckbox
@@ -151,8 +139,13 @@ export default function DocumentPage() {
             withPagination
             selectable
             isLoading={isLoading}
+            isFetching={isFetching}
+            error={error}
+            count={total}
+            {...table.tableProps}
             emptyRowsHeight={53}
             toolbarProps={{
+              ...table.searchProps,
               searchPlaceholder: 'Search documents...',
               toolbarTitle: 'Documents List',
             }}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
 import {
@@ -12,6 +12,8 @@ import {
   Typography,
   IconButton,
 } from '@mui/material';
+
+import useServerTable from 'src/hooks/use-server-table';
 
 import { courseApi } from 'src/api';
 
@@ -26,14 +28,22 @@ export default function CoursePage() {
   const [open, setOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['courses'],
-    queryFn: courseApi.getCourses,
+  const table = useServerTable({ defaultSortBy: 'name', defaultSortOrder: 'asc' });
+  const { queryParams } = table;
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['courses', 'page', queryParams],
+    queryFn: () => courseApi.getCoursesPage(queryParams),
+    placeholderData: keepPreviousData,
   });
+
+  const rows = data?.data ?? [];
+  const total = data?.pagination?.total ?? 0;
 
   const columns = [
     {
       id: 'name',
+      sortKey: 'name',
       label: 'Title',
       align: 'left',
       cellSx: { width: '18%' },
@@ -45,6 +55,7 @@ export default function CoursePage() {
     },
     {
       id: 'code',
+      sortKey: 'code',
       label: 'Code',
       cellSx: { width: '10%' },
       renderCell: (row) => (
@@ -75,11 +86,13 @@ export default function CoursePage() {
     },
     {
       id: 'semester',
+      sortKey: 'semester',
       label: 'Semester',
       cellSx: { width: '10%' },
     },
     {
       id: 'credit',
+      sortKey: 'credit',
       label: 'Credit',
       cellSx: { width: '8%' },
     },
@@ -164,7 +177,7 @@ export default function CoursePage() {
           borderRadius: 2,
         }}>
           <GenericTable
-            data={data}
+            data={rows}
             columns={columns}
             rowIdField="_id"
             withCheckbox
@@ -172,9 +185,14 @@ export default function CoursePage() {
             withPagination
             selectable
             isLoading={isLoading}
+            isFetching={isFetching}
+            error={error}
+            count={total}
+            {...table.tableProps}
             emptyRowsHeight={53}
             initialSort={{ orderBy: 'name', order: 'asc' }}
             toolbarProps={{
+              ...table.searchProps,
               searchPlaceholder: 'Search courses...',
               toolbarTitle: 'Courses List',
             }}

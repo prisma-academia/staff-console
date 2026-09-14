@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSnackbar } from 'notistack';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -10,6 +10,8 @@ import Tooltip from '@mui/material/Tooltip';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
+
+import useServerTable from 'src/hooks/use-server-table';
 
 import { userGroupApi } from 'src/api';
 import { PERMISSIONS } from 'src/permissions/constants';
@@ -26,9 +28,9 @@ import ManageMembersModal from '../manage-members-modal';
 // ----------------------------------------------------------------------
 
 const COLUMNS = [
-  { id: 'name', label: 'Group Name', align: 'left' },
+  { id: 'name', sortKey: 'name', label: 'Group Name', align: 'left' },
   { id: 'description', label: 'Description', align: 'left' },
-  { id: 'type', label: 'Type', align: 'left', renderCell: (row) => {
+  { id: 'type', sortKey: 'type', label: 'Type', align: 'left', renderCell: (row) => {
     let chipColor = 'default';
     if (row.type === 'department') {
       chipColor = 'primary';
@@ -44,7 +46,7 @@ const COLUMNS = [
     );
   }},
   { id: 'users', label: 'Members', align: 'center', renderCell: (row) => row.users?.length || 0 },
-  { id: 'isActive', label: 'Status', align: 'left', renderCell: (row) => (
+  { id: 'isActive', sortKey: 'isActive', label: 'Status', align: 'left', renderCell: (row) => (
     <Chip 
       label={row.isActive ? 'Active' : 'Inactive'} 
       color={row.isActive ? 'success' : 'error'} 
@@ -65,10 +67,17 @@ export default function GroupsView() {
   const [openManage, setOpenManage] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['user-groups'],
-    queryFn: () => userGroupApi.getGroups(),
+  const table = useServerTable({ defaultSortBy: 'name', defaultSortOrder: 'asc' });
+  const { queryParams } = table;
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['user-groups', 'page', queryParams],
+    queryFn: () => userGroupApi.getGroupsPage(queryParams),
+    placeholderData: keepPreviousData,
   });
+
+  const rows = data?.data ?? [];
+  const total = data?.pagination?.total ?? 0;
 
   const { mutate: deleteGroup } = useMutation({
     mutationFn: (id) => userGroupApi.deleteGroup(id),
@@ -76,8 +85,8 @@ export default function GroupsView() {
       queryClient.invalidateQueries({ queryKey: ['user-groups'] });
       enqueueSnackbar('Group deleted successfully', { variant: 'success' });
     },
-    onError: (error) => {
-      enqueueSnackbar(error.message || 'Delete failed', { variant: 'error' });
+    onError: (mutationError) => {
+      enqueueSnackbar(mutationError.message || 'Delete failed', { variant: 'error' });
     },
   });
 
@@ -184,14 +193,19 @@ export default function GroupsView() {
         <Divider sx={{ mb: 4 }} />
 
         <GenericTable
-          data={data || []}
+          data={rows}
           isLoading={isLoading}
+            isFetching={isFetching}
+            error={error}
+            count={total}
+            {...table.tableProps}
           columns={columnsWithActions}
           rowIdField="_id"
           withCheckbox={false}
           withToolbar
           withPagination
           toolbarProps={{
+              ...table.searchProps,
             searchPlaceholder: "Search groups...",
             toolbarTitle: "All Groups",
           }}

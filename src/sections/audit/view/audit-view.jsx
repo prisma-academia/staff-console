@@ -1,9 +1,9 @@
 import { format } from 'date-fns';
 import PropTypes from 'prop-types';
 import { useSnackbar } from 'notistack';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
 import { 
@@ -162,6 +162,12 @@ export default function AuditView() {
   
   const theme = useTheme();
 
+  const [debouncedSearch, setDebouncedSearch] = useState(filterName);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(filterName.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [filterName]);
+
   // Build query params for API
   const queryParams = useMemo(() => {
     let sortValue = '';
@@ -183,15 +189,17 @@ export default function AuditView() {
     if (actorType) params.actorType = actorType;
     if (startDate) params.startDate = startDate;
     if (endDate) params.endDate = endDate;
+    if (debouncedSearch) params.search = debouncedSearch;
     if (searchParams.get('actor')) params.actor = searchParams.get('actor');
     if (searchParams.get('entityId')) params.entityId = searchParams.get('entityId');
 
     return params;
-  }, [page, rowsPerPage, order, orderBy, entityType, actionType, status, actorType, startDate, endDate, searchParams]);
+  }, [page, rowsPerPage, order, orderBy, entityType, actionType, status, actorType, startDate, endDate, debouncedSearch, searchParams]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['audit-logs', queryParams],
     queryFn: () => AuditApi.getAuditLogs(queryParams),
+    placeholderData: keepPreviousData,
   });
 
   const handleFilterByName = (event) => {
@@ -371,7 +379,8 @@ export default function AuditView() {
               withPagination
               selectable
               isLoading={isLoading}
-              
+              isFetching={isFetching}
+
               // Server-side pagination
               manualPagination
               count={pagination.total}

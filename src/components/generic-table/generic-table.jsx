@@ -55,21 +55,43 @@ export default function GenericTable({
   rowsPerPage: manualRowsPerPage = 5,
   onPageChange = null,
   onRowsPerPageChange = null,
+  // Server-side sorting (manual mode): columns opt in with `sortKey` (the API sort field)
+  sortBy = '',
+  sortOrder = 'asc',
+  onSortChange = null,
+  isFetching = false,
+  error = null,
 }) {
   const theme = useTheme();
-  
+
   const [internalPage, setInternalPage] = useState(0);
-  const [order, setOrder] = useState(initialSort.order);
+  const [internalOrder, setOrder] = useState(initialSort.order);
   const [selected, setSelected] = useState([]);
-  const [orderBy, setOrderBy] = useState(initialSort.orderBy);
+  const [internalOrderBy, setOrderBy] = useState(initialSort.orderBy);
   const [filterName, setFilterName] = useState('');
   const [internalRowsPerPage, setInternalRowsPerPage] = useState(initialRowsPerPage);
 
+  const serverSort = manualPagination && Boolean(onSortChange);
   const page = manualPagination ? manualPage : internalPage;
   const rowsPerPage = manualPagination ? manualRowsPerPage : internalRowsPerPage;
+  const order = serverSort ? sortOrder : internalOrder;
+  const orderBy = serverSort ? sortBy : internalOrderBy;
+
+  // In server mode only columns with a sortKey are sortable, keyed by that field.
+  const headColumns = manualPagination
+    ? columns.map((column) =>
+        column.sortKey && serverSort
+          ? { ...column, id: column.sortKey }
+          : { ...column, sortable: false }
+      )
+    : columns;
 
   const handleSort = (event, id) => {
     const isAsc = orderBy === id && order === 'asc';
+    if (serverSort) {
+      onSortChange(id, isAsc ? 'desc' : 'asc');
+      return;
+    }
     setOrder(isAsc ? 'desc' : 'asc');
     setOrderBy(id);
   };
@@ -112,6 +134,9 @@ export default function GenericTable({
 
   const handleChangePage = (event, newPage) => {
     if (manualPagination) {
+      // Selection only covers the visible page's rows.
+      setSelected([]);
+      if (onSelectionChange) onSelectionChange([]);
       if (onPageChange) onPageChange(event, newPage);
     } else {
       setInternalPage(newPage);
@@ -168,7 +193,7 @@ export default function GenericTable({
         boxShadow: `0 0 24px 0 ${alpha(theme.palette.grey[900], 0.1)}`
       }}
     >
-      {isLoading && <LinearProgress sx={{ borderTopLeftRadius: 2, borderTopRightRadius: 2 }} />}
+      {(isLoading || isFetching) && <LinearProgress sx={{ borderTopLeftRadius: 2, borderTopRightRadius: 2 }} />}
       
       {withToolbar && (
         <>
@@ -192,7 +217,7 @@ export default function GenericTable({
                 order={order}
                 orderBy={orderBy}
                 rowCount={manualPagination ? count : (data?.length || 0)}
-                headLabel={columns}
+                headLabel={headColumns}
                 numSelected={selected.length}
                 onRequestSort={handleSort}
                 onSelectAllClick={handleSelectAllClick}
@@ -201,6 +226,17 @@ export default function GenericTable({
             )}
 
             <TableBody>
+              {error && (
+                <TableRow>
+                  <TableCell
+                    align="center"
+                    colSpan={columns.length + (withCheckbox ? 1 : 0)}
+                    sx={{ py: 3, color: 'error.main' }}
+                  >
+                    {error.message || String(error)}
+                  </TableCell>
+                </TableRow>
+              )}
               {isLoading && visibleRows.length === 0 ? (
                 Array.from(new Array(placeholderRowCount)).map((_, index) => (
                   <TableRow key={index}>
@@ -294,7 +330,7 @@ export default function GenericTable({
                     />
                   )}
                   
-                  {isEmptyData && !filterName && (
+                  {isEmptyData && !filterName && !error && (
                     EmptyStateComponent || (
                       <TableRow>
                         <TableCell align="center" colSpan={columns.length + (withCheckbox ? 1 : 0)} sx={{ py: 5 }}>
@@ -380,4 +416,9 @@ GenericTable.propTypes = {
   rowsPerPage: PropTypes.number,
   onPageChange: PropTypes.func,
   onRowsPerPageChange: PropTypes.func,
+  sortBy: PropTypes.string,
+  sortOrder: PropTypes.oneOf(['asc', 'desc']),
+  onSortChange: PropTypes.func,
+  isFetching: PropTypes.bool,
+  error: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
 };

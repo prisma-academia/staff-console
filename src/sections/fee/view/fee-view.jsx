@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSnackbar } from 'notistack';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
 import { 
@@ -16,6 +16,8 @@ import {
   IconButton,
   LinearProgress
 } from '@mui/material';
+
+import useServerTable from 'src/hooks/use-server-table';
 
 import { FeeApi } from 'src/api';
 
@@ -60,10 +62,17 @@ export default function FeePage() {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['fees'],
-    queryFn: FeeApi.getFees,
+  const table = useServerTable({ defaultSortBy: 'createdAt', defaultSortOrder: 'desc' });
+  const { queryParams } = table;
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['fees', 'page', queryParams],
+    queryFn: () => FeeApi.getFeesPage(queryParams),
+    placeholderData: keepPreviousData,
   });
+
+  const rows = data?.data ?? [];
+  const total = data?.pagination?.total ?? 0;
 
   const deleteFeeMutation = useMutation({
     mutationFn: FeeApi.deleteFee,
@@ -71,8 +80,8 @@ export default function FeePage() {
       queryClient.invalidateQueries({ queryKey: ['fees'] });
       enqueueSnackbar('Fee deleted successfully', { variant: 'success' });
     },
-    onError: (error) => {
-      const errorMessage = error.message || 'An error occurred while deleting the fee';
+    onError: (mutationError) => {
+      const errorMessage = mutationError.message || 'An error occurred while deleting the fee';
       enqueueSnackbar(errorMessage, { variant: 'error' });
     },
   });
@@ -104,7 +113,8 @@ export default function FeePage() {
 
   const columns = [
     { 
-      id: 'name', 
+      id: 'name',
+      sortKey: 'name',
       label: 'Name', 
       align: 'left',
       cellSx: { width: '15%' },
@@ -115,7 +125,8 @@ export default function FeePage() {
       )
     },
     { 
-      id: 'amount', 
+      id: 'amount',
+      sortKey: 'amount',
       label: 'Amount', 
       cellSx: { width: '10%' },
       renderCell: (row) => (
@@ -125,7 +136,8 @@ export default function FeePage() {
       )
     },
     { 
-      id: 'status', 
+      id: 'status',
+      sortKey: 'status',
       label: 'Status', 
       cellSx: { width: '10%' },
       renderCell: (row) => {
@@ -184,7 +196,8 @@ export default function FeePage() {
       }
     },
     { 
-      id: 'createdAt', 
+      id: 'createdAt',
+      sortKey: 'createdAt',
       label: 'Created At', 
       cellSx: { width: '10%' },
       renderCell: (row) => formatDate(row.createdAt)
@@ -278,7 +291,7 @@ export default function FeePage() {
           borderRadius: 2,
         }}>
           <GenericTable
-            data={Array.isArray(data) ? data : []}
+            data={rows}
             columns={columns}
             rowIdField="_id"
             withCheckbox
@@ -286,9 +299,14 @@ export default function FeePage() {
             withPagination
             selectable
             isLoading={isLoading}
+            isFetching={isFetching}
+            error={error}
+            count={total}
+            {...table.tableProps}
             emptyRowsHeight={53}
             onRowClick={(row) => navigate(`/fee/${row._id}`)}
             toolbarProps={{
+              ...table.searchProps,
               searchPlaceholder: 'Search fees...',
               toolbarTitle: 'Fees List',
             }}

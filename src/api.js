@@ -278,6 +278,7 @@ export const UserApi = {
     const q = String(params).replace(/^\?/, '').trim();
     return apiClient.get(q ? `user?${q}` : 'user');
   },
+  getUsersPage: (params = {}) => apiClient.get(`user?${buildQueryString(params)}`),
   getUserById: (id) => apiClient.get(`user/${id}`),
   updateUser: (id, data) => apiClient.put(`user/${id}`, data),
   updateMyProfile: (data) => apiClient.patch('user/profile/me', data),
@@ -331,6 +332,7 @@ export const UserApi = {
 
 export const programApi = {
   getPrograms: () => apiClient.get('program'),
+  getProgramsPage: (params = {}) => apiClient.get(`program?${buildQueryString(params)}`),
   getProgramById: (id) => apiClient.get(`program/${id}`),
   createProgram: (data) => apiClient.post('program', data),
   updateProgram: (id, data) => apiClient.put(`program/${id}`, data),
@@ -339,6 +341,7 @@ export const programApi = {
 
 export const classLevelApi = {
   getClassLevels: () => apiClient.get('classlevel'),
+  getClassLevelsPage: (params = {}) => apiClient.get(`classlevel?${buildQueryString(params)}`),
   getClassLevelById: (id) => apiClient.get(`classlevel/${id}`),
   createClassLevel: (data) => apiClient.post('classlevel', data),
   updateClassLevel: (id, data) => apiClient.put(`classlevel/${id}`, data),
@@ -347,6 +350,7 @@ export const classLevelApi = {
 
 export const courseApi = {
   getCourses: () => apiClient.get('course'),
+  getCoursesPage: (params = {}) => apiClient.get(`course?${buildQueryString(params)}`),
   createCourse: (data) => apiClient.post('course', data),
   updateCourse: (id, data) => apiClient.put(`course/${id}`, data),
   deleteCourse: (id) => apiClient.delete(`course/${id}`),
@@ -354,6 +358,7 @@ export const courseApi = {
 
 export const FeeApi = {
   getFees: () => apiClient.get('fee'),
+  getFeesPage: (params = {}) => apiClient.get(`fee?${buildQueryString(params)}`),
   getFeeById: (id) => apiClient.get(`fee/${id}`),
   getEligibleStudentsForPayment: (feeId) =>
     apiClient.get(`fee/${feeId}/eligible-students`),
@@ -364,6 +369,8 @@ export const FeeApi = {
 
 export const InstructorApi = {
   getInstructors: () => apiClient.get('instructor/instructors'),
+  getInstructorsPage: (params = {}) =>
+    apiClient.get(`instructor/instructors?${buildQueryString(params)}`),
   createInstructor: (data) => apiClient.post('instructor/instructors', data),
   updateInstructor: (id, data) => apiClient.put(`instructor/instructors/${id}`, data),
   deleteInstructor: (id) => apiClient.delete(`instructor/instructors/${id}`),
@@ -379,9 +386,14 @@ export const EventApi = {
 
 export const MemoApi = {
   getMemos: () => apiClient.get('memo'),
+  getMemosPage: (params = {}) => apiClient.get(`memo?${buildQueryString(params)}`),
   createMemo: (data) => apiClient.post('memo', data),
   updateMemo: (id, data) => apiClient.put(`memo/${id}`, data),
   deleteMemo: (id) => apiClient.delete(`memo/${id}`),
+};
+
+export const DocumentApi = {
+  getDocumentsPage: (params = {}) => apiClient.get(`document?${buildQueryString(params)}`),
 };
 
 export const AnalyticsApi = {
@@ -466,6 +478,7 @@ export const paymentApi = {
 
 export const userGroupApi = {
   getGroups: () => apiClient.get('usergroup'),
+  getGroupsPage: (params = {}) => apiClient.get(`usergroup?${buildQueryString(params)}`),
   getGroupById: (id) => apiClient.get(`usergroup/${id}`),
   createGroup: (data) => apiClient.post('usergroup', data),
   updateGroup: (id, data) => apiClient.put(`usergroup/${id}`, data),
@@ -480,6 +493,8 @@ export const userGroupApi = {
 
 export const RolePermissionApi = {
   getRolePermissions: () => apiClient.get('role-permission'),
+  getRolePermissionsPage: (params = {}) =>
+    apiClient.get(`role-permission?${buildQueryString(params)}`),
   getRolePermissionById: (id) => apiClient.get(`role-permission/${id}`),
   getRolePermissionByRole: (role) => apiClient.get(`role-permission/role/${role}`),
   createRolePermission: (data) => apiClient.post('role-permission', data),
@@ -559,6 +574,10 @@ export const StudentApi = {
     }
     return apiClient.get(`student${queryString ? `?${queryString}` : ''}`);
   },
+  // Server-paginated list (requires `page`): resolves to { data: [...], pagination }.
+  getStudentsPage: (params = {}) => apiClient.get(`student?${buildQueryString(params)}`),
+  // Every student matching the list filters: resolves to { columns, rows, total }.
+  exportStudentsByFilter: (params = {}) => apiClient.get(`student/admin/export?${buildQueryString(params)}`),
   getStudentById: (id) => apiClient.get(`student/${id}`),
   adminEditStudent: (id, data) => apiClient.put(`student/admin/edit/${id}`, data),
   adminEditRegNumber: (id, data) => apiClient.put(`student/admin/reg-number/${id}`, data),
@@ -844,6 +863,7 @@ export const TemplateApi = {
     const queryString = params ? buildQueryString(params) : '';
     return apiClient.get(`template${queryString ? `?${queryString}` : ''}`);
   },
+  getTemplatesPage: (params = {}) => apiClient.get(`template?${buildQueryString(params)}`),
   getTemplateById: (id) => apiClient.get(`template/${id}`),
   createTemplate: (data) => apiClient.post('template', data),
   updateTemplate: (id, data) => apiClient.put(`template/${id}`, data),
@@ -883,6 +903,7 @@ export const ScoreApi = {
 
 export const SessionApi = {
   getSessions: () => apiClient.get('session'),
+  getSessionsPage: (params = {}) => apiClient.get(`session?${buildQueryString(params)}`),
   getSessionById: (id) => apiClient.get(`session/${id}`),
   getCurrentSession: () => apiClient.get('session/current'),
   createSession: (data) => apiClient.post('session', data),

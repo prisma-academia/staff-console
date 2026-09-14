@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSnackbar } from 'notistack';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
 import LoadingButton from '@mui/lab/LoadingButton';
@@ -26,22 +26,61 @@ import {
   DialogActions,
 } from '@mui/material';
 
+import useServerTable from 'src/hooks/use-server-table';
+
 import { PERMISSIONS } from 'src/permissions/constants';
 import {
   listSessions,
   listAdmissions,
   listProgrammes,
   deleteAdmission,
+  exportAdmissions,
   validateAdmissionPayment,
 } from 'src/api/adminApplicationApi';
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
+import { ExportMenu } from 'src/components/export';
 import { GenericTable } from 'src/components/generic-table';
+import { FilterChips, describeFilters, AdvancedFilterDrawer } from 'src/components/advanced-filter';
 
 import AddAdmission from '../add-admission';
 import AddStudentModal from '../add-student';
 import AdmissionLetterModal from '../admission-letter-modal';
+
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'offered', label: 'Offered' },
+  { value: 'accepted', label: 'Accepted' },
+  { value: 'declined', label: 'Declined' },
+];
+
+const QUICK_FILTER_KEYS = ['session', 'programme', 'status'];
+const FILTER_KEYS = [...QUICK_FILTER_KEYS, 'paid', 'gender', 'stateOfOrigin', 'startDate', 'endDate'];
+
+const ADVANCED_FIELDS = [
+  {
+    key: 'paid',
+    label: 'Acceptance fee',
+    type: 'select',
+    options: [
+      { value: 'true', label: 'Paid' },
+      { value: 'false', label: 'Not paid' },
+    ],
+  },
+  {
+    key: 'gender',
+    label: 'Gender',
+    type: 'select',
+    options: [
+      { value: 'Male', label: 'Male' },
+      { value: 'Female', label: 'Female' },
+    ],
+  },
+  { key: 'stateOfOrigin', label: 'State of origin', type: 'text' },
+  { key: 'startDate', label: 'Created from', type: 'date' },
+  { key: 'endDate', label: 'Created to', type: 'date' },
+];
 
 const columns = [
   {
@@ -59,6 +98,7 @@ const columns = [
   },
   {
     id: 'number',
+    sortKey: 'number',
     label: 'Admission Number',
     cellSx: { width: '20%' },
     renderCell: (row) => (
@@ -79,6 +119,7 @@ const columns = [
   },
   {
     id: 'status',
+    sortKey: 'status',
     label: 'Status',
     cellSx: { width: '15%' },
     renderCell: (row) => {
@@ -102,6 +143,7 @@ const columns = [
   },
   {
     id: 'offerDate',
+    sortKey: 'offerDate',
     label: 'Offer Date',
     cellSx: { width: '15%' },
     renderCell: (row) => (
@@ -124,23 +166,10 @@ export default function AdmissionPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [validateConfirm, setValidateConfirm] = useState(null);
   const [validateReference, setValidateReference] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [sortBy] = useState('createdAt');
-  const [sortOrder] = useState('desc');
-  const [filterSession, setFilterSession] = useState('');
-  const [filterProgramme, setFilterProgramme] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  const queryParams = {
-    page: page + 1,
-    limit: rowsPerPage,
-    sortBy,
-    sortOrder,
-    ...(filterSession ? { session: filterSession } : {}),
-    ...(filterProgramme ? { programme: filterProgramme } : {}),
-    ...(filterStatus ? { status: filterStatus } : {}),
-  };
+  const table = useServerTable({ filterKeys: FILTER_KEYS });
+  const { filters, filterParams, queryParams, search, setFilter, setFilters, clearFilters } = table;
 
   const { data: sessionsResult } = useQuery({
     queryKey: ['admin-sessions'],
@@ -152,34 +181,33 @@ export default function AdmissionPage() {
   });
   const sessions = sessionsResult?.data ?? [];
   const programmes = programmesResult?.data ?? [];
-  const hasActiveFilters = Boolean(filterSession || filterProgramme || filterStatus);
 
-  const handleFilterSession = (event) => {
-    setFilterSession(event.target.value);
-    setPage(0);
-  };
-  const handleFilterProgramme = (event) => {
-    setFilterProgramme(event.target.value);
-    setPage(0);
-  };
-  const handleFilterStatus = (event) => {
-    setFilterStatus(event.target.value);
-    setPage(0);
-  };
-  const handleClearFilters = () => {
-    setFilterSession('');
-    setFilterProgramme('');
-    setFilterStatus('');
-    setPage(0);
-  };
+  // Quick filters + advanced fields, used for the chips and the PDF filter summary.
+  const allFields = [
+    {
+      key: 'session',
+      label: 'Session',
+      type: 'select',
+      options: sessions.map((s) => ({ value: s._id || s.id, label: s.name || s._id })),
+    },
+    {
+      key: 'programme',
+      label: 'Programme',
+      type: 'select',
+      options: programmes.map((p) => ({ value: p._id || p.id, label: p.name })),
+    },
+    { key: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
+    ...ADVANCED_FIELDS,
+  ];
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ['admissions', queryParams],
     queryFn: async () => {
       const result = await listAdmissions(queryParams);
       if (!result.ok) throw new Error(result.message);
       return result;
     },
+    placeholderData: keepPreviousData,
   });
 
   const deleteMutation = useMutation({
@@ -212,12 +240,7 @@ export default function AdmissionPage() {
   });
 
   const rows = data?.data?.data ?? [];
-  const pagination = data?.data?.pagination ?? {
-    total: 0,
-    page: 1,
-    limit: rowsPerPage,
-    pages: 0,
-  };
+  const total = data?.data?.pagination?.total ?? 0;
 
   const handleOpen = (obj) => {
     setOpenModal(true);
@@ -227,15 +250,6 @@ export default function AdmissionPage() {
   const handleClose = () => {
     setOpenModal(false);
     setModalObj(null);
-  };
-
-  const handlePageChange = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleRowsPerPageChange = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
   };
 
   const columnsWithActions = columns.map((col) => {
@@ -317,6 +331,20 @@ export default function AdmissionPage() {
     return col;
   });
 
+  const quickSelect = (key, label, options, minWidth = 180) => (
+    <FormControl size="small" sx={{ minWidth }}>
+      <InputLabel>{label}</InputLabel>
+      <Select value={filters[key]} onChange={(e) => setFilter(key, e.target.value)} label={label}>
+        <MenuItem value="">All</MenuItem>
+        {options.map((option) => (
+          <MenuItem key={option.value} value={option.value}>
+            {option.label}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  );
+
   return (
     <Container maxWidth="xl">
       {modalObj && <AddStudentModal open={openModal} handleClose={handleClose} object={modalObj} />}
@@ -352,9 +380,13 @@ export default function AdmissionPage() {
             >
               New Admission
             </Button>
-            <Button variant="outlined" startIcon={<Iconify icon="eva:download-fill" />} sx={{ px: 3 }} disabled>
-              Export
-            </Button>
+            <ExportMenu
+              title="Admissions"
+              fileBase="admissions"
+              count={total}
+              filterSummary={describeFilters(allFields, filters, search).map((f) => f.text)}
+              fetchRows={() => exportAdmissions({ ...filterParams, sortBy: queryParams.sortBy, sortOrder: queryParams.sortOrder })}
+            />
           </Stack>
         </Box>
 
@@ -364,67 +396,25 @@ export default function AdmissionPage() {
           sx={{ mb: 2 }}
           alignItems={{ xs: 'stretch', sm: 'center' }}
           flexWrap="wrap"
+          useFlexGap
         >
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Session</InputLabel>
-            <Select
-              value={filterSession}
-              onChange={handleFilterSession}
-              label="Session"
-            >
-              <MenuItem value="">All sessions</MenuItem>
-              {sessions.map((session) => (
-                <MenuItem key={session._id || session.id} value={session._id || session.id}>
-                  {session.name || session._id || session.id}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Programme</InputLabel>
-            <Select
-              value={filterProgramme}
-              onChange={handleFilterProgramme}
-              label="Programme"
-            >
-              <MenuItem value="">All programmes</MenuItem>
-              {programmes.map((prog) => (
-                <MenuItem key={prog._id || prog.id} value={prog._id || prog.id}>
-                  {prog.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={filterStatus}
-              onChange={handleFilterStatus}
-              label="Status"
-            >
-              <MenuItem value="">All statuses</MenuItem>
-              <MenuItem value="pending">Pending</MenuItem>
-              <MenuItem value="offered">Offered</MenuItem>
-              <MenuItem value="accepted">Accepted</MenuItem>
-              <MenuItem value="declined">Declined</MenuItem>
-            </Select>
-          </FormControl>
-          {hasActiveFilters && (
-            <Button
-              variant="outlined"
-              color="inherit"
-              size="small"
-              onClick={handleClearFilters}
-              sx={{ alignSelf: { sm: 'center' } }}
-            >
-              Clear filters
-            </Button>
-          )}
+          {quickSelect('session', 'Session', allFields[0].options)}
+          {quickSelect('programme', 'Programme', allFields[1].options)}
+          {quickSelect('status', 'Status', STATUS_OPTIONS, 160)}
+          <Button
+            variant="outlined"
+            color="inherit"
+            size="small"
+            startIcon={<Iconify icon="ic:round-filter-list" />}
+            onClick={() => setFilterOpen(true)}
+          >
+            More filters
+          </Button>
         </Stack>
 
         <Card
           sx={{
-            boxShadow: `0 0 2px 0 ${alpha(theme.palette.grey[500], 0.2)}, 
+            boxShadow: `0 0 2px 0 ${alpha(theme.palette.grey[500], 0.2)},
                       0 12px 24px -4px ${alpha(theme.palette.grey[500], 0.12)}`,
             borderRadius: 2,
           }}
@@ -438,20 +428,36 @@ export default function AdmissionPage() {
             withPagination
             selectable
             isLoading={isLoading}
+            isFetching={isFetching}
+            error={error}
             emptyRowsHeight={53}
-            manualPagination
-            count={pagination.total}
-            page={page}
-            rowsPerPage={rowsPerPage}
-            onPageChange={handlePageChange}
-            onRowsPerPageChange={handleRowsPerPageChange}
+            count={total}
+            {...table.tableProps}
             toolbarProps={{
-              searchPlaceholder: 'Search admissions...',
+              searchPlaceholder: 'Search name, email, phone or number...',
               toolbarTitle: 'Admissions List',
+              onFilterClick: () => setFilterOpen(true),
+              filterCount: table.activeFilterCount,
+              ...table.searchProps,
             }}
+          />
+          <FilterChips
+            fields={allFields}
+            values={filters}
+            search={search}
+            onRemove={(key) => (key === 'search' ? clearFilters() : setFilter(key, ''))}
+            onClearAll={clearFilters}
           />
         </Card>
       </Box>
+
+      <AdvancedFilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        fields={allFields}
+        values={filters}
+        onApply={setFilters}
+      />
 
       <AddAdmission open={openAdmsModal} setOpen={setOpenAdmsModal} />
 

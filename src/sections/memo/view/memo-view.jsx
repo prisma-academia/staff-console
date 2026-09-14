@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
 import { 
@@ -12,6 +12,8 @@ import {
   Typography
 } from '@mui/material';
 
+import useServerTable from 'src/hooks/use-server-table';
+
 import Iconify from 'src/components/iconify';
 import { GenericTable } from 'src/components/generic-table';
 
@@ -20,7 +22,8 @@ import AddAnnouncementModal from '../add-memo';
 
 const columns = [
   { 
-    id: 'name', 
+    id: 'name',
+    sortKey: 'name',
     label: 'Memo', 
     align: 'left', 
     cellSx: { width: '25%' },
@@ -31,7 +34,8 @@ const columns = [
     )
   },
   { 
-    id: 'published', 
+    id: 'published',
+    sortKey: 'isPublic',
     label: 'Published', 
     cellSx: { width: '15%' },
     renderCell: (row) => (row.published ? 'True' : 'False')
@@ -62,10 +66,17 @@ export default function MemoPage() {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
 
-  const { data, loading: isLoading } = useQuery({
-    queryKey: ['memos'],
-    queryFn: MemoApi.getMemos,
+  const table = useServerTable({ defaultSortBy: 'createdAt', defaultSortOrder: 'desc' });
+  const { queryParams } = table;
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['memos', 'page', queryParams],
+    queryFn: () => MemoApi.getMemosPage(queryParams),
+    placeholderData: keepPreviousData,
   });
+
+  const rows = data?.data ?? [];
+  const total = data?.pagination?.total ?? 0;
 
   return (
     <Container maxWidth="xl">
@@ -110,7 +121,7 @@ export default function MemoPage() {
           borderRadius: 2,
         }}>
           <GenericTable
-            data={data}
+            data={rows}
             columns={columns}
             rowIdField="_id"
             withCheckbox
@@ -118,8 +129,13 @@ export default function MemoPage() {
             withPagination
             selectable
             isLoading={isLoading}
+            isFetching={isFetching}
+            error={error}
+            count={total}
+            {...table.tableProps}
             emptyRowsHeight={53}
             toolbarProps={{
+              ...table.searchProps,
               searchPlaceholder: 'Search memos...',
               toolbarTitle: 'Memos List',
             }}

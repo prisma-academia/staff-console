@@ -1,20 +1,26 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
-import { 
-  Chip, 
-  Card, 
-  Stack, 
-  alpha, 
-  Avatar, 
-  Button, 
+import {
+  Chip,
+  Card,
+  Stack,
+  alpha,
+  Avatar,
+  Button,
+  Select,
   useTheme,
+  MenuItem,
   Container,
   IconButton,
-  Typography
+  InputLabel,
+  Typography,
+  FormControl,
 } from '@mui/material';
+
+import useServerTable from 'src/hooks/use-server-table';
 
 import { usePermissions } from 'src/utils/permissions';
 
@@ -22,28 +28,55 @@ import config from 'src/config';
 import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
+import { ExportMenu } from 'src/components/export';
 import { GenericTable } from 'src/components/generic-table';
+import { FilterChips, describeFilters, AdvancedFilterDrawer } from 'src/components/advanced-filter';
 
-import { StudentApi } from '../../../api';
 import { StudentBulkActionsModal } from '../bulk-actions';
+import { StudentApi, programApi, classLevelApi } from '../../../api';
+
+const STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'setup', label: 'Setup' },
+  { value: 'disable', label: 'Disabled' },
+];
+
+const FILTER_KEYS = ['programId', 'classLevelId', 'status', 'gender', 'state', 'startDate', 'endDate'];
+
+const ADVANCED_FIELDS = [
+  {
+    key: 'gender',
+    label: 'Gender',
+    type: 'select',
+    options: [
+      { value: 'Male', label: 'Male' },
+      { value: 'Female', label: 'Female' },
+      { value: 'Other', label: 'Other' },
+    ],
+  },
+  { key: 'state', label: 'State', type: 'text' },
+  { key: 'startDate', label: 'Enrolled from', type: 'date' },
+  { key: 'endDate', label: 'Enrolled to', type: 'date' },
+];
 
 const columns = [
-  { 
-    id: 'picture', 
-    label: '', 
-    cellSx: { width: '5%' }, 
+  {
+    id: 'picture',
+    label: '',
+    cellSx: { width: '5%' },
     renderCell: (row) => {
       let avatarSrc;
       if (row?.picture) {
-        avatarSrc = config.utils.isAbsoluteUrl(row.picture) 
-          ? row.picture 
+        avatarSrc = config.utils.isAbsoluteUrl(row.picture)
+          ? row.picture
           : config.utils.buildImageUrl(config.upload.baseUrl || `${config.baseUrl}/uploads`, row.picture);
       }
       return (
-        <Avatar 
-          src={avatarSrc} 
-          sx={{ 
-            width: 40, 
+        <Avatar
+          src={avatarSrc}
+          sx={{
+            width: 40,
             height: 40,
             border: '2px solid #f5f5f5'
           }}
@@ -53,6 +86,7 @@ const columns = [
   },
   {
     id: 'fullName',
+    sortKey: 'personalInfo.lastName',
     label: 'Full Name',
     align: 'left',
     cellSx: { width: '20%' },
@@ -67,9 +101,10 @@ const columns = [
       </Stack>
     ),
   },
-  { 
-    id: 'regNumber', 
-    label: 'Reg Number', 
+  {
+    id: 'regNumber',
+    sortKey: 'regNumber',
+    label: 'Reg Number',
     cellSx: { width: '15%' },
     renderCell: (row) => (
       <Typography variant="body2" fontWeight={500}>
@@ -77,30 +112,31 @@ const columns = [
       </Typography>
     )
   },
-  { 
-    id: 'program', 
-    label: 'Program', 
-    cellSx: { width: '20%' }, 
+  {
+    id: 'program',
+    label: 'Program',
+    cellSx: { width: '20%' },
     renderCell: (row) => (
       <Typography variant="body2">
         {row.program?.name || 'N/A'}
       </Typography>
     )
   },
-  { 
-    id: 'classLevel', 
-    label: 'Class', 
-    cellSx: { width: '15%' }, 
+  {
+    id: 'classLevel',
+    label: 'Class',
+    cellSx: { width: '15%' },
     renderCell: (row) => (
       <Typography variant="body2">
         {row.classLevel?.name || 'N/A'}
       </Typography>
     )
   },
-  { 
-    id: 'status', 
-    label: 'Status', 
-    cellSx: { width: '10%' }, 
+  {
+    id: 'status',
+    sortKey: 'status',
+    label: 'Status',
+    cellSx: { width: '10%' },
     renderCell: (row) => {
       const status = row?.status || 'pending';
       const statusConfig = {
@@ -110,11 +146,11 @@ const columns = [
       };
       const statusConfigValue = statusConfig[status] || { label: status, color: 'default' };
       return (
-        <Chip 
-          label={statusConfigValue.label} 
-          color={statusConfigValue.color} 
-          size="small" 
-          sx={{ borderRadius: 1 }} 
+        <Chip
+          label={statusConfigValue.label}
+          color={statusConfigValue.color}
+          size="small"
+          sx={{ borderRadius: 1 }}
         />
       );
     }
@@ -128,24 +164,59 @@ export default function StudentView() {
 
   const { check } = usePermissions();
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  const table = useServerTable({
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'regNumber',
+    defaultSortOrder: 'asc',
+  });
+  const { filters, filterParams, queryParams, search, setFilter, setFilters, clearFilters } = table;
 
   const canBulkOperate =
     check(PERMISSIONS.EDIT_STUDENT) ||
     check(PERMISSIONS.DELETE_STUDENT) ||
     check(PERMISSIONS.VIEW_STUDENT);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['students'],
-    queryFn: () => StudentApi.getStudents(),
+  const { data: programs } = useQuery({
+    queryKey: ['programs'],
+    queryFn: () => programApi.getPrograms(),
   });
+  const { data: classLevels } = useQuery({
+    queryKey: ['classLevels'],
+    queryFn: () => classLevelApi.getClassLevels(),
+  });
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['students', queryParams],
+    queryFn: () => StudentApi.getStudentsPage(queryParams),
+    placeholderData: keepPreviousData,
+  });
+
+  const rows = data?.data ?? [];
+  const total = data?.pagination?.total ?? 0;
+
+  const allFields = [
+    {
+      key: 'programId',
+      label: 'Program',
+      type: 'select',
+      options: (Array.isArray(programs) ? programs : []).map((p) => ({ value: p._id, label: p.name })),
+    },
+    {
+      key: 'classLevelId',
+      label: 'Class',
+      type: 'select',
+      options: (Array.isArray(classLevels) ? classLevels : []).map((c) => ({ value: c._id, label: c.name })),
+    },
+    { key: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
+    ...ADVANCED_FIELDS,
+  ];
 
   const handleRowClick = (row) => {
     navigate(`/student/${row._id}`);
   };
 
-
-
-  // Modify the action column to include our view button with onClick handler
   const columnsWithActions = columns.map((column) => {
     if (column.id === 'action') {
       return {
@@ -155,9 +226,9 @@ export default function StudentView() {
             <IconButton
               color="primary"
               size="small"
-              sx={{ 
+              sx={{
                 boxShadow: `0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
-                '&:hover': { 
+                '&:hover': {
                   bgcolor: alpha(theme.palette.primary.main, 0.1),
                 }
               }}
@@ -174,6 +245,20 @@ export default function StudentView() {
     }
     return column;
   });
+
+  const quickSelect = (key, label, options, minWidth = 180) => (
+    <FormControl size="small" sx={{ minWidth }}>
+      <InputLabel>{label}</InputLabel>
+      <Select value={filters[key]} label={label} onChange={(e) => setFilter(key, e.target.value)}>
+        <MenuItem value="">All</MenuItem>
+        {options.map((option) => (
+          <MenuItem key={option.value} value={option.value}>
+            {option.label}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  );
 
   return (
     <Container maxWidth="xl">
@@ -193,11 +278,11 @@ export default function StudentView() {
             </Typography>
           </Box>
           <Stack direction="row" spacing={2}>
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               startIcon={<Iconify icon="eva:plus-fill" />}
               onClick={() => navigate('/student/intake')}
-              sx={{ 
+              sx={{
                 px: 3,
                 boxShadow: theme.customShadows.primary,
                 '&:hover': {
@@ -217,23 +302,51 @@ export default function StudentView() {
                 Bulk Operations
               </Button>
             )}
-            <Button
-              variant="outlined"
-              startIcon={<Iconify icon="eva:download-fill" />}
-              sx={{ px: 3 }}
-            >
-              Export
-            </Button>
+            <ExportMenu
+              title="Students"
+              fileBase="students"
+              count={total}
+              filterSummary={describeFilters(allFields, filters, search).map((f) => f.text)}
+              fetchRows={() =>
+                StudentApi.exportStudentsByFilter({
+                  ...filterParams,
+                  sortBy: queryParams.sortBy,
+                  sortOrder: queryParams.sortOrder,
+                })
+              }
+            />
           </Stack>
         </Box>
 
-        <Card sx={{ 
-          boxShadow: `0 0 2px 0 ${alpha(theme.palette.grey[500], 0.2)}, 
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          sx={{ mb: 2 }}
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+          flexWrap="wrap"
+          useFlexGap
+        >
+          {quickSelect('programId', 'Program', allFields[0].options, 200)}
+          {quickSelect('classLevelId', 'Class', allFields[1].options)}
+          {quickSelect('status', 'Status', STATUS_OPTIONS, 160)}
+          <Button
+            variant="outlined"
+            color="inherit"
+            size="small"
+            startIcon={<Iconify icon="ic:round-filter-list" />}
+            onClick={() => setFilterOpen(true)}
+          >
+            More filters
+          </Button>
+        </Stack>
+
+        <Card sx={{
+          boxShadow: `0 0 2px 0 ${alpha(theme.palette.grey[500], 0.2)},
                       0 12px 24px -4px ${alpha(theme.palette.grey[500], 0.12)}`,
           borderRadius: 2,
         }}>
           <GenericTable
-            data={data}
+            data={rows}
             columns={columnsWithActions}
             rowIdField="_id"
             withCheckbox={false}
@@ -241,19 +354,37 @@ export default function StudentView() {
             withPagination
             selectable={false}
             isLoading={isLoading}
+            isFetching={isFetching}
+            error={error}
             emptyRowsHeight={53}
-            noDataComponent={null}
-            EmptyStateComponent={null}
-            customTableHead={null}
-            renderRow={null}
             onRowClick={handleRowClick}
+            count={total}
+            {...table.tableProps}
             toolbarProps={{
-              searchPlaceholder: 'Search students...',
+              searchPlaceholder: 'Search name, reg number, email or phone...',
               toolbarTitle: 'Students',
+              onFilterClick: () => setFilterOpen(true),
+              filterCount: table.activeFilterCount,
+              ...table.searchProps,
             }}
+          />
+          <FilterChips
+            fields={allFields}
+            values={filters}
+            search={search}
+            onRemove={(key) => (key === 'search' ? clearFilters() : setFilter(key, ''))}
+            onClearAll={clearFilters}
           />
         </Card>
       </Box>
+
+      <AdvancedFilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        fields={allFields}
+        values={filters}
+        onApply={setFilters}
+      />
 
       <StudentBulkActionsModal open={bulkOpen} setOpen={setBulkOpen} />
     </Container>

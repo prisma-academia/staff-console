@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
 
+import Badge from '@mui/material/Badge';
 import Tooltip from '@mui/material/Tooltip';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
@@ -19,6 +20,8 @@ export default function GenericTableToolbar({
   customSelectedActions = null,
   showDefaultDeleteAction = true,
   onDelete = () => {},
+  onFilterClick = null,
+  filterCount = 0,
 }) {
   return (
     <Toolbar
@@ -74,11 +77,15 @@ export default function GenericTableToolbar({
         )
       ) : (
         customActions || (
-          <Tooltip title="Filter list">
-            <IconButton>
-              <Iconify icon="ic:round-filter-list" />
-            </IconButton>
-          </Tooltip>
+          onFilterClick && (
+            <Tooltip title="Advanced filters">
+              <IconButton onClick={onFilterClick}>
+                <Badge color="primary" badgeContent={filterCount} invisible={!filterCount}>
+                  <Iconify icon="ic:round-filter-list" />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+          )
         )
       )}
     </Toolbar>
@@ -95,4 +102,6 @@ GenericTableToolbar.propTypes = {
   customSelectedActions: PropTypes.node,
   showDefaultDeleteAction: PropTypes.bool,
   onDelete: PropTypes.func,
-}; 
+  onFilterClick: PropTypes.func,
+  filterCount: PropTypes.number,
+};

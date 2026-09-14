@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSnackbar } from 'notistack';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
@@ -9,6 +9,8 @@ import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
 import { Box, Chip, Dialog, IconButton, DialogTitle, DialogContent, DialogActions, DialogContentText } from '@mui/material';
+
+import useServerTable from 'src/hooks/use-server-table';
 
 import { getProgramTypeColor } from 'src/utils/program-types';
 
@@ -32,10 +34,17 @@ export default function ProgramPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [programToDelete, setProgramToDelete] = useState(null);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['programs'],
-    queryFn: () => programApi.getPrograms(),
+  const table = useServerTable({ defaultSortBy: 'name', defaultSortOrder: 'asc' });
+  const { queryParams } = table;
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['programs', 'page', queryParams],
+    queryFn: () => programApi.getProgramsPage(queryParams),
+    placeholderData: keepPreviousData,
   });
+
+  const rows = data?.data ?? [];
+  const total = data?.pagination?.total ?? 0;
 
   const { mutate: deleteProgram, isPending: isDeleting } = useMutation({
     mutationFn: (id) => programApi.deleteProgram(id),
@@ -74,7 +83,8 @@ export default function ProgramPage() {
 
   const columns = [
     { 
-      id: 'name', 
+      id: 'name',
+      sortKey: 'name',
       label: 'Program Name', 
       align: 'left', 
       cellSx: { width: '20%' },
@@ -85,12 +95,14 @@ export default function ProgramPage() {
       )
     },
     { 
-      id: 'code', 
+      id: 'code',
+      sortKey: 'code',
       label: 'Code',
       cellSx: { width: '8%' }
     },
     { 
-      id: 'type', 
+      id: 'type',
+      sortKey: 'type',
       label: 'Type',
       cellSx: { width: '8%' },
       renderCell: (row) => (
@@ -113,13 +125,15 @@ export default function ProgramPage() {
       )
     },
     { 
-      id: 'durationInYears', 
+      id: 'durationInYears',
+      sortKey: 'durationInYears',
       label: 'Duration',
       cellSx: { width: '10%' },
       renderCell: (row) => `${row.durationInYears || 0} Years`
     },
     { 
-      id: 'totalCreditsRequired', 
+      id: 'totalCreditsRequired',
+      sortKey: 'totalCreditsRequired',
       label: 'Credits',
       cellSx: { width: '10%' }
     },
@@ -134,7 +148,8 @@ export default function ProgramPage() {
       )
     },
     { 
-      id: 'isActive', 
+      id: 'isActive',
+      sortKey: 'isActive',
       label: 'Status',
       cellSx: { width: '8%' },
       renderCell: (row) => (
@@ -225,7 +240,7 @@ export default function ProgramPage() {
           borderRadius: 2,
         }}>
           <GenericTable
-            data={data || []}
+            data={rows}
             columns={columns}
             rowIdField="_id"
             withCheckbox
@@ -233,8 +248,12 @@ export default function ProgramPage() {
             withPagination
             selectable
             isLoading={isLoading}
+            isFetching={isFetching}
+            count={total}
+            {...table.tableProps}
             emptyRowsHeight={53}
             toolbarProps={{
+              ...table.searchProps,
               searchPlaceholder: 'Search programs...',
               toolbarTitle: 'Programs List',
             }}

@@ -2,13 +2,15 @@ import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useSnackbar } from 'notistack';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 
 import Card from '@mui/material/Card';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
 import { Box, Button, Popover, Divider, MenuItem, IconButton } from '@mui/material';
+
+import useServerTable from 'src/hooks/use-server-table';
 
 import { TemplateApi } from 'src/api';
 import { PERMISSIONS } from 'src/permissions/constants';
@@ -114,7 +116,8 @@ TemplateActions.propTypes = {
 
 const columns = [
   { 
-    id: 'name', 
+    id: 'name',
+    sortKey: 'name',
     label: 'Name', 
     align: 'left', 
     cellSx: { width: '20%' },
@@ -125,7 +128,8 @@ const columns = [
     )
   },
   { 
-    id: 'type', 
+    id: 'type',
+    sortKey: 'type',
     label: 'Type',
     cellSx: { width: '10%' },
     renderCell: (row) => (
@@ -135,7 +139,8 @@ const columns = [
     )
   },
   { 
-    id: 'category', 
+    id: 'category',
+    sortKey: 'category',
     label: 'Category',
     cellSx: { width: '15%', textTransform: 'capitalize' }
   },
@@ -163,7 +168,8 @@ const columns = [
     )
   },
   { 
-    id: 'isActive', 
+    id: 'isActive',
+    sortKey: 'isActive',
     label: 'Status',
     cellSx: { width: '10%' },
     renderCell: (row) => (
@@ -173,7 +179,8 @@ const columns = [
     )
   },
   { 
-    id: 'createdAt', 
+    id: 'createdAt',
+    sortKey: 'createdAt',
     label: 'Created At',
     cellSx: { width: '10%' },
     renderCell: (row) => (
@@ -192,14 +199,17 @@ export default function TemplateView() {
   const theme = useTheme();
   const navigate = useNavigate();
   
-  // Note: Sorting/Filtering state is handled internally by GenericTable 
-  // or via API if we implement server-side later. 
-  // For now, client-side handling in GenericTable is sufficient as per legacy behavior.
+  const table = useServerTable({ defaultSortBy: 'createdAt', defaultSortOrder: 'desc' });
+  const { queryParams } = table;
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['templates'],
-    queryFn: () => TemplateApi.getTemplates(),
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['templates', 'page', queryParams],
+    queryFn: () => TemplateApi.getTemplatesPage(queryParams),
+    placeholderData: keepPreviousData,
   });
+
+  const rows = data?.data ?? [];
+  const total = data?.pagination?.total ?? 0;
 
   const handleRowClick = (row) => {
     navigate(`/template/${row._id}`);
@@ -241,7 +251,7 @@ export default function TemplateView() {
           borderRadius: 2,
         }}>
           <GenericTable
-            data={data}
+            data={rows}
             columns={columns}
             rowIdField="_id"
             withCheckbox
@@ -249,9 +259,14 @@ export default function TemplateView() {
             withPagination
             selectable
             isLoading={isLoading}
+            isFetching={isFetching}
+            error={error}
+            count={total}
+            {...table.tableProps}
             emptyRowsHeight={53}
             onRowClick={handleRowClick}
             toolbarProps={{
+              ...table.searchProps,
               searchPlaceholder: 'Search templates...',
               toolbarTitle: 'Templates List',
             }}

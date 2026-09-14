@@ -336,3 +336,14 @@ export default {
   updateProgramme,
   deleteProgramme,
 };
+
+// --- Filtered exports: { columns, rows, total } for every record matching the list filters ---
+
+const unwrapExport = (result) => {
+  if (!result?.ok) throw new Error(result?.message || 'Export failed');
+  return result.data;
+};
+
+export const exportApplications = async (params = {}) => unwrapExport(await adminGet('application/export', params));
+
+export const exportAdmissions = async (params = {}) => unwrapExport(await adminGet('admission/export', params));

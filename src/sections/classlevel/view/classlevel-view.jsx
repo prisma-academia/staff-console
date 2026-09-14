@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSnackbar } from 'notistack';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
@@ -9,6 +9,8 @@ import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
 import { Box, Dialog, IconButton, DialogTitle, DialogContent, DialogActions, DialogContentText } from '@mui/material';
+
+import useServerTable from 'src/hooks/use-server-table';
 
 import { classLevelApi } from 'src/api';
 
@@ -30,10 +32,17 @@ export default function ClassLevelView() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [classLevelToDelete, setClassLevelToDelete] = useState(null);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['classlevels'],
-    queryFn: () => classLevelApi.getClassLevels(),
+  const table = useServerTable({ defaultSortBy: 'level', defaultSortOrder: 'asc' });
+  const { queryParams } = table;
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['classlevels', 'page', queryParams],
+    queryFn: () => classLevelApi.getClassLevelsPage(queryParams),
+    placeholderData: keepPreviousData,
   });
+
+  const rows = data?.data ?? [];
+  const total = data?.pagination?.total ?? 0;
 
   const { mutate: deleteClassLevel, isPending: isDeleting } = useMutation({
     mutationFn: (id) => classLevelApi.deleteClassLevel(id),
@@ -72,7 +81,8 @@ export default function ClassLevelView() {
 
   const columns = [
     { 
-      id: 'name', 
+      id: 'name',
+      sortKey: 'name',
       label: 'Class Level Name', 
       align: 'left', 
       cellSx: { width: '25%' },
@@ -83,7 +93,8 @@ export default function ClassLevelView() {
       )
     },
     { 
-      id: 'level', 
+      id: 'level',
+      sortKey: 'level',
       label: 'Level',
       cellSx: { width: '10%' },
       renderCell: (row) => (
@@ -93,7 +104,8 @@ export default function ClassLevelView() {
       )
     },
     { 
-      id: 'set', 
+      id: 'set',
+      sortKey: 'set',
       label: 'Set',
       cellSx: { width: '10%' },
       renderCell: (row) => (
@@ -115,7 +127,8 @@ export default function ClassLevelView() {
       )
     },
     { 
-      id: 'createdAt', 
+      id: 'createdAt',
+      sortKey: 'createdAt',
       label: 'Created At',
       cellSx: { width: '15%' },
       renderCell: (row) => (
@@ -203,7 +216,7 @@ export default function ClassLevelView() {
           borderRadius: 2,
         }}>
           <GenericTable
-            data={data || []}
+            data={rows}
             columns={columns}
             rowIdField="_id"
             withCheckbox
@@ -211,8 +224,12 @@ export default function ClassLevelView() {
             withPagination
             selectable
             isLoading={isLoading}
+            isFetching={isFetching}
+            count={total}
+            {...table.tableProps}
             emptyRowsHeight={53}
             toolbarProps={{
+              ...table.searchProps,
               searchPlaceholder: 'Search class levels...',
               toolbarTitle: 'Class Levels List',
             }}

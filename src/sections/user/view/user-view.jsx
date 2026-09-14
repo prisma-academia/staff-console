@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSnackbar } from 'notistack';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 
 import Stack from '@mui/material/Stack';
 import Table from '@mui/material/Table';
@@ -12,6 +12,8 @@ import { alpha, useTheme } from '@mui/material/styles';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
 import { Box, Chip, Paper, Button, Divider, TableRow, TableCell, LinearProgress } from '@mui/material';
+
+import useServerTable from 'src/hooks/use-server-table';
 
 import config from 'src/config';
 import { UserApi } from 'src/api';
@@ -25,36 +27,38 @@ import TableNoData from '../table-no-data';
 import UserTableRow from '../user-table-row';
 import UserTableHead from '../user-table-head';
 import UserTableToolbar from '../user-table-toolbar';
-import { applyFilter, getComparator } from '../utils';
 
 // ----------------------------------------------------------------------
 
 export default function UserPage() {
   const navigate = useNavigate();
-  const [page, setPage] = useState(0);
-  const [order, setOrder] = useState('asc');
   const [selected, setSelected] = useState([]);
-  const [orderBy, setOrderBy] = useState('firstName');
-  const [filterName, setFilterName] = useState('');
-  const [rowsPerPage, setRowsPerPage] = useState(5);
   const theme = useTheme();
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => UserApi.getUsers(),
+  const table = useServerTable({ defaultSortBy: 'firstName', defaultSortOrder: 'asc' });
+  const { page, rowsPerPage, sortBy, sortOrder, search, queryParams, tableProps, searchProps } = table;
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['users', 'page', queryParams],
+    queryFn: () => UserApi.getUsersPage(queryParams),
+    placeholderData: keepPreviousData,
   });
 
+  const rows = data?.data ?? [];
+  const total = data?.pagination?.total ?? 0;
+
   const handleSort = (event, id) => {
-    const isAsc = orderBy === id && order === 'asc';
-    setOrder(isAsc ? 'desc' : 'asc');
-    setOrderBy(id);
+    if (!id) return;
+    const isAsc = sortBy === id && sortOrder === 'asc';
+    setSelected([]);
+    tableProps.onSortChange(id, isAsc ? 'desc' : 'asc');
   };
 
   const handleSelectAllClick = (event) => {
     if (event.target.checked) {
-      const newSelecteds = data.map((n) => n._id);
+      const newSelecteds = rows.map((n) => n._id);
       setSelected(newSelecteds);
       return;
     }
@@ -80,17 +84,13 @@ export default function UserPage() {
   };
 
   const handleChangePage = (event, newPage) => {
-    setPage(newPage);
+    setSelected([]);
+    tableProps.onPageChange(event, newPage);
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setPage(0);
-    setRowsPerPage(parseInt(event.target.value, 10));
-  };
-
-  const handleFilterByName = (event) => {
-    setPage(0);
-    setFilterName(event.target.value);
+    setSelected([]);
+    tableProps.onRowsPerPageChange(event);
   };
 
   const { mutate: deleteBulkUsers } = useMutation({
@@ -103,8 +103,8 @@ export default function UserPage() {
       enqueueSnackbar(`${selected.length} users deleted successfully`, { variant: 'success' });
       setSelected([]);
     },
-    onError: (error) => {
-      enqueueSnackbar(error.message || 'Bulk delete failed', { variant: 'error' });
+    onError: (mutationError) => {
+      enqueueSnackbar(mutationError.message || 'Bulk delete failed', { variant: 'error' });
     }
   });
 
@@ -114,13 +114,7 @@ export default function UserPage() {
     }
   };
 
-  const dataFiltered = applyFilter({
-    inputData: data || [],
-    comparator: getComparator(order, orderBy),
-    filterName,
-  });
-
-  const notFound = !dataFiltered.length && !!filterName;
+  const notFound = !isLoading && !rows.length && !!search;
 
   return (
     <Container maxWidth="xl">
@@ -157,13 +151,15 @@ export default function UserPage() {
             boxShadow: `0 0 24px 0 ${alpha(theme.palette.grey[900], 0.1)}`
           }}
         >
-          {isLoading && <LinearProgress sx={{ borderTopLeftRadius: 2, borderTopRightRadius: 2 }} />}
+          {(isLoading || isFetching) && (
+            <LinearProgress sx={{ borderTopLeftRadius: 2, borderTopRightRadius: 2 }} />
+          )}
 
           <Box sx={{ p: 2 }}>
             <UserTableToolbar
               numSelected={selected.length}
-              filterName={filterName}
-              onFilterName={handleFilterByName}
+              filterName={searchProps.filterName}
+              onFilterName={searchProps.onFilterName}
             />
           </Box>
 
@@ -173,9 +169,9 @@ export default function UserPage() {
             <TableContainer sx={{ overflow: 'unset', minHeight: 400 }}>
               <Table sx={{ minWidth: 800 }}>
                 <UserTableHead
-                  order={order}
-                  orderBy={orderBy}
-                  rowCount={data?.length || 0}
+                  order={sortOrder}
+                  orderBy={sortBy}
+                  rowCount={rows.length}
                   numSelected={selected.length}
                   onRequestSort={handleSort}
                   onSelectAllClick={handleSelectAllClick}
@@ -191,7 +187,14 @@ export default function UserPage() {
                 />
 
                 <TableBody>
-                  {isLoading ? (
+                  {error && (
+                    <TableRow>
+                      <TableCell align="center" colSpan={8} sx={{ py: 3, color: 'error.main' }}>
+                        {error.message || String(error)}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {isLoading && rows.length === 0 ? (
                     Array.from(new Array(5)).map((_, index) => (
                       <TableRow key={index}>
                         <TableCell colSpan={8} sx={{ height: 72 }}>
@@ -203,22 +206,20 @@ export default function UserPage() {
                     ))
                   ) : (
                     <>
-                      {dataFiltered
-                        .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                        .map((row) => (
-                          <UserTableRow
-                            key={row._id}
-                            row={row}
-                            selected={selected.indexOf(row._id) !== -1}
-                            handleClick={(event) => handleClick(event, row._id)}
-                          />
-                        ))}
+                      {rows.map((row) => (
+                        <UserTableRow
+                          key={row._id}
+                          row={row}
+                          selected={selected.indexOf(row._id) !== -1}
+                          handleClick={(event) => handleClick(event, row._id)}
+                        />
+                      ))}
                     </>
                   )}
 
-                  {!isLoading && notFound && <TableNoData query={filterName} />}
+                  {notFound && <TableNoData query={search} />}
 
-                  {!isLoading && dataFiltered.length === 0 && !filterName && (
+                  {!isLoading && !error && rows.length === 0 && !search && (
                     <TableRow>
                       <TableCell align="center" colSpan={8} sx={{ py: 5 }}>
                         <Box sx={{ textAlign: 'center' }}>
@@ -246,10 +247,10 @@ export default function UserPage() {
             <TablePagination
               page={page}
               component="div"
-              count={data?.length || 0}
+              count={total}
               rowsPerPage={rowsPerPage}
               onPageChange={handleChangePage}
-              rowsPerPageOptions={[5, 10, 25]}
+              rowsPerPageOptions={[5, 10, 25, 50, 100]}
               onRowsPerPageChange={handleChangeRowsPerPage}
               sx={{ 
                 borderTop: `1px solid ${theme.palette.divider}`,

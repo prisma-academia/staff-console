@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSnackbar } from 'notistack';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
 import {
@@ -14,6 +14,8 @@ import {
   Typography,
   IconButton,
 } from '@mui/material';
+
+import useServerTable from 'src/hooks/use-server-table';
 
 import { SessionApi } from 'src/api';
 import { PERMISSIONS } from 'src/permissions/constants';
@@ -59,10 +61,17 @@ export default function SessionView() {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['sessions'],
-    queryFn: SessionApi.getSessions,
+  const table = useServerTable({ defaultSortBy: 'startDate', defaultSortOrder: 'desc' });
+  const { queryParams } = table;
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['sessions', 'page', queryParams],
+    queryFn: () => SessionApi.getSessionsPage(queryParams),
+    placeholderData: keepPreviousData,
   });
+
+  const rows = data?.data ?? [];
+  const total = data?.pagination?.total ?? 0;
 
   const deleteSessionMutation = useMutation({
     mutationFn: SessionApi.deleteSession,
@@ -70,8 +79,8 @@ export default function SessionView() {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       enqueueSnackbar('Session deleted successfully', { variant: 'success' });
     },
-    onError: (error) => {
-      const errorMessage = error.message || 'Failed to delete session';
+    onError: (mutationError) => {
+      const errorMessage = mutationError.message || 'Failed to delete session';
       enqueueSnackbar(errorMessage, { variant: 'error' });
     },
   });
@@ -96,6 +105,7 @@ export default function SessionView() {
   const columns = [
     {
       id: 'name',
+      sortKey: 'name',
       label: 'Name',
       align: 'left',
       cellSx: { width: '14%' },
@@ -107,6 +117,7 @@ export default function SessionView() {
     },
     {
       id: 'code',
+      sortKey: 'code',
       label: 'Code',
       cellSx: { width: '10%' },
       renderCell: (row) => (
@@ -123,18 +134,21 @@ export default function SessionView() {
     },
     {
       id: 'startDate',
+      sortKey: 'startDate',
       label: 'Start Date',
       cellSx: { width: '12%' },
       renderCell: (row) => formatDate(row.startDate),
     },
     {
       id: 'endDate',
+      sortKey: 'endDate',
       label: 'End Date',
       cellSx: { width: '12%' },
       renderCell: (row) => formatDate(row.endDate),
     },
     {
       id: 'isCurrent',
+      sortKey: 'isCurrent',
       label: 'Current',
       cellSx: { width: '10%' },
       renderCell: (row) =>
@@ -196,7 +210,6 @@ export default function SessionView() {
     if (!value) setEditingSession(null);
   };
 
-  const sessions = Array.isArray(data) ? data : [];
 
   return (
     <Container maxWidth="xl">
@@ -234,15 +247,20 @@ export default function SessionView() {
           }}
         >
           <GenericTable
-            data={sessions}
+            data={rows}
             columns={columns}
             rowIdField="_id"
             withToolbar
             withPagination
             isLoading={isLoading}
+            isFetching={isFetching}
+            error={error}
+            count={total}
+            {...table.tableProps}
             emptyRowsHeight={53}
             onRowClick={(row) => setViewingSession(row)}
             toolbarProps={{
+              ...table.searchProps,
               searchPlaceholder: 'Search sessions...',
               toolbarTitle: 'Sessions',
             }}
