@@ -294,36 +294,42 @@ export default function AdmissionPage() {
                 </Tooltip>
               </Can>
             )}
-            <Tooltip title="Create student record">
-              <IconButton
-                color="primary"
-                size="small"
-                sx={{
-                  boxShadow: `0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
-                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.1) },
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleOpen(row);
-                }}
-              >
-                <Iconify icon="eva:edit-fill" />
-              </IconButton>
-            </Tooltip>
-            <Can do={PERMISSIONS.DELETE_ADMISSION}>
-              <Tooltip title="Delete">
-                <IconButton
-                  color="error"
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeleteConfirm(row);
-                  }}
-                >
-                  <Iconify icon="eva:trash-2-fill" />
-                </IconButton>
-              </Tooltip>
-            </Can>
+            {row.status === 'accepted' && row.payment?.paid && (
+              <Can do={PERMISSIONS.ADD_STUDENT}>
+                <Tooltip title="Create student record">
+                  <IconButton
+                    color="primary"
+                    size="small"
+                    sx={{
+                      boxShadow: `0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                      '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.1) },
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpen(row);
+                    }}
+                  >
+                    <Iconify icon="mdi:account-plus" />
+                  </IconButton>
+                </Tooltip>
+              </Can>
+            )}
+            {!row.payment?.paid && (
+              <Can do={PERMISSIONS.DELETE_ADMISSION}>
+                <Tooltip title="Delete">
+                  <IconButton
+                    color="error"
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteConfirm(row);
+                    }}
+                  >
+                    <Iconify icon="eva:trash-2-fill" />
+                  </IconButton>
+                </Tooltip>
+              </Can>
+            )}
           </Stack>
         ),
       };

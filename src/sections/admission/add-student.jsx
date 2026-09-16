@@ -45,6 +45,12 @@ const stateOptions = [
   'Yobe', 'Zamfara',
 ];
 
+const normaliseState = (state) => {
+  if (!state) return '';
+  const trimmed = state.trim();
+  return trimmed === 'Federal Capital Territory' ? 'FCT' : trimmed;
+};
+
 const emergencyContactRelationshipOptions = ['Parent', 'Sibling', 'Uncle/Aunt', 'Spouse', 'Guardian', 'Other'];
 
 // The admission record comes from the application API, where `programme` may be an
@@ -85,6 +91,7 @@ const AddStudentModal = ({ open, handleClose, object }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [isGeneratingRegNumber, setIsGeneratingRegNumber] = React.useState(false);
   const programmeResolved = React.useRef(false);
+  const application = object.application || {};
   const validationSchema = Yup.object({
     personalInfo: Yup.object({
       firstName: Yup.string().required('First name is required'),
@@ -121,20 +128,20 @@ const AddStudentModal = ({ open, handleClose, object }) => {
   const formik = useFormik({
     initialValues: {
       personalInfo: {
-        firstName: object.application.firstName || '',
-        lastName: object.application.lastName || '',
-        middleName: object.application.otherName || '',
-        dateOfBirth: object.application.dob
-          ? new Date(object.application.dob).toISOString().split('T')[0]
+        firstName: application.firstName || '',
+        lastName: application.lastName || '',
+        middleName: application.otherName || '',
+        dateOfBirth: application.dob
+          ? new Date(application.dob).toISOString().split('T')[0]
           : '',
-        gender: object.application.gender || 'Male',
+        gender: application.gender || 'Male',
       },
       contactInfo: {
-        email: object.application.email || '',
-        phone: object.application.phoneNumber || '',
-        address: object.application.address || '',
-        state: object.application.stateOfResidence || '',
-        lga: object.application.lgaOfResidence,
+        email: application.email || '',
+        phone: application.phoneNumber || '',
+        address: application.address || '',
+        state: normaliseState(application.stateOfResidence),
+        lga: application.lgaOfResidence || '',
       },
       enrollmentDate: object.offerDate
         ? new Date(object.offerDate).toISOString().split('T')[0]
