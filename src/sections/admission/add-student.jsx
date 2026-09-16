@@ -26,6 +26,7 @@ import {
 } from '@mui/material';
 
 import { formatProgrammeLabel } from 'src/utils/format-programme';
+import { toDateOnlyInputValue } from 'src/utils/format-date-only';
 
 import Iconify from 'src/components/iconify';
 
@@ -131,9 +132,7 @@ const AddStudentModal = ({ open, handleClose, object }) => {
         firstName: application.firstName || '',
         lastName: application.lastName || '',
         middleName: application.otherName || '',
-        dateOfBirth: application.dob
-          ? new Date(application.dob).toISOString().split('T')[0]
-          : '',
+        dateOfBirth: toDateOnlyInputValue(application.dob),
         gender: application.gender || 'Male',
       },
       contactInfo: {

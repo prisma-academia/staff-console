@@ -172,7 +172,7 @@ export default function StudentDetails({ open, setOpen, student }) {
         lastName: studentData?.personalInfo?.lastName || '',
         middleName: studentData?.personalInfo?.middleName || '',
         gender: studentData?.personalInfo?.gender || '',
-        dateOfBirth: studentData?.personalInfo?.dateOfBirth || '',
+        dateOfBirth: toDateOnlyInputValue(studentData?.personalInfo?.dateOfBirth),
       },
       contactInfo: {
         email: studentData?.contactInfo?.email || '',
@@ -600,7 +600,7 @@ export default function StudentDetails({ open, setOpen, student }) {
                           label="Date of Birth"
                           type="date"
                           name="personalInfo.dateOfBirth"
-                          value={toDateOnlyInputValue(formik.values.personalInfo.dateOfBirth)}
+                          value={formik.values.personalInfo.dateOfBirth || ''}
                           onChange={formik.handleChange}
                           error={formik.touched.personalInfo?.dateOfBirth && Boolean(formik.errors.personalInfo?.dateOfBirth)}
                           helperText={formik.touched.personalInfo?.dateOfBirth && formik.errors.personalInfo?.dateOfBirth}
