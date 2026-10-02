@@ -22,6 +22,7 @@ import {
 
 import useServerTable from 'src/hooks/use-server-table';
 
+import { PERMISSIONS } from 'src/permissions/constants';
 import {
   listSessions,
   listProgrammes,
@@ -30,6 +31,7 @@ import {
 } from 'src/api/adminApplicationApi';
 
 import Iconify from 'src/components/iconify';
+import Can from 'src/components/permission/can';
 import { ExportMenu } from 'src/components/export';
 import { GenericTable } from 'src/components/generic-table';
 import { FilterChips, describeFilters, AdvancedFilterDrawer } from 'src/components/advanced-filter';
@@ -230,6 +232,15 @@ export default function ApplicationPage() {
             </Typography>
           </Box>
           <Stack direction="row" spacing={2}>
+            <Can do={PERMISSIONS.ONBOARD_APPLICANT}>
+              <Button
+                variant="contained"
+                startIcon={<Iconify icon="eva:person-add-outline" />}
+                onClick={() => navigate('/application/onboard')}
+              >
+                Onboard applicant
+              </Button>
+            </Can>
             <Button
               variant="outlined"
               color="inherit"

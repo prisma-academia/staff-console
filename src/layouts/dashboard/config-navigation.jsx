@@ -60,6 +60,12 @@ const useNavConfig = () => {
           permission: PERMISSIONS.VIEW_APPLICATION,
         },
         {
+          title: 'Onboard Applicant',
+          path: '/application/onboard',
+          icon: <Iconify icon="eva:person-add-outline" width={24} />,
+          permission: PERMISSIONS.ONBOARD_APPLICANT,
+        },
+        {
           title: 'Admission',
           path: '/admission',
           icon: <Iconify icon="eva:person-add-fill" width={24} />,

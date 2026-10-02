@@ -18,9 +18,17 @@ import {
 } from '@mui/material';
 
 import config from 'src/config';
-import { getApplicationById, getApplicationReceiptPdf, validateApplicationPayment } from 'src/api/adminApplicationApi';
+import { PERMISSIONS } from 'src/permissions/constants';
+import {
+  getApplicationById,
+  resendApplicantInvite,
+  getApplicationReceiptPdf,
+  validateApplicationPayment,
+  sendApplicationPaymentLink,
+} from 'src/api/adminApplicationApi';
 
 import Iconify from 'src/components/iconify';
+import Can from 'src/components/permission/can';
 
 // ----------------------------------------------------------------------
 
@@ -31,6 +39,8 @@ export default function ApplicationDetailPage() {
   const { enqueueSnackbar } = useSnackbar();
   const [validating, setValidating] = useState(false);
   const [printingReceipt, setPrintingReceipt] = useState(false);
+  const [sendingLink, setSendingLink] = useState(false);
+  const [sendingInvite, setSendingInvite] = useState(false);
 
   const { data: result, isLoading, isError, error } = useQuery({
     queryKey: ['application', id],
@@ -39,6 +49,34 @@ export default function ApplicationDetailPage() {
   });
 
   const application = result?.data ?? result;
+
+  // Starts a fresh Paystack checkout and emails it to the applicant.
+  const handleSendPaymentLink = async () => {
+    if (!id || sendingLink) return;
+    setSendingLink(true);
+    try {
+      const res = await sendApplicationPaymentLink(id);
+      queryClient.invalidateQueries({ queryKey: ['application', id] });
+      enqueueSnackbar(res.message || 'Payment link sent', { variant: res.data?.emailFailed ? 'warning' : 'success' });
+    } catch (err) {
+      enqueueSnackbar(err?.message || 'Failed to send payment link', { variant: 'error' });
+    } finally {
+      setSendingLink(false);
+    }
+  };
+
+  const handleResendInvite = async () => {
+    if (!id || sendingInvite) return;
+    setSendingInvite(true);
+    try {
+      const res = await resendApplicantInvite(id);
+      enqueueSnackbar(res.message || 'Invite sent', { variant: 'success' });
+    } catch (err) {
+      enqueueSnackbar(err?.message || 'Failed to send invite', { variant: 'error' });
+    } finally {
+      setSendingInvite(false);
+    }
+  };
 
   const handleValidatePayment = async () => {
     if (!id || validating) return;
@@ -214,10 +252,29 @@ export default function ApplicationDetailPage() {
                   {printingReceipt ? 'Loading…' : 'Print Receipt'}
                 </Button>
               )}
-              {!canValidate && status !== 'paid' && (
-                <Button variant="contained" onClick={handleBack}>
-                  Process Payment
-                </Button>
+              {status === 'not paid' && (
+                <Can do={PERMISSIONS.ONBOARD_APPLICANT}>
+                  <Button
+                    variant={canValidate ? 'outlined' : 'contained'}
+                    onClick={handleSendPaymentLink}
+                    disabled={sendingLink}
+                    startIcon={sendingLink ? <CircularProgress size={16} color="inherit" /> : <Iconify icon="eva:email-outline" />}
+                  >
+                    {sendingLink ? 'Sending…' : 'Send payment link'}
+                  </Button>
+                </Can>
+              )}
+              {application.channel === 'staff' && (
+                <Can do={PERMISSIONS.ONBOARD_APPLICANT}>
+                  <Button
+                    variant="outlined"
+                    onClick={handleResendInvite}
+                    disabled={sendingInvite}
+                    startIcon={sendingInvite ? <CircularProgress size={16} color="inherit" /> : <Iconify icon="eva:paper-plane-outline" />}
+                  >
+                    {sendingInvite ? 'Sending…' : 'Resend invite'}
+                  </Button>
+                </Can>
               )}
             </Stack>
           </Box>
@@ -258,6 +315,18 @@ export default function ApplicationDetailPage() {
                       Application Number
                     </Typography>
                     <Typography variant="body2">{application.number || 'N/A'}</Typography>
+                  </Stack>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Submitted By
+                    </Typography>
+                    <Typography variant="body2">
+                      {application.channel === 'staff'
+                        ? `Staff${application.onboardedBy ? ` — ${application.onboardedBy.name || application.onboardedBy.email}` : ''}`
+                        : 'Applicant (self-service)'}
+                    </Typography>
                   </Stack>
                 </Grid>
               </Grid>

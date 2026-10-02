@@ -39,6 +39,7 @@ const CalenderPage = lazy(() => import('src/pages/calender'));
 const ApplicationSessionsPage = lazy(() => import('../pages/application-sessions'));
 const ApplicationProgrammesPage = lazy(() => import('../pages/application-programmes'));
 const ApplicationAnalyticsPage = lazy(() => import('../pages/application-analytics'));
+const ApplicationOnboardPage = lazy(() => import('../pages/application-onboard'));
 const ResultPage = lazy(() => import('src/pages/result'));
 const AssessmentPage = lazy(() => import('src/pages/assessment'));
 const AssessmentCoursesPage = lazy(() => import('src/pages/assessment-courses'));
@@ -142,6 +143,14 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <ApplicationPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'application/onboard',
+          element: (
+            <PrivateRoute>
+              <ApplicationOnboardPage />
             </PrivateRoute>
           ),
         },

@@ -20,6 +20,7 @@ export const PERMISSIONS = {
   VIEW_APPLICATION: 'view_application',
   EDIT_APPLICATION: 'edit_application',
   EXPORT_APPLICATION: 'export_application',
+  ONBOARD_APPLICANT: 'onboard_applicant',
   VIEW_ADMISSION: 'view_admission',
   ADD_ADMISSION: 'add_admission',
   EDIT_ADMISSION: 'edit_admission',

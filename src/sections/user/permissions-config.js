@@ -35,6 +35,7 @@ export const PERMISSION_CATEGORIES = [
       { id: 'view_application', label: 'View Application' },
       { id: 'edit_application', label: 'Edit Application' },
       { id: 'export_application', label: 'Export Application' },
+      { id: 'onboard_applicant', label: 'Onboard Applicant' },
       { id: 'view_admission', label: 'View Admission' },
       { id: 'add_admission', label: 'Add Admission' },
       { id: 'edit_admission', label: 'Edit Admission' },

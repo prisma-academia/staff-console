@@ -2,6 +2,9 @@
  * Admin API client for application-api (application/admission admin endpoints).
  * Uses X-API-Key or Authorization: ApiKey. All requests go to applicationBaseUrl + apiVersion.
  */
+import { apiClient } from 'src/api';
+import { useAuthStore } from 'src/store';
+
 import config from '../config';
 
 const getBaseUrl = () => {
@@ -168,6 +171,35 @@ export const validateApplicationPayment = async (id) => {
   const result = await adminPost(`application/${id}/validate-payment`, {});
   return result;
 };
+
+// --- Staff onboarding ---
+// The admin key alone is not enough for these: application-api also wants the staff
+// user's main-api token, which it checks for the onboard_applicant permission. Asking
+// the main api first surfaces a missing permission early and refreshes an expired token.
+
+const ONBOARD_PERMISSION = 'onboard_applicant';
+
+const staffPost = async (path, body = {}) => {
+  await apiClient.get(`user/can/${ONBOARD_PERMISSION}`);
+  const { token } = useAuthStore.getState();
+  const base = getBaseUrl();
+  const pathStr = path.startsWith('/') ? path.slice(1) : path;
+  const response = await fetch(`${base.replace(/\/?$/, '/')}${pathStr}`, {
+    method: 'POST',
+    headers: getHeaders({ 'X-Staff-Token': token }),
+    body: JSON.stringify(body),
+  });
+  return handleJsonResponse(response);
+};
+
+/** Create applicant account + application, start the Paystack checkout and email the invite. */
+export const onboardApplicant = async (body) => staffPost('onboard', body);
+
+/** Start (or restart) the application-fee checkout and email the link to the applicant. */
+export const sendApplicationPaymentLink = async (id) => staffPost(`onboard/${id}/send-payment-link`);
+
+/** Re-send the "set your password" invite for a staff-onboarded applicant. */
+export const resendApplicantInvite = async (id) => staffPost(`onboard/${id}/resend-invite`);
 
 // --- Admissions ---
 
