@@ -283,10 +283,8 @@ export default function ApplicationPage() {
             data={rows}
             columns={columnsWithActions}
             rowIdField="_id"
-            withCheckbox
             withToolbar
             withPagination
-            selectable
             isLoading={isLoading}
             isFetching={isFetching}
             error={error}

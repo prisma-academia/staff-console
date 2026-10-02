@@ -357,9 +357,12 @@ export const courseApi = {
 };
 
 export const FeeApi = {
-  getFees: () => apiClient.get('fee'),
+  // Lightweight list for dropdowns (no stats). Optional { session }.
+  getFees: (params = {}) => apiClient.get(`fee/options?${buildQueryString(params)}`),
   getFeesPage: (params = {}) => apiClient.get(`fee?${buildQueryString(params)}`),
   getFeeById: (id) => apiClient.get(`fee/${id}`),
+  getFeeStudents: (id, params = {}) => apiClient.get(`fee/${id}/students?${buildQueryString(params)}`),
+  getFeeBreakdown: (id, params = {}) => apiClient.get(`fee/${id}/breakdown?${buildQueryString(params)}`),
   getEligibleStudentsForPayment: (feeId) =>
     apiClient.get(`fee/${feeId}/eligible-students`),
   createFee: (data) => apiClient.post('fee', data),
@@ -396,6 +399,10 @@ export const DocumentApi = {
   getDocumentsPage: (params = {}) => apiClient.get(`document?${buildQueryString(params)}`),
 };
 
+export const AppApi = {
+  getVersion: () => apiClient.get('version'),
+};
+
 export const AnalyticsApi = {
   getAnalytics: () => apiClient.get('analytics'),
 };
@@ -410,36 +417,7 @@ export const paymentApi = {
     return createRequestFullResult(`payment${queryString ? `?${queryString}` : ''}`);
   },
   getPaymentById: (id) => apiClient.get(`payment/${id}`),
-  updatePayment: (id, data) => apiClient.put(`payment/${id}`, data),
-  exportPayments: async (params = {}) => {
-    const { token } = useAuthStore.getState();
-    const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
-    const query = buildQueryString(params);
-    const url = `${config.baseUrl}${apiVersion}/payment/export${query ? `?${query}` : ''}`;
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) {
-      let errorMessage = 'Failed to export payments';
-      try {
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const errorJson = await res.json();
-          errorMessage = errorJson.message || errorJson.error || errorMessage;
-        } else {
-          const errorText = await res.text();
-          if (errorText) errorMessage = errorText;
-        }
-      } catch {
-        errorMessage = res.statusText || errorMessage;
-      }
-      const err = new Error(errorMessage);
-      err.status = res.status;
-      throw err;
-    }
-    return res.blob();
-  },
+  exportPayments: (params = {}) => downloadBlob('payment/export', params, 'Failed to export payments'),
   getReceiptPdf: async (id) => {
     const { token } = useAuthStore.getState();
     const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
@@ -520,6 +498,35 @@ const buildQueryString = (params) => {
     }
   });
   return searchParams.toString();
+};
+
+// Authenticated GET that returns a file blob (exports); JSON error bodies become the Error message.
+const downloadBlob = async (path, params = {}, fallbackMessage = 'Download failed') => {
+  const { token } = useAuthStore.getState();
+  const apiVersion = config.apiVersion.startsWith('/') ? config.apiVersion : `/${config.apiVersion}`;
+  const query = buildQueryString(params);
+  const res = await fetch(`${config.baseUrl}${apiVersion}/${path}${query ? `?${query}` : ''}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    let errorMessage = fallbackMessage;
+    try {
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const errorJson = await res.json();
+        errorMessage = errorJson.message || errorJson.error || errorMessage;
+      } else {
+        const errorText = await res.text();
+        if (errorText) errorMessage = errorText;
+      }
+    } catch {
+      errorMessage = res.statusText || errorMessage;
+    }
+    const err = new Error(errorMessage);
+    err.status = res.status;
+    throw err;
+  }
+  return res.blob();
 };
 
 export const AuditApi = {

@@ -28,6 +28,8 @@ import {
   TableContainer,
 } from '@mui/material';
 
+import useActiveSession from 'src/hooks/use-active-session';
+
 import { FeeApi, paymentApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
@@ -69,9 +71,10 @@ export default function PaymentsTab({ student }) {
 
   const paymentHistory = student?.payments || [];
 
+  const { sessionId } = useActiveSession();
   const { data: fees = [] } = useQuery({
-    queryKey: ['fees'],
-    queryFn: FeeApi.getFees,
+    queryKey: ['fees', 'options', sessionId],
+    queryFn: () => FeeApi.getFees({ session: sessionId }),
     enabled: createModalOpen,
   });
   const feeList = Array.isArray(fees) ? fees : (fees?.data ?? []);

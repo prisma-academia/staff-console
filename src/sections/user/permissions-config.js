@@ -24,7 +24,6 @@ export const PERMISSION_CATEGORIES = [
     label: 'Payment Management',
     permissions: [
       { id: 'add_payment', label: 'Add Payment' },
-      { id: 'edit_payment', label: 'Edit Payment' },
       { id: 'delete_payment', label: 'Delete Payment' },
       { id: 'view_payment', label: 'View Payment' },
       { id: 'initialize_payment', label: 'Initialize Payment' },

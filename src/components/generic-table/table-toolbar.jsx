@@ -19,17 +19,21 @@ export default function GenericTableToolbar({
   customActions = null,
   customSelectedActions = null,
   showDefaultDeleteAction = true,
-  onDelete = () => {},
+  onDelete = null,
   onFilterClick = null,
   filterCount = 0,
 }) {
   return (
     <Toolbar
       sx={{
-        height: 96,
+        minHeight: 96,
         display: 'flex',
+        flexWrap: 'wrap',
+        gap: 1,
         justifyContent: 'space-between',
-        p: (theme) => theme.spacing(0, 1, 0, 3),
+        py: { xs: 1, sm: 0 },
+        pl: { xs: 2, sm: 3 },
+        pr: 1,
         ...(numSelected > 0 && {
           color: 'primary.main',
           bgcolor: 'primary.lighter',
@@ -67,7 +71,7 @@ export default function GenericTableToolbar({
 
       {numSelected > 0 ? (
         customSelectedActions || (
-          showDefaultDeleteAction && (
+          showDefaultDeleteAction && onDelete && (
             <Tooltip title="Delete">
               <IconButton onClick={onDelete}>
                 <Iconify icon="eva:trash-2-fill" />

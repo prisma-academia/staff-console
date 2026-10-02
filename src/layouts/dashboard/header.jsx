@@ -16,6 +16,7 @@ import { bgBlur } from 'src/theme/css';
 
 import Logo from 'src/components/logo';
 import Iconify from 'src/components/iconify';
+import SessionSelector from 'src/components/session-selector/session-selector';
 
 import Searchbar from './common/searchbar';
 import { NAV, HEADER } from './config-layout';
@@ -56,7 +57,7 @@ export default function Header({ onOpenNav }) {
       )}
       
       {!lgUp && (
-        <Box sx={{ mr: 2, display: { xs: 'inline-flex', lg: 'none' } }}>
+        <Box sx={{ mr: 2, display: { xs: 'none', sm: 'inline-flex', lg: 'none' } }}>
           <Logo />
         </Box>
       )}
@@ -70,6 +71,7 @@ export default function Header({ onOpenNav }) {
       <Box sx={{ flexGrow: 1 }} />
 
       <Stack direction="row" alignItems="center" spacing={{ xs: 0.5, sm: 1.5 }}>
+        <SessionSelector />
         <Searchbar />
         
         {/* <Button

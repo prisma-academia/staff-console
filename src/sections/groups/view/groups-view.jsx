@@ -201,7 +201,6 @@ export default function GroupsView() {
             {...table.tableProps}
           columns={columnsWithActions}
           rowIdField="_id"
-          withCheckbox={false}
           withToolbar
           withPagination
           toolbarProps={{

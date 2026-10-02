@@ -36,6 +36,8 @@ import {
   TableContainer,
 } from '@mui/material';
 
+import useActiveSession from 'src/hooks/use-active-session';
+
 import { toProgrammeOptions } from 'src/utils/format-programme';
 
 import { FeeApi, StudentApi, programApi, classLevelApi } from 'src/api';
@@ -61,11 +63,25 @@ const GATEWAY_OPTIONS = [
   { name: 'Stripe', _id: 'Stripe' },
 ];
 
-const EditFee = ({ open, setOpen, fee }) => {
+const EditFee = ({ open, setOpen, fee: feeProp }) => {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { sessions } = useActiveSession();
+  const sessionOptions = useMemo(
+    () => sessions.map((s) => ({ _id: s._id, name: `${s.name || s.code}${s.isCurrent ? ' (current)' : ''}` })),
+    [sessions]
+  );
+
+  // List rows omit students/users, so always edit the full fee; saving before it loads would clear them.
+  const { data: fullFee } = useQuery({
+    queryKey: ['fee', feeProp?._id],
+    queryFn: () => FeeApi.getFeeById(feeProp._id),
+    enabled: Boolean(open && feeProp?._id),
+  });
+  const feeLoaded = Boolean(fullFee && fullFee._id === feeProp?._id);
+  const fee = feeLoaded ? fullFee : feeProp;
 
   const { data: programOptions } = useQuery({
     queryKey: ['programs'],
@@ -112,6 +128,7 @@ const EditFee = ({ open, setOpen, fee }) => {
       description: fee?.description || '',
       amount: fee?.amount ?? '',
       dueDate: fee?.dueDate ? fee.dueDate.slice(0, 10) : '',
+      session: fee?.session?._id || fee?.session || '',
       programs: (fee?.programs || []).map((program) => program?._id || program?.id || program),
       classLevels: (fee?.classLevels || []).map(
         (level) => level?._id || level?.id || level
@@ -144,8 +161,7 @@ const EditFee = ({ open, setOpen, fee }) => {
   const hasCompletedPayments = useMemo(() => {
     if (!fee) return false;
     const paymentMade = fee?.payment?.made || 0;
-    const completedPayments = fee?.payment?.completedPayments || [];
-    return paymentMade > 0 || completedPayments.length > 0;
+    return paymentMade > 0 || (fee?.payment?.paidStudents || 0) > 0;
   }, [fee]);
 
   const validationSchema = Yup.object({
@@ -160,6 +176,7 @@ const EditFee = ({ open, setOpen, fee }) => {
       })
     ),
     dueDate: Yup.date().required('Due date is required'),
+    session: Yup.string().required('Session is required'),
     programs: Yup.array().required('Program(s) are required'),
     classLevels: Yup.array().required('Class level(s) are required'),
     feeType: Yup.string().required('Fee type is required'),
@@ -192,6 +209,7 @@ const EditFee = ({ open, setOpen, fee }) => {
       if (hasCompletedPayments) {
         const payload = {
           dueDate: values.dueDate,
+          session: values.session,
           programs: values.programs,
           classLevels: values.classLevels,
           students: (values.students || []).filter((s) => s && s.trim() !== ''),
@@ -399,6 +417,9 @@ const EditFee = ({ open, setOpen, fee }) => {
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
+                  <CustomSelect data={sessionOptions} label="Session" name="session" formik={formik} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
                   <CustomSelect
                     data={formattedStudentOptions}
                     label="User(s)"
@@ -536,7 +557,7 @@ const EditFee = ({ open, setOpen, fee }) => {
 
               <Stack direction="row" justifyContent="flex-end" spacing={2} mt={4}>
                 <Button onClick={handleModalClose}>Cancel</Button>
-                <LoadingButton loading={isPending} variant="contained" type="submit">
+                <LoadingButton loading={isPending} disabled={!feeLoaded} variant="contained" type="submit">
                   Update Fee
                 </LoadingButton>
               </Stack>

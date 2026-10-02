@@ -1,338 +1,158 @@
 import PropTypes from 'prop-types';
+import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
-import Grid from '@mui/material/Grid';
+import Tab from '@mui/material/Tab';
 import Card from '@mui/material/Card';
-import Stack from '@mui/material/Stack';
-import Table from '@mui/material/Table';
-import Paper from '@mui/material/Paper';
-import TableRow from '@mui/material/TableRow';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableHead from '@mui/material/TableHead';
+import Grid from '@mui/material/Grid';
+import Tabs from '@mui/material/Tabs';
+import Divider from '@mui/material/Divider';
+import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
-import CardContent from '@mui/material/CardContent';
-import TableContainer from '@mui/material/TableContainer';
-import LinearProgress from '@mui/material/LinearProgress';
 
-import Label from 'src/components/label';
+import { programApi, classLevelApi } from 'src/api';
 
-const formatCurrency = (amount) => {
-  if (!amount && amount !== 0) return '₦0';
-  return `₦${Number(amount).toLocaleString()}`;
-};
+import FeeProgress from './fee-progress';
+import { formatCurrency } from './fee-format';
+import FeeInfoTab from './detail/fee-info-tab';
+import FeeStudentsTab from './detail/fee-students-tab';
+import FeeBreakdownTab from './detail/fee-breakdown-tab';
 
-const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  try {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  } catch {
-    return 'N/A';
-  }
-};
+const TABS = ['students', 'breakdown', 'details'];
+// Students-tab URL params cleared when drilling in from the breakdown.
+const STUDENT_PARAMS = ['page', 'search', 'status', 'program', 'classLevel'];
 
-const getStatusColor = (status) => {
-  const statusValue = (status || '').toLowerCase();
-  if (statusValue === 'pending') return 'error';
-  if (statusValue === 'overdue') return 'warning';
-  return 'success';
-};
+const asList = (data) => (Array.isArray(data) ? data : data?.data ?? []);
+const toOptions = (items) => items.map((i) => ({ value: i._id, label: i.name || i.code }));
 
-const getPaymentStatusColor = (status) => {
-  const statusValue = (status || '').toLowerCase();
-  if (statusValue === 'completed') return 'success';
-  if (statusValue === 'pending') return 'warning';
-  if (statusValue === 'failed') return 'error';
-  return 'default';
-};
-
-function getPaymentStudentName(payment) {
-  const student = payment?.student;
-  if (student?.personalInfo) {
-    const first = student.personalInfo.firstName || '';
-    const last = student.personalInfo.lastName || '';
-    return [first, last].filter(Boolean).join(' ').trim() || student?.email || 'N/A';
-  }
-  return student?.email ?? 'N/A';
+function Kpi({ label, value, caption, children }) {
+  return (
+    <Card sx={{ p: 2, height: 1 }}>
+      <Typography variant="caption" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography variant="h5" sx={{ mt: 0.5, wordBreak: 'break-word' }}>
+        {value}
+      </Typography>
+      {caption && (
+        <Typography variant="caption" color="text.secondary">
+          {caption}
+        </Typography>
+      )}
+      {children}
+    </Card>
+  );
 }
 
-function getPaymentRegNumber(payment) {
-  return payment?.student?.regNumber ?? 'N/A';
-}
+Kpi.propTypes = {
+  label: PropTypes.string,
+  value: PropTypes.node,
+  caption: PropTypes.node,
+  children: PropTypes.node,
+};
 
 export default function FeeDetailsContent({ feeDetails, isLoading }) {
-  if (!feeDetails && !isLoading) {
-    return null;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'students';
+  const groupBy = searchParams.get('groupBy') === 'classLevel' ? 'classLevel' : 'program';
+
+  const { data: programs } = useQuery({ queryKey: ['programs'], queryFn: () => programApi.getPrograms() });
+  const { data: classLevels } = useQuery({ queryKey: ['classLevels'], queryFn: () => classLevelApi.getClassLevels() });
+
+  const updateParams = (changes) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        Object.entries(changes).forEach(([key, value]) => (value ? next.set(key, value) : next.delete(key)));
+        return next;
+      },
+      { replace: true }
+    );
+
+  if (isLoading || !feeDetails) {
+    return isLoading ? (
+      <Grid container spacing={2}>
+        {[0, 1, 2, 3].map((i) => (
+          <Grid item xs={6} md={3} key={i}>
+            <Skeleton variant="rounded" height={96} />
+          </Grid>
+        ))}
+        <Grid item xs={12}>
+          <Skeleton variant="rounded" height={420} />
+        </Grid>
+      </Grid>
+    ) : null;
   }
 
-  const completedPayments = feeDetails?.payment?.completedPayments || [];
-  const expected = feeDetails?.payment?.expected || 0;
-  const made = feeDetails?.payment?.made || 0;
-  const paymentProgress = expected === 0 ? 0 : Math.round((made / expected) * 100);
+  const stats = feeDetails.payment || {};
+  const studentCount = feeDetails.studentCount || 0;
+  const paidStudents = stats.paidStudents || 0;
 
-  const getProgressColor = (progress) => {
-    if (progress === 100) return 'success';
-    if (progress > 50) return 'info';
-    return 'warning';
-  };
+  // Filter options: the fee's own targeting when it has one, otherwise everything.
+  const programOptions = toOptions(feeDetails.programs?.length ? feeDetails.programs : asList(programs));
+  const classLevelOptions = toOptions(feeDetails.classLevels?.length ? feeDetails.classLevels : asList(classLevels));
 
-  if (isLoading) {
-    return <Typography>Loading...</Typography>;
-  }
+  const handleSelectGroup = (key, id) =>
+    updateParams({
+      ...Object.fromEntries(STUDENT_PARAMS.map((p) => [p, ''])),
+      tab: 'students',
+      [key]: id,
+    });
 
   return (
-    <Stack spacing={3}>
-      {/* Basic Information */}
+    <>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={6} md={3}>
+          <Kpi
+            label="Students"
+            value={studentCount.toLocaleString()}
+            caption={`${paidStudents.toLocaleString()} paid · ${(studentCount - paidStudents).toLocaleString()} unpaid`}
+          />
+        </Grid>
+        <Grid item xs={6} md={3}>
+          <Kpi label="Expected" value={formatCurrency(stats.expected)} caption={`${formatCurrency(feeDetails.amount)} × ${studentCount.toLocaleString()}`} />
+        </Grid>
+        <Grid item xs={6} md={3}>
+          <Kpi label="Collected" value={formatCurrency(stats.made)}>
+            <Box sx={{ mt: 1 }}>
+              <FeeProgress value={stats.progress || 0} minWidth={0} />
+            </Box>
+          </Kpi>
+        </Grid>
+        <Grid item xs={6} md={3}>
+          <Kpi label="Outstanding" value={formatCurrency(stats.outstanding)} caption="Expected minus collected" />
+        </Grid>
+      </Grid>
+
       <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Basic Information
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2" color="text.secondary">
-                Fee Name
-              </Typography>
-              <Typography variant="body1">{feeDetails?.name || 'N/A'}</Typography>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2" color="text.secondary">
-                Fee Type
-              </Typography>
-              <Typography variant="body1">{feeDetails?.feeType || 'N/A'}</Typography>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2" color="text.secondary">
-                Amount
-              </Typography>
-              <Typography variant="body1">{formatCurrency(feeDetails?.amount)}</Typography>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2" color="text.secondary">
-                Due Date
-              </Typography>
-              <Typography variant="body1">{formatDate(feeDetails?.dueDate)}</Typography>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2" color="text.secondary">
-                Status
-              </Typography>
-              <Label color={getStatusColor(feeDetails?.status)}>
-                {feeDetails?.status || 'N/A'}
-              </Label>
-            </Grid>
-            {feeDetails?.semester && (
-              <Grid item xs={12} sm={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Semester
-                </Typography>
-                <Typography variant="body1">{feeDetails.semester}</Typography>
-              </Grid>
-            )}
-            {feeDetails?.gateway &&
-              (feeDetails.gateway.length > 0 ||
-                (Array.isArray(feeDetails.gateway) ? false : feeDetails.gateway)) && (
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    Payment Gateway(s)
-                  </Typography>
-                  <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}>
-                    {(Array.isArray(feeDetails.gateway)
-                      ? feeDetails.gateway
-                      : [feeDetails.gateway]
-                    )
-                      .filter(Boolean)
-                      .map((gateway, index) => (
-                        <Chip key={index} label={gateway} size="small" variant="outlined" />
-                      ))}
-                  </Stack>
-                </Grid>
-            )}
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2" color="text.secondary">
-                Created At
-              </Typography>
-              <Typography variant="body1">{formatDate(feeDetails?.createdAt)}</Typography>
-            </Grid>
-            {feeDetails?.description && (
-              <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary">
-                  Description
-                </Typography>
-                <Typography variant="body1">{feeDetails.description}</Typography>
-              </Grid>
-            )}
-          </Grid>
-        </CardContent>
+        <Tabs
+          value={tab}
+          onChange={(e, value) => updateParams({ tab: value })}
+          variant="scrollable"
+          allowScrollButtonsMobile
+          sx={{ px: 2 }}
+        >
+          <Tab value="students" label="Students" />
+          <Tab value="breakdown" label="Breakdown" />
+          <Tab value="details" label="Details" />
+        </Tabs>
+        <Divider />
+
+        {tab === 'students' && (
+          <FeeStudentsTab fee={feeDetails} programOptions={programOptions} classLevelOptions={classLevelOptions} />
+        )}
+        {tab === 'breakdown' && (
+          <FeeBreakdownTab
+            fee={feeDetails}
+            groupBy={groupBy}
+            onGroupByChange={(value) => updateParams({ groupBy: value })}
+            onSelectGroup={handleSelectGroup}
+          />
+        )}
+        {tab === 'details' && <FeeInfoTab fee={feeDetails} />}
       </Card>
-
-      {/* Payment Statistics */}
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Payment Statistics
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={4}>
-              <Typography variant="body2" color="text.secondary">
-                Students Assigned
-              </Typography>
-              <Typography variant="h5">{feeDetails?.studentCount || 0}</Typography>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Typography variant="body2" color="text.secondary">
-                Expected Payment
-              </Typography>
-              <Typography variant="h5">
-                {formatCurrency(feeDetails?.payment?.expected || 0)}
-              </Typography>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Typography variant="body2" color="text.secondary">
-                Payment Made
-              </Typography>
-              <Typography variant="h5" color="success.main">
-                {formatCurrency(feeDetails?.payment?.made || 0)}
-              </Typography>
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Payment Progress
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box sx={{ width: '100%' }}>
-                  <LinearProgress
-                    variant="determinate"
-                    value={paymentProgress}
-                    color={getProgressColor(paymentProgress)}
-                    sx={{ height: 10, borderRadius: 5 }}
-                  />
-                </Box>
-                <Typography variant="h6" sx={{ minWidth: 50 }}>
-                  {paymentProgress}%
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
-
-      {/* Assignment Details */}
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Assignment Details
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2" color="text.secondary">
-                Programs
-              </Typography>
-              <Typography variant="body1">
-                {(feeDetails?.programs || [])
-                  .map((prog) => prog?.name || prog?.code || prog)
-                  .filter(Boolean)
-                  .join(', ') || 'None'}
-              </Typography>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2" color="text.secondary">
-                Class Levels
-              </Typography>
-              <Typography variant="body1">
-                {(feeDetails?.classLevels || [])
-                  .map((level) => level?.name || level)
-                  .filter(Boolean)
-                  .join(', ') || 'None'}
-              </Typography>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
-
-      {/* Completed Payments */}
-      {completedPayments.length > 0 && (
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Completed Payments ({completedPayments.length})
-            </Typography>
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Student</TableCell>
-                    <TableCell>Registration Number</TableCell>
-                    <TableCell align="right">Amount</TableCell>
-                    <TableCell>Reference</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Date</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {completedPayments.map((payment) => (
-                    <TableRow key={payment._id}>
-                      <TableCell>{getPaymentStudentName(payment)}</TableCell>
-                      <TableCell>{getPaymentRegNumber(payment)}</TableCell>
-                      <TableCell align="right">{formatCurrency(payment?.amount)}</TableCell>
-                      <TableCell>{payment?.reference || 'N/A'}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={payment?.status || 'N/A'}
-                          color={getPaymentStatusColor(payment?.status)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>{formatDate(payment?.createdAt)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Items */}
-      {feeDetails?.items && feeDetails.items.length > 0 && (
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Fee Items
-            </Typography>
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Item Name</TableCell>
-                    <TableCell align="center">Quantity</TableCell>
-                    <TableCell align="right">Price</TableCell>
-                    <TableCell align="right">Total</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {feeDetails.items.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell align="center">{item.quantity}</TableCell>
-                      <TableCell align="right">{formatCurrency(item.price)}</TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(item.quantity * item.price)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
-        </Card>
-      )}
-    </Stack>
+    </>
   );
 }
 

@@ -137,7 +137,16 @@ export default function CoursePage() {
   return (
     <Container maxWidth="xl">
       <Box sx={{ pb: 5, pt: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'stretch', sm: 'center' },
+            justifyContent: 'space-between',
+            gap: 2,
+            mb: 3,
+          }}
+        >
           <Box>
             <Typography variant="h4" color="text.primary" fontWeight="700">
               Courses
@@ -146,12 +155,13 @@ export default function CoursePage() {
               Manage academic courses and curriculum
             </Typography>
           </Box>
-          <Stack direction="row" spacing={2}>
-            <Button 
-              variant="contained" 
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1.5, sm: 2 }}>
+            <Button
+              variant="contained"
               startIcon={<Iconify icon="eva:plus-fill" />}
               onClick={() => setOpen(true)}
-              sx={{ 
+              sx={{
+                width: { xs: '100%', sm: 'auto' },
                 px: 3,
                 boxShadow: theme.customShadows.primary,
                 '&:hover': {
@@ -180,10 +190,8 @@ export default function CoursePage() {
             data={rows}
             columns={columns}
             rowIdField="_id"
-            withCheckbox
             withToolbar
             withPagination
-            selectable
             isLoading={isLoading}
             isFetching={isFetching}
             error={error}
@@ -191,6 +199,7 @@ export default function CoursePage() {
             {...table.tableProps}
             emptyRowsHeight={53}
             initialSort={{ orderBy: 'name', order: 'asc' }}
+            onRowClick={(row) => setEditingCourse(row)}
             toolbarProps={{
               ...table.searchProps,
               searchPlaceholder: 'Search courses...',

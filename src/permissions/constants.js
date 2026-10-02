@@ -13,7 +13,6 @@ export const PERMISSIONS = {
   VIEW_STUDENT_FEE: 'view_student_fee',
 
   ADD_PAYMENT: 'add_payment',
-  EDIT_PAYMENT: 'edit_payment',
   DELETE_PAYMENT: 'delete_payment',
   VIEW_PAYMENT: 'view_payment',
   INITIALIZE_PAYMENT: 'initialize_payment',

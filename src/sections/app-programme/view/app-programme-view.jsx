@@ -23,6 +23,8 @@ import {
   DialogActions,
 } from '@mui/material';
 
+import { usePermissions } from 'src/utils/permissions';
+
 import { PERMISSIONS } from 'src/permissions/constants';
 import { listProgrammes, createProgramme, updateProgramme, deleteProgramme } from 'src/api/adminApplicationApi';
 
@@ -34,6 +36,7 @@ export default function AppProgrammeView() {
   const theme = useTheme();
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
+  const { check } = usePermissions();
   const [openAdd, setOpenAdd] = useState(false);
   const [editingProgramme, setEditingProgramme] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -326,7 +329,16 @@ export default function AppProgrammeView() {
   return (
     <Container maxWidth="xl">
       <Box sx={{ pb: 5, pt: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'stretch', sm: 'center' },
+            justifyContent: 'space-between',
+            gap: 2,
+            mb: 3,
+          }}
+        >
           <Box>
             <Typography variant="h4" color="text.primary" fontWeight="700">
               Application Programmes
@@ -340,7 +352,12 @@ export default function AppProgrammeView() {
               variant="contained"
               startIcon={<Iconify icon="eva:plus-fill" />}
               onClick={() => { resetForm(); setOpenAdd(true); }}
-              sx={{ px: 3, boxShadow: theme.customShadows?.primary, '&:hover': { boxShadow: 'none' } }}
+              sx={{
+                width: { xs: '100%', sm: 'auto' },
+                px: 3,
+                boxShadow: theme.customShadows?.primary,
+                '&:hover': { boxShadow: 'none' },
+              }}
             >
               Add Programme
             </Button>
@@ -361,6 +378,7 @@ export default function AppProgrammeView() {
             withPagination
             isLoading={isLoading}
             emptyRowsHeight={53}
+            onRowClick={check(PERMISSIONS.EDIT_APP_PROGRAMME) ? (row) => handleOpenEdit(row) : undefined}
             toolbarProps={{ searchPlaceholder: 'Search programmes...', toolbarTitle: 'Programmes' }}
           />
         </Card>

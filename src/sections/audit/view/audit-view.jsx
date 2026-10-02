@@ -374,10 +374,8 @@ export default function AuditView() {
               data={auditLogs}
               columns={columns}
               rowIdField="_id"
-              withCheckbox
               withToolbar={false} // Custom toolbar used above
               withPagination
-              selectable
               isLoading={isLoading}
               isFetching={isFetching}
 

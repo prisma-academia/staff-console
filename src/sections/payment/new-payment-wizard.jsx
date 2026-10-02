@@ -28,6 +28,8 @@ import { alpha, useTheme } from '@mui/material/styles';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import useActiveSession from 'src/hooks/use-active-session';
+
 import { formatProgrammeLabel } from 'src/utils/format-programme';
 
 import { FeeApi, paymentApi, programApi, classLevelApi } from 'src/api';
@@ -114,9 +116,10 @@ export default function NewPaymentWizard() {
   const [filterClassLevelId, setFilterClassLevelId] = useState('');
   const [filterSemester, setFilterSemester] = useState('');
 
+  const { sessionId } = useActiveSession();
   const { data: feesData, isLoading: feesLoading } = useQuery({
-    queryKey: ['fees'],
-    queryFn: FeeApi.getFees,
+    queryKey: ['fees', 'options', sessionId],
+    queryFn: () => FeeApi.getFees({ session: sessionId }),
   });
   const feeList = useMemo(
     () => (Array.isArray(feesData) ? feesData : (feesData?.data ?? [])),

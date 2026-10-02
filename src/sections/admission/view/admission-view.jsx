@@ -364,7 +364,16 @@ export default function AdmissionPage() {
       )}
 
       <Box sx={{ pb: 5, pt: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'stretch', sm: 'center' },
+            justifyContent: 'space-between',
+            gap: 2,
+            mb: 3,
+          }}
+        >
           <Box>
             <Typography variant="h4" color="text.primary" fontWeight="700">
               Admissions
@@ -373,12 +382,13 @@ export default function AdmissionPage() {
               Manage student admissions and enrollments
             </Typography>
           </Box>
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
             <Button
               variant="contained"
               startIcon={<Iconify icon="eva:plus-fill" />}
               onClick={() => setOpenAdmsModal(true)}
               sx={{
+                width: { xs: '100%', sm: 'auto' },
                 px: 3,
                 boxShadow: theme.customShadows?.primary,
                 '&:hover': { boxShadow: 'none' },
@@ -429,16 +439,15 @@ export default function AdmissionPage() {
             data={rows}
             columns={columnsWithActions}
             rowIdField="_id"
-            withCheckbox
             withToolbar
             withPagination
-            selectable
             isLoading={isLoading}
             isFetching={isFetching}
             error={error}
             emptyRowsHeight={53}
             count={total}
             {...table.tableProps}
+            onRowClick={(row) => setLetterObj(row)}
             toolbarProps={{
               searchPlaceholder: 'Search name, email, phone or number...',
               toolbarTitle: 'Admissions List',

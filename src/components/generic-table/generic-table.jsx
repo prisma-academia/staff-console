@@ -16,23 +16,23 @@ import TablePagination from '@mui/material/TablePagination';
 
 import config from 'src/config';
 
-import Scrollbar from 'src/components/scrollbar';
-
 import TableHead from './table-head';
 import TableNoData from './table-no-data';
 import TableToolbar from './table-toolbar';
 import TableEmptyRows from './table-empty-rows';
 import { emptyRows, applyFilter, getComparator } from './utils';
 
+const DEFAULT_MAX_HEIGHT = 'max(420px, calc(100vh - 320px))';
+
 export default function GenericTable({
   data = [],
   isLoading = false,
   columns = [],
   rowIdField = 'id',
-  withCheckbox = true,
+  withCheckbox = false,
   withToolbar = true,
   withPagination = true,
-  selectable = true,
+  selectable = false,
   toolbarProps = {},
   initialSort = {
     orderBy: '',
@@ -61,6 +61,9 @@ export default function GenericTable({
   onSortChange = null,
   isFetching = false,
   error = null,
+  // Body scrolls inside a fixed-height container with a sticky header; pass null to let it grow.
+  maxHeight = DEFAULT_MAX_HEIGHT,
+  minWidth = 720,
 }) {
   const theme = useTheme();
 
@@ -209,9 +212,8 @@ export default function GenericTable({
         </>
       )}
 
-      <Scrollbar>
-        <TableContainer sx={{ overflow: 'unset', minHeight: 400 }}>
-          <Table sx={{ minWidth: 800 }}>
+      <TableContainer sx={{ overflow: 'auto', ...(maxHeight && { maxHeight }) }}>
+        <Table stickyHeader={Boolean(maxHeight)} sx={{ minWidth }}>
             {customTableHead || (
               <TableHead
                 order={order}
@@ -287,6 +289,7 @@ export default function GenericTable({
                           role="checkbox" 
                           selected={isItemSelected}
                           onClick={rowClickHandler}
+                          sx={rowClickHandler ? { cursor: 'pointer' } : undefined}
                         >
                           {withCheckbox && selectable && (
                             <TableCell padding="checkbox">
@@ -361,9 +364,8 @@ export default function GenericTable({
                 </>
               )}
             </TableBody>
-          </Table>
-        </TableContainer>
-      </Scrollbar>
+        </Table>
+      </TableContainer>
 
       {withPagination && (
         <TablePagination
@@ -378,7 +380,11 @@ export default function GenericTable({
             borderTop: `1px solid ${theme.palette.divider}`,
             '& .MuiTablePagination-toolbar': {
               height: 64,
-            }
+              px: { xs: 1, sm: 2 },
+            },
+            '& .MuiTablePagination-selectLabel': {
+              display: { xs: 'none', sm: 'block' },
+            },
           }}
         />
       )}
@@ -421,4 +427,6 @@ GenericTable.propTypes = {
   onSortChange: PropTypes.func,
   isFetching: PropTypes.bool,
   error: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
+  maxHeight: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.object]),
+  minWidth: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.object]),
 };

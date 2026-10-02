@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -15,6 +16,8 @@ import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { useResponsive } from 'src/hooks/use-responsive';
+
+import { AppApi } from 'src/api';
 
 import Logo from 'src/components/logo';
 import Iconify from 'src/components/iconify';
@@ -157,49 +160,7 @@ export default function Nav({ openNav, onCloseNav }) {
 
       <Box sx={{ flexGrow: 1 }} />
 
-      {/* <Box sx={{ px: 2.5, pb: 3, mt: 10 }}>
-        <Stack alignItems="center" spacing={3} sx={{ pt: 5, borderTop: `dashed 1px ${theme.palette.divider}` }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Need help?
-            </Typography>
-
-            <Typography variant="subtitle2" sx={{ mt: 0.5 }}>
-              Contact Support
-            </Typography>
-          </Box>
-
-          <Badge
-            overlap="circular"
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            badgeContent={
-              <Box
-                component="span"
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  bgcolor: 'success.main',
-                  boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
-                }}
-              />
-            }
-          >
-            <Avatar 
-              alt="support"
-              sx={{ 
-                width: 32, 
-                height: 32,
-                cursor: 'pointer',
-                transition: 'transform 0.2s ease-in-out',
-                '&:hover': {
-                  transform: 'scale(1.1)'
-                }
-              }}
-            />
-          </Badge>
-        </Stack>
-      </Box> */}
+      <VersionFooter />
     </Scrollbar>
   );
 
@@ -246,6 +207,27 @@ Nav.propTypes = {
   openNav: PropTypes.bool,
   onCloseNav: PropTypes.func,
 };
+
+// ----------------------------------------------------------------------
+
+// Client version is baked in at build time; the API reports its own.
+function VersionFooter() {
+  const { data, isError } = useQuery({
+    queryKey: ['app-version'],
+    queryFn: AppApi.getVersion,
+    staleTime: Infinity,
+    retry: 1,
+  });
+  const apiVersion = !isError && data?.version;
+
+  return (
+    <Box sx={{ px: 2.5, py: 2, borderTop: (thm) => `dashed 1px ${thm.palette.divider}` }}>
+      <Typography variant="caption" component="div" sx={{ color: 'text.disabled', textAlign: 'center' }}>
+        Client v{__APP_VERSION__} · API {typeof apiVersion === 'string' ? `v${apiVersion}` : '—'}
+      </Typography>
+    </Box>
+  );
+}
 
 // ----------------------------------------------------------------------
 

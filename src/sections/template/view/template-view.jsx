@@ -254,10 +254,8 @@ export default function TemplateView() {
             data={rows}
             columns={columns}
             rowIdField="_id"
-            withCheckbox
             withToolbar
             withPagination
-            selectable
             isLoading={isLoading}
             isFetching={isFetching}
             error={error}

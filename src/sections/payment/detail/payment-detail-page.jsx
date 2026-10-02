@@ -16,11 +16,9 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
 
 import { paymentApi } from 'src/api';
-import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
-import Can from 'src/components/permission/can';
 
 // ----------------------------------------------------------------------
 
@@ -231,21 +229,17 @@ export default function PaymentDetailPage() {
           <Typography color="text.primary">Payment details</Typography>
         </Breadcrumbs>
 
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+          justifyContent="space-between"
+          spacing={2}
+          sx={{ mb: 3 }}
+        >
           <Typography variant="h4" color="text.primary" fontWeight="700">
             Payment Details
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Can do={PERMISSIONS.EDIT_PAYMENT}>
-              <Button
-                variant="outlined"
-                color="primary"
-                startIcon={<Iconify icon="eva:edit-fill" />}
-                onClick={() => navigate(`/payment/${id}/edit`)}
-              >
-                Edit payment
-              </Button>
-            </Can>
             {isCompleted && (
               <LoadingButton
                 variant="outlined"

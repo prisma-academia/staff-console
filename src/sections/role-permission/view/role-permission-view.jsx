@@ -11,6 +11,8 @@ import { Box, Popover, Divider, MenuItem, IconButton } from '@mui/material';
 
 import useServerTable from 'src/hooks/use-server-table';
 
+import { usePermissions } from 'src/utils/permissions';
+
 import { RolePermissionApi } from 'src/api';
 import { PERMISSIONS } from 'src/permissions/constants';
 
@@ -24,10 +26,9 @@ import EditRolePermission from '../edit-role-permission';
 
 // ----------------------------------------------------------------------
 
-const RolePermissionActions = ({ row }) => {
+const RolePermissionActions = ({ row, onEdit }) => {
   const { _id: id, isActive } = row;
   const [open, setOpen] = useState(null);
-  const [editModalOpen, setEditModalOpen] = useState(false);
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -60,7 +61,7 @@ const RolePermissionActions = ({ row }) => {
   });
 
   const handleEdit = () => {
-    setEditModalOpen(true);
+    onEdit(row);
     handleCloseMenu();
   };
 
@@ -126,21 +127,16 @@ const RolePermissionActions = ({ row }) => {
           </MenuItem>
         </Can>
       </Popover>
-
-      <EditRolePermission 
-        open={editModalOpen} 
-        setOpen={setEditModalOpen} 
-        rolePermission={row} 
-      />
     </>
   );
 };
 
 RolePermissionActions.propTypes = {
   row: PropTypes.object,
+  onEdit: PropTypes.func,
 };
 
-const columns = [
+const getColumns = (onEdit) => [
   { 
     id: 'role',
     sortKey: 'role',
@@ -196,13 +192,24 @@ const columns = [
     id: 'action', 
     label: '', 
     cellSx: { width: '5%' },
-    renderCell: (row) => <RolePermissionActions row={row} />
+    renderCell: (row) => <RolePermissionActions row={row} onEdit={onEdit} />
   },
 ];
 
 export default function RolePermissionView() {
   const theme = useTheme();
+  const { checkAny } = usePermissions();
   const [openAddModal, setOpenAddModal] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingRolePermission, setEditingRolePermission] = useState(null);
+
+  const handleEdit = (row) => {
+    setEditingRolePermission(row);
+    setEditModalOpen(true);
+  };
+
+  const columns = getColumns(handleEdit);
+  const canOpenRow = checkAny([PERMISSIONS.VIEW_ROLE_PERMISSION, PERMISSIONS.EDIT_ROLE_PERMISSION]);
 
   const table = useServerTable({ defaultSortBy: 'role', defaultSortOrder: 'asc' });
   const { queryParams } = table;
@@ -219,7 +226,16 @@ export default function RolePermissionView() {
   return (
     <Container maxWidth="xl">
       <Box sx={{ pb: 5, pt: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'stretch', sm: 'center' },
+            justifyContent: 'space-between',
+            gap: 2,
+            mb: 3,
+          }}
+        >
           <Box>
             <Typography variant="h4" color="text.primary" fontWeight="700">
               Role Permission Management
@@ -242,16 +258,15 @@ export default function RolePermissionView() {
             data={rows}
             columns={columns}
             rowIdField="_id"
-            withCheckbox
             withToolbar
             withPagination
-            selectable
             isLoading={isLoading}
             isFetching={isFetching}
             error={error}
             count={total}
             {...table.tableProps}
             emptyRowsHeight={53}
+            onRowClick={canOpenRow ? handleEdit : undefined}
             toolbarProps={{
               ...table.searchProps,
               searchPlaceholder: 'Search roles...',
@@ -260,6 +275,14 @@ export default function RolePermissionView() {
           />
         </Card>
       </Box>
+
+      {editingRolePermission && (
+        <EditRolePermission
+          open={editModalOpen}
+          setOpen={setEditModalOpen}
+          rolePermission={editingRolePermission}
+        />
+      )}
     </Container>
   );
 }

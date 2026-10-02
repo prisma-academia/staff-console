@@ -1,8 +1,8 @@
 import * as Yup from 'yup';
-import { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { useFormik } from 'formik';
 import { useSnackbar } from 'notistack';
+import { useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { Add, Delete } from '@mui/icons-material';
@@ -35,9 +35,10 @@ import {
   TableContainer,
 } from '@mui/material';
 
+import useActiveSession from 'src/hooks/use-active-session';
+
 import { toProgrammeOptions } from 'src/utils/format-programme';
 
-import Iconify from 'src/components/iconify';
 import CustomSelect from 'src/components/select';
 
 import { FeeApi, StudentApi, programApi, classLevelApi } from '../../api';
@@ -66,6 +67,11 @@ const AddFee = ({ open, setOpen }) => {
   const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { sessionId: activeSessionId, sessions } = useActiveSession();
+  const sessionOptions = useMemo(
+    () => sessions.map((s) => ({ _id: s._id, name: `${s.name || s.code}${s.isCurrent ? ' (current)' : ''}` })),
+    [sessions]
+  );
 
   const { data: programOptions } = useQuery({
     queryKey: ['programs'],
@@ -133,6 +139,7 @@ const AddFee = ({ open, setOpen }) => {
       )
       .min(1, 'Add at least one item'),
     dueDate: Yup.date().required('Due date is required'),
+    session: Yup.string().required('Session is required'),
     programs: Yup.array().required('Program(s) are required'),
     classLevels: Yup.array().required('Class level(s) are required'),
     feeType: Yup.string().required('Fee type is required'),
@@ -149,6 +156,7 @@ const AddFee = ({ open, setOpen }) => {
       description: '',
       amount: '',
       dueDate: '',
+      session: '',
       programs: [],
       classLevels: [],
       feeType: '',
@@ -178,6 +186,13 @@ const AddFee = ({ open, setOpen }) => {
       mutate(payload);
     },
   });
+
+  // New fees default to the session selected in the header (or the current one).
+  useEffect(() => {
+    const fallback = activeSessionId || sessions.find((s) => s.isCurrent)?._id || '';
+    if (open && !formik.values.session && fallback) formik.setFieldValue('session', fallback);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, activeSessionId, sessions]);
 
   const totalFromItems = useMemo(() => {
     const items = formik?.values?.items || [];
@@ -235,16 +250,7 @@ const AddFee = ({ open, setOpen }) => {
   };
 
   return (
-    <>
-      <Button
-        onClick={() => setOpen(true)}
-        variant="contained"
-        color="inherit"
-        startIcon={<Iconify icon="eva:plus-fill" />}
-      >
-        New Fee
-      </Button>
-      <Modal
+    <Modal
         open={open}
         onClose={handleModalClose}
         closeAfterTransition
@@ -357,16 +363,7 @@ const AddFee = ({ open, setOpen }) => {
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    {/* <CustomSelect
-                      disabled={true}
-                      data={formattedStudentOptions}
-                      label="User(s)"
-                      name="users"
-                      formik={formik}
-                      multiple
-                      showSelectedCount
-                      // disabled={!formattedStudentOptions.length}
-                    /> */}
+                    <CustomSelect data={sessionOptions} label="Session" name="session" formik={formik} />
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <CustomSelect data={FEE_TYPE} label="Fee Type" name="feeType" formik={formik} />
@@ -497,7 +494,6 @@ const AddFee = ({ open, setOpen }) => {
           </Box>
         </Fade>
       </Modal>
-    </>
   );
 };
 

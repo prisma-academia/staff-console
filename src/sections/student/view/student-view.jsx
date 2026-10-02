@@ -349,10 +349,8 @@ export default function StudentView() {
             data={rows}
             columns={columnsWithActions}
             rowIdField="_id"
-            withCheckbox={false}
             withToolbar
             withPagination
-            selectable={false}
             isLoading={isLoading}
             isFetching={isFetching}
             error={error}
