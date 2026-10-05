@@ -38,8 +38,10 @@ function buildRowsFromResponse(students) {
       regNumber: s.regNumber || '',
       name: s.name || '—',
       scores: scoresMap,
-      grade: s.grade || '',
-      position: s.position || '',
+      // Retaking the course from a higher level
+      isCarryOver: Boolean(s.isCarryOver),
+      // Result approved/published: scores are read-only until it is reopened
+      locked: Boolean(s.locked),
     };
   });
 }
@@ -165,7 +167,8 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
       enqueueSnackbar('Scores saved successfully', { variant: 'success' });
     },
     onError: (err) => {
-      enqueueSnackbar(err?.message || 'Failed to save scores', { variant: 'error' });
+      const details = Array.isArray(err?.data?.errors) ? `: ${err.data.errors.join('; ')}` : '';
+      enqueueSnackbar(`${err?.data?.message || err?.message || 'Failed to save scores'}${details}`, { variant: 'error' });
     },
     onSettled: () => {
       setSavingStudentId(null);
@@ -198,12 +201,17 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
         rows: [
           {
             studentId: row.studentId,
-            assessmentScores: assessments.map((a) => {
-              const id = a._id?.toString?.() ?? a._id;
-              const raw = row.scores?.[id];
-              const score = raw === '' || raw == null ? 0 : Number(raw);
-              return { assessmentId: id, score: Number.isNaN(score) ? 0 : score };
-            }),
+            // Only filled-in cells: an empty cell stays "not entered" (shown as missing
+            // on the result table) instead of being recorded as 0.
+            assessmentScores: assessments
+              .map((a) => {
+                const id = a._id?.toString?.() ?? a._id;
+                const raw = row.scores?.[id];
+                if (raw === '' || raw == null) return null;
+                const score = Number(raw);
+                return Number.isNaN(score) ? null : { assessmentId: id, score };
+              })
+              .filter(Boolean),
           },
         ],
       };
@@ -227,11 +235,15 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
         accessorKey: 'name',
         header: 'Name',
         size: 180,
-        cell: ({ getValue }) => {
+        cell: ({ getValue, row }) => {
           const v = getValue() || '—';
           return (
-            <div style={tableStyles.tdText}>
+            <div style={tableStyles.tdText} title={row.original.locked ? 'Result approved or published: reopen it on the result table to change scores' : v}>
               {v.length > 24 ? `${v.slice(0, 24)}…` : v}
+              {row.original.isCarryOver && (
+                <span style={{ marginLeft: 6, fontSize: '0.7rem', color: '#b91c1c', fontWeight: 600 }} title="Carry-over: retaking this course">CO</span>
+              )}
+              {row.original.locked && <span style={{ marginLeft: 6 }} title="Locked">🔒</span>}
             </div>
           );
         },
@@ -249,6 +261,9 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
             <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={a.type || '—'}>
               {a.type || '—'}
             </div>
+            <div style={{ fontWeight: 400, color: '#666', whiteSpace: 'nowrap' }}>
+              /{maxScore}{a.weight ? ` · ${a.weight}%` : ''}
+            </div>
           </div>
         ),
         size: 50,
@@ -256,17 +271,20 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
         cell: ({ row, column }) => {
           const assessmentId = column.id;
           const max = column.columnDef.meta?.maxScore ?? 100;
+          const value = row.original.scores?.[assessmentId] ?? '';
+          const outOfRange = value !== '' && (Number(value) < 0 || Number(value) > max);
           return (
             <input
-              title={`Max score: ${max}`}
+              title={outOfRange ? `Must be between 0 and ${max}` : `Max score: ${max}`}
               type="number"
               min={0}
               max={max}
               step={0.01}
-              value={row.original.scores?.[assessmentId] ?? ''}
+              value={value}
+              disabled={row.original.locked}
               onChange={(e) => handleCellChange(row.index, assessmentId, e.target.value)}
               onClick={(e) => e.stopPropagation()}
-              style={{ ...tableStyles.input }}
+              style={{ ...tableStyles.input, ...(outOfRange ? { color: '#b91c1c', fontWeight: 700 } : {}), ...(row.original.locked ? { color: '#888' } : {}) }}
               onFocus={(e) => {
                 e.target.style.outline = '2px solid #107c41';
                 e.target.style.outlineOffset = '-2px';
@@ -280,21 +298,6 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
       };
     });
 
-    const gradePositionCols = [
-      {
-        accessorKey: 'grade',
-        header: 'Grade',
-        size: 80,
-        cell: ({ getValue }) => <div style={tableStyles.tdText}>{getValue() || '—'}</div>,
-      },
-      {
-        accessorKey: 'position',
-        header: 'Position',
-        size: 80,
-        cell: ({ getValue }) => <div style={tableStyles.tdText}>{getValue() || '—'}</div>,
-      },
-    ];
-
     const saveCol = {
       id: 'save',
       header: 'Save',
@@ -302,15 +305,19 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
       cell: ({ row }) => {
         const studentIdStr = row.original.studentId?.toString?.();
         const isSaving = savingStudentId != null && savingStudentId === studentIdStr;
+        const { locked } = row.original;
+        let label = 'Save';
+        if (locked) label = 'Locked';
+        else if (isSaving) label = 'Saving…';
         return (
           <Can do={PERMISSIONS.EDIT_ASSESSMENT_SCORES}>
             <button
               type="button"
-              style={{ ...tableStyles.button, ...(isSaving ? tableStyles.buttonDisabled : {}) }}
-              disabled={isSaving}
+              style={{ ...tableStyles.button, ...(isSaving || locked ? tableStyles.buttonDisabled : {}) }}
+              disabled={isSaving || locked}
               onClick={() => handleSaveRow(row.original)}
             >
-              {isSaving ? 'Saving…' : 'Save'}
+              {label}
             </button>
           </Can>
         );
@@ -327,11 +334,6 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
         id: 'subjectScore',
         header: 'Subject Score',
         columns: scoreCols.length ? scoreCols : [{ id: 'noScores', header: '—', size: 50 }],
-      },
-      {
-        id: 'gradePosition',
-        header: 'Grade and position',
-        columns: gradePositionCols,
       },
       {
         id: 'actions',
@@ -362,7 +364,7 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
       return { ...base, ...tableStyles.thCenter };
     }
 
-    if (id === 'regNumber' || id === 'name' || id === 'save' || id === 'grade' || id === 'position') return base;
+    if (id === 'regNumber' || id === 'name' || id === 'save') return base;
     return { ...base, ...tableStyles.thCenter, padding: '2px' };
   };
 

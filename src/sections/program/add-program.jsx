@@ -29,6 +29,8 @@ import { programApi, userGroupApi } from 'src/api';
 import Iconify from 'src/components/iconify';
 import CustomSelect from 'src/components/select';
 
+import GradingSchemeSelect from 'src/sections/grading-scheme/grading-scheme-select';
+
 const AddProgram = ({ open, setOpen }) => {
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
@@ -96,6 +98,7 @@ const AddProgram = ({ open, setOpen }) => {
       code: '',
       type: '',
       department: '',
+      gradingScheme: '',
       durationInYears: '',
       totalCreditsRequired: '',
       school: '',
@@ -116,6 +119,9 @@ const AddProgram = ({ open, setOpen }) => {
       // Add optional fields only if they have values
       if (values.department) {
         payload.department = values.department;
+      }
+      if (values.gradingScheme) {
+        payload.gradingScheme = values.gradingScheme;
       }
       if (values.school && values.school.trim()) {
         payload.school = values.school.trim();
@@ -238,6 +244,9 @@ const AddProgram = ({ open, setOpen }) => {
                       name="department"
                       formik={formik}
                     />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <GradingSchemeSelect formik={formik} />
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <TextField 

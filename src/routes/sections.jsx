@@ -48,6 +48,7 @@ const AssessmentScoresPage = lazy(() => import('src/pages/assessment-scores'));
 const CoursePage = lazy(() => import('src/pages/course'));
 const ClassLevelPage = lazy(() => import('src/pages/classlevel'));
 const SessionPage = lazy(() => import('src/pages/session'));
+const GradingSchemePage = lazy(() => import('src/pages/grading-scheme'));
 const FeePage = lazy(() => import('src/pages/fee'));
 const FeeDetailPage = lazy(() => import('src/pages/fee-detail'));
 const MailPage = lazy(() => import('src/pages/mail'));
@@ -327,6 +328,14 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <SessionPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'grading-scheme',
+          element: (
+            <PrivateRoute>
+              <GradingSchemePage />
             </PrivateRoute>
           ),
         },

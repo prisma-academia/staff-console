@@ -181,7 +181,7 @@ const EditAssessment = ({ open, setOpen, assessment }) => {
                     value={formik.values.weight}
                     onChange={formik.handleChange}
                     error={formik.touched.weight && Boolean(formik.errors.weight)}
-                    helperText={formik.touched.weight && formik.errors.weight}
+                    helperText={(formik.touched.weight && formik.errors.weight) || "Share of the course total; a course's active weights may not exceed 100. Leave empty on every assessment to add up raw marks."}
                   />
                 </Grid>
               </Grid>

@@ -28,6 +28,8 @@ import { programApi, userGroupApi } from 'src/api';
 
 import CustomSelect from 'src/components/select';
 
+import GradingSchemeSelect from 'src/sections/grading-scheme/grading-scheme-select';
+
 const EditProgram = ({ open, setOpen, programId }) => {
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
@@ -97,6 +99,7 @@ const EditProgram = ({ open, setOpen, programId }) => {
       code: program?.code || '',
       type: program?.type || '',
       department: program?.department?._id || program?.department || '',
+      gradingScheme: program?.gradingScheme?._id || program?.gradingScheme || '',
       durationInYears: program?.durationInYears || '',
       totalCreditsRequired: program?.totalCreditsRequired || '',
       school: program?.school || '',
@@ -121,6 +124,9 @@ const EditProgram = ({ open, setOpen, programId }) => {
         // Allow clearing department by setting to null
         payload.department = null;
       }
+
+      // Empty = follow the default grading scheme
+      payload.gradingScheme = values.gradingScheme || null;
       
       if (values.school !== undefined) {
         if (values.school.trim()) {
@@ -155,6 +161,7 @@ const EditProgram = ({ open, setOpen, programId }) => {
           code: program.code || '',
           type: program.type || '',
           department: program.department?._id || program.department || '',
+          gradingScheme: program.gradingScheme?._id || program.gradingScheme || '',
           durationInYears: program.durationInYears || '',
           totalCreditsRequired: program.totalCreditsRequired || '',
           school: program.school || '',
@@ -274,6 +281,9 @@ const EditProgram = ({ open, setOpen, programId }) => {
                       name="department"
                       formik={formik}
                     />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <GradingSchemeSelect formik={formik} current={program?.gradingScheme} />
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <TextField 

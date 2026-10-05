@@ -111,6 +111,18 @@ export const PERMISSION_CATEGORIES = [
       { id: 'view_result_template', label: 'View Result Template' },
       { id: 'build_result', label: 'Build Result' },
       { id: 'export_result', label: 'Export Result' },
+      { id: 'approve_result', label: 'Approve Result' },
+      { id: 'publish_result', label: 'Publish Result' },
+      { id: 'reopen_result', label: 'Reopen Approved/Published Result' },
+    ],
+  },
+  {
+    label: 'Grading Scheme Management',
+    permissions: [
+      { id: 'add_grading_scheme', label: 'Add Grading Scheme' },
+      { id: 'edit_grading_scheme', label: 'Edit Grading Scheme' },
+      { id: 'delete_grading_scheme', label: 'Delete Grading Scheme' },
+      { id: 'view_grading_scheme', label: 'View Grading Scheme' },
     ],
   },
   {

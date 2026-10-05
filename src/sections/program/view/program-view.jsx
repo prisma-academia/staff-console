@@ -124,6 +124,16 @@ export default function ProgramPage() {
         </Typography>
       )
     },
+    {
+      id: 'gradingScheme',
+      label: 'Grading',
+      cellSx: { width: '12%' },
+      renderCell: (row) => (
+        <Typography variant="body2" noWrap color={row.gradingScheme ? 'text.primary' : 'text.secondary'}>
+          {row.gradingScheme ? row.gradingScheme.code : 'Default'}
+        </Typography>
+      )
+    },
     { 
       id: 'durationInYears',
       sortKey: 'durationInYears',

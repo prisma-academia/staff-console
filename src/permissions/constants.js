@@ -68,6 +68,14 @@ export const PERMISSIONS = {
   VIEW_RESULT_TEMPLATE: 'view_result_template',
   BUILD_RESULT: 'build_result',
   EXPORT_RESULT: 'export_result',
+  APPROVE_RESULT: 'approve_result',
+  PUBLISH_RESULT: 'publish_result',
+  REOPEN_RESULT: 'reopen_result',
+
+  ADD_GRADING_SCHEME: 'add_grading_scheme',
+  EDIT_GRADING_SCHEME: 'edit_grading_scheme',
+  DELETE_GRADING_SCHEME: 'delete_grading_scheme',
+  VIEW_GRADING_SCHEME: 'view_grading_scheme',
 
   ADD_MEMO: 'add_memo',
   EDIT_MEMO: 'edit_memo',

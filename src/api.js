@@ -998,4 +998,26 @@ export const ResultApi = {
     const path = `student/${studentId}/classLevel/${classLevelId}/semester/${encodeURIComponent(semester)}`;
     return resultBlobFetch(path);
   },
+  // Academic record: sittings, GPA, CGPA, class of award, outstanding carry-overs
+  getStudentSummary: (studentId) => apiClient.get(`result/student/${studentId}/summary`),
+  downloadTranscript: async (studentId) => resultBlobFetch(`student/${studentId}/transcript`),
+  // Lifecycle: body { programId, classId, sessionId, semester, studentIds?, reason? }
+  approve: (body) => apiClient.post('result/approve', body),
+  publish: (body) => apiClient.post('result/publish', body),
+  reopen: (body) => apiClient.post('result/reopen', body),
+};
+
+export const GradingSchemeApi = {
+  getSchemes: (params = {}) => {
+    const queryString = buildQueryString(params);
+    return apiClient.get(`grading-scheme${queryString ? `?${queryString}` : ''}`);
+  },
+  getScheme: (id) => apiClient.get(`grading-scheme/${id}`),
+  getPresets: () => apiClient.get('grading-scheme/presets'),
+  createScheme: (data) => apiClient.post('grading-scheme', data),
+  createFromPreset: (data) => apiClient.post('grading-scheme/from-preset', data),
+  updateScheme: (id, data) => apiClient.put(`grading-scheme/${id}`, data),
+  duplicateScheme: (id, data = {}) => apiClient.post(`grading-scheme/${id}/duplicate`, data),
+  deleteScheme: (id) => apiClient.delete(`grading-scheme/${id}`),
+  preview: (data) => apiClient.post('grading-scheme/preview', data),
 };

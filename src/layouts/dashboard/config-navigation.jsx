@@ -158,6 +158,12 @@ const useNavConfig = () => {
       permission: PERMISSIONS.VIEW_CALENDAR,
     },
     {
+      title: 'Grading Schemes',
+      path: '/grading-scheme',
+      icon: <Iconify icon="mdi:scale-balance" width={24} />,
+      permission: PERMISSIONS.VIEW_GRADING_SCHEME,
+    },
+    {
       title: 'Results',
       path: '/result',
       icon: <Iconify icon="eva:clipboard-fill" width={24} />,
