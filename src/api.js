@@ -403,8 +403,12 @@ export const AppApi = {
   getVersion: () => apiClient.get('version'),
 };
 
+// Executive dashboard sections; `session` '' means all sessions.
 export const AnalyticsApi = {
-  getAnalytics: () => apiClient.get('analytics'),
+  getFinance: (session = '') => apiClient.get(`analytics/finance?${buildQueryString({ session })}`),
+  getStudents: (session = '') => apiClient.get(`analytics/students?${buildQueryString({ session })}`),
+  getAcademics: (session = '') => apiClient.get(`analytics/academics?${buildQueryString({ session })}`),
+  getOperations: (session = '') => apiClient.get(`analytics/operations?${buildQueryString({ session })}`),
 };
 
 export const paymentApi = {

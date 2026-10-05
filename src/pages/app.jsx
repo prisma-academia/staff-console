@@ -2,7 +2,7 @@ import { Helmet } from 'react-helmet-async';
 
 import config from 'src/config';
 
-import { AppView } from 'src/sections/overview/view';
+import { DashboardView } from 'src/sections/dashboard/view';
 
 // ----------------------------------------------------------------------
 
@@ -10,10 +10,10 @@ export default function AppPage() {
   return (
     <>
       <Helmet>
-        <title>Dashboard | {config.appName}</title>
+        <title>Executive Dashboard | {config.appName}</title>
       </Helmet>
 
-      <AppView />
+      <DashboardView />
     </>
   );
 }
