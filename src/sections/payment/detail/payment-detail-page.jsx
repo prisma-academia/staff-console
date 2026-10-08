@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useSnackbar } from 'notistack';
+import { Helmet } from 'react-helmet-async';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -15,10 +16,13 @@ import Typography from '@mui/material/Typography';
 import LoadingButton from '@mui/lab/LoadingButton';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
 
+import config from 'src/config';
 import { paymentApi } from 'src/api';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
+
+import { formatDate as formatDay } from 'src/sections/fee/fee-format';
 
 // ----------------------------------------------------------------------
 
@@ -96,7 +100,8 @@ const getFeeType = (payment) => {
 const getFeeDueDate = (payment) => {
   const fee = payment?.fee;
   if (!fee || typeof fee === 'string') return '—';
-  return fee.dueDate ? formatDate(fee.dueDate) : '—';
+  // Due dates are date-only; formatting with a time shows a timezone-shifted hour.
+  return formatDay(fee.dueDate);
 };
 
 const getFeeDescription = (payment) => {
@@ -219,6 +224,9 @@ export default function PaymentDetailPage() {
 
   return (
     <Container maxWidth="xl">
+      <Helmet>
+        <title>Payment {payment.reference || ''} | {config.appName}</title>
+      </Helmet>
       <Box sx={{ pb: 5, pt: 4 }}>
         <Breadcrumbs sx={{ mb: 3 }}>
           <Link to="/payment" style={{ textDecoration: 'none', color: 'inherit' }}>

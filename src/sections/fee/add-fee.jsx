@@ -221,14 +221,16 @@ const AddFee = ({ open, setOpen }) => {
       return;
     }
     
-    // Add validated item
-    formik.setFieldValue('items', [...formik.values.items, {
-      name: name.trim(),
-      quantity: numQuantity,
-      price: numPrice,
-    }]);
-    formik.setFieldValue('currentItem', { name: '', quantity: '', price: '' });
+    // Add validated item. One setValues call so validation sees the new item (two
+    // setFieldValue calls validate the second against stale values).
+    formik.setValues({
+      ...formik.values,
+      items: [...formik.values.items, { name: name.trim(), quantity: numQuantity, price: numPrice }],
+      currentItem: { name: '', quantity: '', price: '' },
+    });
   };
+
+  const itemsError = formik.submitCount > 0 && typeof formik.errors.items === 'string' ? formik.errors.items : '';
 
   const handleModalClose = () => {
     setOpen(false);
@@ -305,10 +307,9 @@ const AddFee = ({ open, setOpen }) => {
                           : ''
                       }
                       placeholder="—"
-                      error={Boolean(formik.errors.items)}
+                      error={Boolean(itemsError)}
                       helperText={
-                        (typeof formik.errors.items === 'string' && formik.errors.items) ||
-                        'Quantity × price per row. Only line items are sent; amount is set on the server.'
+                        itemsError || 'Quantity × price per row. Only line items are sent; amount is set on the server.'
                       }
                       disabled
                       sx={{
