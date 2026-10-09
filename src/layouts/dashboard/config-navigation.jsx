@@ -158,10 +158,16 @@ const useNavConfig = () => {
       permission: PERMISSIONS.VIEW_CALENDAR,
     },
     {
-      title: 'Grading Schemes',
-      path: '/grading-scheme',
-      icon: <Iconify icon="mdi:scale-balance" width={24} />,
-      permission: PERMISSIONS.VIEW_GRADING_SCHEME,
+      title: 'Assessments',
+      path: '/assessment',
+      icon: <Iconify icon="mdi:clipboard-check" width={24} />,
+      permission: PERMISSIONS.VIEW_ASSESSMENT_SCORES,
+    },
+    {
+      title: 'Score entry',
+      path: '/assessment/scores',
+      icon: <Iconify icon="mdi:table" width={24} />,
+      permission: PERMISSIONS.VIEW_ASSESSMENT_SCORES,
     },
     {
       title: 'Results',
@@ -170,16 +176,10 @@ const useNavConfig = () => {
       permission: PERMISSIONS.VIEW_RESULT,
     },
     {
-      title: 'Assessments',
-      path: '/assessment',
-      icon: <Iconify icon="mdi:clipboard-check" width={24} />,
-      permission: PERMISSIONS.VIEW_ASSESSMENT,
-    },
-    {
-      title: 'Score sheet',
-      path: '/assessment/scores',
-      icon: <Iconify icon="mdi:table" width={24} />,
-      permission: PERMISSIONS.VIEW_ASSESSMENT_SCORES,
+      title: 'Grading Schemes',
+      path: '/grading-scheme',
+      icon: <Iconify icon="mdi:scale-balance" width={24} />,
+      permission: PERMISSIONS.VIEW_GRADING_SCHEME,
     },
     {
       title: 'Templates',

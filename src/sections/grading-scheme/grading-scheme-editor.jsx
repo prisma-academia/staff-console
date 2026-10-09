@@ -482,10 +482,11 @@ export default function GradingSchemeEditor({ open, scheme, onClose, onSaved, on
 
                   {/* Assessment split */}
                   <Box>
-                    <Typography variant="subtitle1">Default assessment split (optional)</Typography>
+                    <Typography variant="subtitle1">Starting split for new courses (optional)</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Weights given to new courses of these programmes, and used for courses whose assessments have no weights.
-                      Leave empty to add up raw marks (e.g. CA out of 40 + exam out of 60).
+                      New courses of these programmes start with these assessments, each marked out of its weight (e.g. CA1 /20 +
+                      CA2 /20 + Exam /60). Each course&apos;s split can then be changed on the Assessments page. Leave empty to set
+                      up every course there.
                     </Typography>
                     <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
                       {ASSESSMENT_TYPES.map((type) => (

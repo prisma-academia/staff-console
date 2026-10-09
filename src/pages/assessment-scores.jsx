@@ -1,5 +1,4 @@
 import { Helmet } from 'react-helmet-async';
-import { useSearchParams } from 'react-router-dom';
 
 import { Box, Container, Typography } from '@mui/material';
 
@@ -13,14 +12,10 @@ import { ScoreSheetView } from 'src/sections/assessment/view';
 // ----------------------------------------------------------------------
 
 export default function AssessmentScoresPage() {
-  const [searchParams] = useSearchParams();
-  const courseId = searchParams.get('courseId') || null;
-  const sessionId = searchParams.get('sessionId') || null;
-
   return (
     <>
       <Helmet>
-        <title>Score sheet | {config.appName}</title>
+        <title>Score entry | {config.appName}</title>
       </Helmet>
       <Can
         do={PERMISSIONS.VIEW_ASSESSMENT_SCORES}
@@ -28,19 +23,14 @@ export default function AssessmentScoresPage() {
           <Container maxWidth="md">
             <Box sx={{ py: 5, textAlign: 'center' }}>
               <Typography variant="h6" color="text.secondary">
-                You don&apos;t have permission to view the score sheet.
+                You don&apos;t have permission to view score sheets.
               </Typography>
             </Box>
           </Container>
         }
       >
-        <Container maxWidth="xl">
-          <Box sx={{ pb: 5, pt: 4 }}>
-            <ScoreSheetView initialCourseId={courseId} initialSessionId={sessionId} />
-          </Box>
-        </Container>
+        <ScoreSheetView />
       </Can>
     </>
   );
 }
-

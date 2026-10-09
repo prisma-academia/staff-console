@@ -895,21 +895,12 @@ export const AssessmentApi = {
     return apiClient.get(`assessment/score-sheet${queryString ? `?${queryString}` : ''}`);
   },
   saveScoreSheet: (body) => apiClient.put('assessment/score-sheet', body),
-  patchScoreSheetScore: (body) => apiClient.patch('assessment/score-sheet/score', body),
-};
-
-export const ScoreApi = {
-  getScores: (params) => {
-    const queryString = params ? buildQueryString(params) : '';
-    return apiClient.get(`score${queryString ? `?${queryString}` : ''}`);
-  },
-  getScoreById: (id) => apiClient.get(`score/${id}`),
-  getScoresByAssessment: (assessmentId) => apiClient.get(`score/assessment/${assessmentId}`),
-  getScoresBySession: (sessionId) => apiClient.get(`score/session/${sessionId}`),
-  getScoresByStudent: (studentId) => apiClient.get(`score/student/${studentId}`),
-  createScore: (data) => apiClient.post('score', data),
-  updateScore: (id, data) => apiClient.put(`score/${id}`, data),
-  deleteScore: (id) => apiClient.delete(`score/${id}`),
+  /** Courses with their assessment setup, score progress and result status for a session. */
+  getCourseOverview: (params = {}) => apiClient.get(`assessment/courses?${buildQueryString(params)}`),
+  /** Replace a course's assessment split: { assessments: [{ type, maxScore, weight }], confirmDeleteScores } */
+  saveCourseSetup: (courseId, body) => apiClient.put(`assessment/course/${courseId}`, body),
+  /** Apply one split to many courses: { courseIds, assessments, overwrite } */
+  applyTemplate: (body) => apiClient.post('assessment/apply-template', body),
 };
 
 export const SessionApi = {
@@ -975,11 +966,9 @@ export const ResultApi = {
     const queryString = buildQueryString(params);
     return apiClient.get(`result/builder${queryString ? `?${queryString}` : ''}`);
   },
-  getAssessmentSheet: (params) => {
-    const queryString = buildQueryString(params);
-    return apiClient.get(`result/assessment-sheet${queryString ? `?${queryString}` : ''}`);
-  },
-  saveAssessmentSheet: (body) => apiClient.post('result/assessment-sheet/save', body),
+  /** Compute draft results from assessment scores: { sessionId, courseId } or { sessionId, programId, classId, semester } */
+  compute: (body) => apiClient.post('result/compute', body),
+  /** Save broadsheet overrides: { resultsData: [{ studentId, courseId, score }], sessionId, semester } */
   bulkSave: (body) => apiClient.post('result/bulk-save', body),
   bulkUpdate: (body) => apiClient.put('result/bulk', body),
   bulkDelete: (body) =>
@@ -988,7 +977,6 @@ export const ResultApi = {
       body: JSON.stringify(body),
     }),
   exportResults: async (params) => resultBlobFetch('export', params),
-  downloadTemplate: async (courseId) => resultBlobFetch('template', { courseId }),
   getByStudentId: (studentId) => apiClient.get(`result/student/${studentId}`),
   getByStudentSemester: (studentId, semester) =>
     apiClient.get(`result/student/${studentId}/semester/${encodeURIComponent(semester)}`),

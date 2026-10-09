@@ -42,8 +42,6 @@ const ApplicationAnalyticsPage = lazy(() => import('../pages/application-analyti
 const ApplicationOnboardPage = lazy(() => import('../pages/application-onboard'));
 const ResultPage = lazy(() => import('src/pages/result'));
 const AssessmentPage = lazy(() => import('src/pages/assessment'));
-const AssessmentCoursesPage = lazy(() => import('src/pages/assessment-courses'));
-const AssessmentCoursePage = lazy(() => import('src/pages/assessment-course'));
 const AssessmentScoresPage = lazy(() => import('src/pages/assessment-scores'));
 const CoursePage = lazy(() => import('src/pages/course'));
 const ClassLevelPage = lazy(() => import('src/pages/classlevel'));
@@ -371,22 +369,9 @@ export default function Router() {
             </PrivateRoute>
           ),
         },
-        {
-          path: 'assessment/courses',
-          element: (
-            <PrivateRoute>
-              <AssessmentCoursesPage />
-            </PrivateRoute>
-          ),
-        },
-        {
-          path: 'assessment/course/:courseId',
-          element: (
-            <PrivateRoute>
-              <AssessmentCoursePage />
-            </PrivateRoute>
-          ),
-        },
+        // Old assessment pages now live on the Assessments page
+        { path: 'assessment/courses', element: <Navigate to="/assessment" replace /> },
+        { path: 'assessment/course/:courseId', element: <Navigate to="/assessment" replace /> },
         {
           path: 'mail',
           element: (
