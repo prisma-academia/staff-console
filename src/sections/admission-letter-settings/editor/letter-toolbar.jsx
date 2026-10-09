@@ -102,7 +102,7 @@ export default function LetterToolbar({ editor, variables, disabled }) {
   };
 
   const mark = (name, command, icon, title, options) => (
-    <Tooltip title={title}>
+    <Tooltip key={name} title={title}>
       <ToggleButton
         value={name}
         size="small"

@@ -50,12 +50,12 @@ const AddCourseModal = ({ open, setOpen }) => {
 
   const programmeSelectData = useMemo(() => toProgrammeOptions(programmeOptions), [programmeOptions]);
 
-  const { data: classLevelOptions } = useQuery({
+  const { data: classLevelOptions = [] } = useQuery({
     queryKey: ['classlevel'],
     queryFn: classLevelApi.getClassLevels,
   });
 
-  const { data: instructorOptions } = useQuery({
+  const { data: instructorOptions = [] } = useQuery({
     queryKey: ['instructors'],
     queryFn: InstructorApi.getInstructors,
   });

@@ -504,7 +504,7 @@ export default function ScoreSheetView({ initialCourseId = null, initialSessionI
         <div style={tableStyles.empty}>
           {canLoad
             ? 'Clickss Load to fetch students and assessments for the selected course.'
-            : 'Selecssst course (and optionally session), then click Load.'}
+            : 'Select course (and optionally session), then click Load.'}
         </div>
       )}
     </div>

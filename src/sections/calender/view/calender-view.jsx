@@ -83,8 +83,15 @@ const columns = [
   },
   { 
     id: 'createdBy', 
-    label: 'Created By', 
-    cellSx: { width: '10%' } 
+    label: 'Created By',
+    cellSx: { width: '10%' },
+    renderCell: (row) => (
+      <Typography variant="body2" noWrap>
+        {row.createdBy
+          ? [row.createdBy.firstName, row.createdBy.lastName].filter(Boolean).join(' ') || row.createdBy.email
+          : 'N/A'}
+      </Typography>
+    )
   },
 ];
 
