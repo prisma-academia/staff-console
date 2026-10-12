@@ -80,8 +80,9 @@ export default function AdmissionLetterModal({ open, onClose, admission }) {
   const handlePrint = () => {
     const frame = iframeRef.current;
     if (!frame?.contentWindow) return;
-    frame.contentWindow.focus();
-    frame.contentWindow.print();
+    // The frame is sandboxed without same-origin, so print() is requested by
+    // message; the rendered page listens for it.
+    frame.contentWindow.postMessage('doc:print', '*');
   };
 
   return (
@@ -118,6 +119,10 @@ export default function AdmissionLetterModal({ open, onClose, admission }) {
             component="iframe"
             title="Admission letter preview"
             srcDoc={html}
+            // Authored HTML runs isolated from the console: scripts (the watermark
+            // tiler) may run, but without same-origin they cannot reach the
+            // console's storage or tokens. allow-modals lets the page print.
+            sandbox="allow-scripts allow-modals"
             sx={{ display: 'block', width: '100%', height: 640, border: 0, bgcolor: 'common.white' }}
           />
         )}

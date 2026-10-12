@@ -20,7 +20,6 @@ const UserDetailPage = lazy(() => import('src/sections/user/detail/user-detail-p
 const UserAddPage = lazy(() => import('src/sections/user/add/user-add-page'));
 const GroupsPage = lazy(() => import('src/pages/groups'));
 const AdmissionPage = lazy(() => import('src/pages/admission'));
-const AdmissionLetterSettingsPage = lazy(() => import('src/pages/admission-letter-settings'));
 const StudentPage = lazy(() => import('src/pages/student'));
 const StudentIntakePage = lazy(() => import('src/pages/student-intake'));
 const StudentDetailPage = lazy(() => import('src/sections/student/detail/student-detail-page'));
@@ -55,9 +54,9 @@ const MailControlPage = lazy(() => import('src/pages/mail-control'));
 const MailControlAccountPage = lazy(() => import('src/pages/mail-control-account'));
 const AuditPage = lazy(() => import('src/pages/audit'));
 const RolePermissionPage = lazy(() => import('src/pages/role-permission'));
-const TemplatePage = lazy(() => import('src/pages/template'));
-const TemplateAddPage = lazy(() => import('src/sections/template/add/template-add-page'));
-const TemplateDetailPage = lazy(() => import('src/sections/template/detail/template-detail-page'));
+const DocStudioPage = lazy(() => import('src/pages/doc-studio'));
+const DocStudioEditorPage = lazy(() => import('src/pages/doc-studio-editor'));
+const BrandKitPage = lazy(() => import('src/pages/brand-kit'));
 const ApplicationDetailPage = lazy(() => import('src/sections/application/detail/application-detail-page'));
 const Page404 = lazy(() => import('src/pages/page-not-found'));
 
@@ -169,14 +168,8 @@ export default function Router() {
             </PrivateRoute>
           ),
         },
-        {
-          path: 'admission/letter-settings',
-          element: (
-            <PrivateRoute>
-              <AdmissionLetterSettingsPage />
-            </PrivateRoute>
-          ),
-        },
+        // The letter editor moved into the Template Studio.
+        { path: 'admission/letter-settings', element: <Navigate to="/studio/admissions/admission-letter" replace /> },
         {
           path: 'student',
           element: (
@@ -445,29 +438,32 @@ export default function Router() {
           ),
         },
         {
-          path: 'template',
+          path: 'studio',
           element: (
             <PrivateRoute>
-              <TemplatePage />
+              <DocStudioPage />
             </PrivateRoute>
           ),
         },
         {
-          path: 'template/new',
+          path: 'studio/brand',
           element: (
             <PrivateRoute>
-              <TemplateAddPage />
+              <BrandKitPage />
             </PrivateRoute>
           ),
         },
         {
-          path: 'template/:id',
+          path: 'studio/:service/:key',
           element: (
             <PrivateRoute>
-              <TemplateDetailPage />
+              <DocStudioEditorPage />
             </PrivateRoute>
           ),
         },
+        // The old EJS template manager was retired in favour of the Studio.
+        { path: 'template', element: <Navigate to="/studio" replace /> },
+        { path: 'template/*', element: <Navigate to="/studio" replace /> },
       ],
     },
     {

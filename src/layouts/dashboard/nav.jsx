@@ -30,7 +30,7 @@ import useNavConfig from './config-navigation';
 
 // ----------------------------------------------------------------------
 
-const APPLICATION_GROUP_PATHS = ['/application', '/admission', '/admission/letter-settings', '/application/sessions', '/application/programmes', '/application/analytics'];
+const APPLICATION_GROUP_PATHS = ['/application', '/admission', '/studio/admissions/admission-letter', '/application/sessions', '/application/programmes', '/application/analytics'];
 
 export default function Nav({ openNav, onCloseNav }) {
   const pathname = usePathname();

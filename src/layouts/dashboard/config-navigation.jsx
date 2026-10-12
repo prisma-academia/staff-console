@@ -73,9 +73,9 @@ const useNavConfig = () => {
         },
         {
           title: 'Admission Letter',
-          path: '/admission/letter-settings',
+          path: '/studio/admissions/admission-letter',
           icon: <Iconify icon="eva:file-text-fill" width={24} />,
-          permission: PERMISSIONS.VIEW_ADMISSION,
+          permission: PERMISSIONS.VIEW_DOC_STUDIO,
         },
         {
           title: 'Session',
@@ -182,10 +182,10 @@ const useNavConfig = () => {
       permission: PERMISSIONS.VIEW_GRADING_SCHEME,
     },
     {
-      title: 'Templates',
-      path: '/template',
-      icon: <Iconify icon="mdi:file-document-multiple" width={24} />,
-      permission: PERMISSIONS.VIEW_TEMPLATE,
+      title: 'Template Studio',
+      path: '/studio',
+      icon: <Iconify icon="mdi:palette-swatch-variant" width={24} />,
+      permission: PERMISSIONS.VIEW_DOC_STUDIO,
     },
     {
       title: 'Mail',

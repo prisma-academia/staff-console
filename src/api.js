@@ -869,18 +869,6 @@ export const MailDomainApi = {
   deleteDomain: (id) => apiClient.delete(`mail-domain/${id}`),
 };
 
-export const TemplateApi = {
-  getTemplates: (params) => {
-    const queryString = params ? buildQueryString(params) : '';
-    return apiClient.get(`template${queryString ? `?${queryString}` : ''}`);
-  },
-  getTemplatesPage: (params = {}) => apiClient.get(`template?${buildQueryString(params)}`),
-  getTemplateById: (id) => apiClient.get(`template/${id}`),
-  createTemplate: (data) => apiClient.post('template', data),
-  updateTemplate: (id, data) => apiClient.put(`template/${id}`, data),
-  deleteTemplate: (id) => apiClient.delete(`template/${id}`),
-};
-
 export const AssessmentApi = {
   getAssessments: (params) => {
     const queryString = params ? buildQueryString(params) : '';

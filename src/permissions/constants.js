@@ -135,10 +135,12 @@ export const PERMISSIONS = {
   DELETE_SCORE: 'delete_score',
   VIEW_SCORE: 'view_score',
 
-  ADD_TEMPLATE: 'add_template',
-  EDIT_TEMPLATE: 'edit_template',
-  DELETE_TEMPLATE: 'delete_template',
-  VIEW_TEMPLATE: 'view_template',
+  // Template Studio (documents, emails, SMS and the Brand Kit)
+  VIEW_DOC_STUDIO: 'view_doc_studio',
+  EDIT_DOC_TEMPLATE: 'edit_doc_template',
+  PUBLISH_DOC_TEMPLATE: 'publish_doc_template',
+  TEST_SEND_TEMPLATE: 'test_send_template',
+  MANAGE_BRAND_KIT: 'manage_brand_kit',
 
   VIEW_MAILS: 'view_mails',
   COMPOSE_MAIL: 'compose_mail',

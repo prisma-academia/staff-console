@@ -225,12 +225,13 @@ export const PERMISSION_CATEGORIES = [
     ],
   },
   {
-    label: 'Template Management',
+    label: 'Template Studio',
     permissions: [
-      { id: 'add_template', label: 'Add Template' },
-      { id: 'edit_template', label: 'Edit Template' },
-      { id: 'delete_template', label: 'Delete Template' },
-      { id: 'view_template', label: 'View Template' },
+      { id: 'view_doc_studio', label: 'View Template Studio' },
+      { id: 'edit_doc_template', label: 'Edit template drafts' },
+      { id: 'publish_doc_template', label: 'Publish templates' },
+      { id: 'test_send_template', label: 'Send test emails / SMS' },
+      { id: 'manage_brand_kit', label: 'Manage the Brand Kit' },
     ],
   },
   {

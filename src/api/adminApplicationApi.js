@@ -7,13 +7,13 @@ import { useAuthStore } from 'src/store';
 
 import config from '../config';
 
-const getBaseUrl = () => {
+export const getBaseUrl = () => {
   const base = (config.applicationBaseUrl || '').replace(/\/$/, '');
   const version = config.apiVersion?.startsWith('/') ? config.apiVersion : `/${config.apiVersion || 'api/v1'}`;
   return `${base}${version}`;
 };
 
-const getHeaders = (options = {}) => {
+export const getHeaders = (options = {}) => {
   const key = config.adminApiKey;
   const headers = {
     'Content-Type': 'application/json',
@@ -38,7 +38,7 @@ const buildUrl = (path, params = {}) => {
   return url.toString();
 };
 
-const handleJsonResponse = async (response) => {
+export const handleJsonResponse = async (response) => {
   const text = await response.text();
   let result;
   try {
@@ -186,7 +186,7 @@ const staffPost = async (path, body = {}) => {
   const pathStr = path.startsWith('/') ? path.slice(1) : path;
   const response = await fetch(`${base.replace(/\/?$/, '/')}${pathStr}`, {
     method: 'POST',
-    headers: getHeaders({ 'X-Staff-Token': token }),
+    headers: getHeaders({ headers: { 'X-Staff-Token': token } }),
     body: JSON.stringify(body),
   });
   return handleJsonResponse(response);
@@ -265,28 +265,7 @@ export const getAdmissionLetterPreview = async (id) => {
   return text;
 };
 
-// --- Admission letter settings (application-api) ---
-
-export const getLetterSettings = async () => adminGet('letter-settings');
-
-export const updateLetterSettings = async (body) => adminPut('letter-settings', body);
-
-export const resetLetterSettings = async () => adminPost('letter-settings/reset', {});
-
-/**
- * The {{token}} vocabulary the renderer can resolve, for the editor's insert
- * menu. Served from the API so the console never carries its own copy of a list
- * that only the renderer can be authoritative about.
- */
-export const getLetterVariables = async () => adminGet('letter-settings/variables');
-
-/**
- * Renders unsaved letter settings so the console can show a live preview.
- * Pass an `admissionId` to preview against a real applicant; omit it for sample
- * data. This endpoint never persists anything.
- */
-export const previewLetterSettings = async ({ settings, admissionId } = {}) =>
-  adminPost('letter-settings/preview', { settings, admissionId: admissionId || null });
+// The admission letter is edited in the Template Studio (src/api/docStudioApi.js).
 
 // --- Sessions (application-api) ---
 
@@ -355,9 +334,6 @@ export default {
   validateAdmissionPayment,
   getAdmissionLetterPdf,
   getAdmissionLetterPreview,
-  getLetterSettings,
-  updateLetterSettings,
-  resetLetterSettings,
   listSessions,
   createSession,
   updateSession,
