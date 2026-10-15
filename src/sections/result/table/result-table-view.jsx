@@ -48,6 +48,7 @@ import Iconify from 'src/components/iconify';
 
 import CourseReadiness from './course-readiness';
 import { ResultCell, ResultCellPopover } from './result-cell';
+import { selectTip, courseState, studentState, selectionSummary } from './publish-selection';
 import useScoringSession from '../../assessment/use-scoring-session';
 
 const SEMESTERS = ['First Semester', 'Second Semester'];
@@ -100,6 +101,8 @@ Step.propTypes = {
   done: PropTypes.bool,
 };
 
+const CHECK_WIDTH = 44;
+
 const STICKY = (left, header = false) => ({
   position: 'sticky',
   left,
@@ -128,6 +131,10 @@ export default function ResultTableView() {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [showCourses, setShowCourses] = useState(true);
   const [statusAction, setStatusAction] = useState(null); // approve | publish | reopen
+  // What the status dialog acts on: the whole class, or the selected students x courses
+  const [statusScope, setStatusScope] = useState({ selection: false, approveDrafts: false });
+  const [selectedStudents, setSelectedStudents] = useState(() => new Set());
+  const [selectedCourses, setSelectedCourses] = useState(() => new Set());
   const [reopenReason, setReopenReason] = useState('');
   const [busy, setBusy] = useState(null);
   const [computeOpen, setComputeOpen] = useState(false);
@@ -158,7 +165,15 @@ export default function ResultTableView() {
   const scheme = meta?.gradingScheme || null;
   const reload = () => queryClient.invalidateQueries({ queryKey: ['result-builder'] });
 
-  useEffect(() => setPopover(null), [programId, classId, semester, sessionId]);
+  const clearSelection = () => {
+    setSelectedStudents(new Set());
+    setSelectedCourses(new Set());
+  };
+  useEffect(() => {
+    setPopover(null);
+    setSelectedStudents(new Set());
+    setSelectedCourses(new Set());
+  }, [programId, classId, semester, sessionId]);
 
   const students = useMemo(() => data?.students ?? [], [data]);
   const courseColumns = students[0]?.courses ?? [];
@@ -187,6 +202,59 @@ export default function ResultTableView() {
     () => visible.flatMap((stu) => (stu.carryOvers || []).map((course) => ({ stu, course }))),
     [visible]
   );
+
+  // Publishing a selection: only students / courses whose score sheets are complete can be picked
+  const canPublish = check(PERMISSIONS.PUBLISH_RESULT);
+  const canApprovePublish = canPublish && check(PERMISSIONS.APPROVE_RESULT);
+  const hasSelection = selectedStudents.size > 0 || selectedCourses.size > 0;
+  const lead = canPublish ? CHECK_WIDTH : 0; // offset of the sticky columns after the checkbox
+  const studentStates = useMemo(
+    () => new Map(students.map((s) => [s.studentId, studentState(s, selectedCourses)])),
+    [students, selectedCourses]
+  );
+  const courseStates = useMemo(
+    () => new Map((meta?.courses || []).map((c) => [c.courseId, courseState(students, c.courseId, selectedStudents)])),
+    [meta, students, selectedStudents]
+  );
+  const classPublish = useMemo(() => selectionSummary(students), [students]);
+  const selectionPublish = useMemo(
+    () => ({
+      approvedOnly: selectionSummary(students, { selectedStudents, selectedCourses }),
+      withDrafts: selectionSummary(students, { selectedStudents, selectedCourses, approveDrafts: true }),
+    }),
+    [students, selectedStudents, selectedCourses]
+  );
+  const eligibleVisible = visible.filter((s) => studentStates.get(s.studentId)?.eligible);
+  const allVisibleSelected = eligibleVisible.length > 0 && eligibleVisible.every((s) => selectedStudents.has(s.studentId));
+  const someVisibleSelected = visible.some((s) => selectedStudents.has(s.studentId));
+  const toggleIn = (setter) => (id) =>
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleStudent = toggleIn(setSelectedStudents);
+  const toggleCourse = toggleIn(setSelectedCourses);
+  const toggleAllVisible = () =>
+    setSelectedStudents((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) visible.forEach((s) => next.delete(s.studentId));
+      else eligibleVisible.forEach((s) => next.add(s.studentId));
+      return next;
+    });
+  const openStatus = (action, scope = {}) => {
+    setStatusScope({ selection: false, approveDrafts: false, ...scope });
+    setStatusAction(action);
+  };
+  const selectionLabel = [
+    selectedStudents.size && `${selectedStudents.size} student${selectedStudents.size === 1 ? '' : 's'}`,
+    selectedCourses.size && `${selectedCourses.size} course${selectedCourses.size === 1 ? '' : 's'}`,
+  ]
+    .filter(Boolean)
+    .join(' × ');
+  let publishPreview = classPublish;
+  if (statusScope.selection) publishPreview = statusScope.approveDrafts ? selectionPublish.withDrafts : selectionPublish.approvedOnly;
 
   const popoverStudent = popover && students.find((s) => s.studentId === popover.studentId);
   const popoverCourse = popoverStudent && (popover.carry ? popoverStudent.carryOvers : popoverStudent.courses).find((c) => c.courseId === popover.courseId);
@@ -254,12 +322,18 @@ export default function ResultTableView() {
     try {
       const body = { programId, classId, sessionId, semester };
       if (action === 'reopen') body.reason = reopenReason.trim();
+      if (statusScope.selection) {
+        if (selectedStudents.size) body.studentIds = [...selectedStudents];
+        if (selectedCourses.size) body.courseIds = [...selectedCourses];
+      }
+      if (action === 'publish' && statusScope.approveDrafts) body.approveDrafts = true;
       const result = await ResultApi[action](body);
       const verb = { approve: 'approved', publish: 'published', reopen: 'reopened' }[action];
       enqueueSnackbar(`${result?.count ?? 0} result(s) ${verb}`, { variant: 'success' });
       (result?.warnings || []).forEach((w) => enqueueSnackbar(w, { variant: 'warning', autoHideDuration: 10000 }));
       setStatusAction(null);
       setReopenReason('');
+      if (statusScope.selection) clearSelection();
       reload();
     } catch (err) {
       enqueueSnackbar(errorText(err, `Could not ${action} results`), { variant: 'error' });
@@ -354,7 +428,7 @@ export default function ResultTableView() {
                       disabled={!totals.approved && !totals.published}
                       onClick={() => {
                         setMenuAnchor(null);
-                        setStatusAction('reopen');
+                        openStatus('reopen');
                       }}
                     >
                       <Iconify icon="eva:unlock-outline" sx={{ mr: 1 }} /> Reopen for corrections
@@ -413,7 +487,7 @@ export default function ResultTableView() {
                   caption={totals.draft ? `${totals.draft} draft(s) waiting` : 'Approved results are locked'}
                   action={
                     check(PERMISSIONS.APPROVE_RESULT) && (
-                      <Button size="small" variant={totals.draft && !pendingCompute ? 'contained' : 'outlined'} color="info" disabled={!totals.draft} onClick={() => setStatusAction('approve')}>
+                      <Button size="small" variant={totals.draft && !pendingCompute ? 'contained' : 'outlined'} color="info" disabled={!totals.draft} onClick={() => openStatus('approve')}>
                         Approve drafts
                       </Button>
                     )
@@ -424,11 +498,15 @@ export default function ResultTableView() {
                   title="Published"
                   done={totalResults > 0 && totals.published === totalResults}
                   value={totals.published}
-                  caption={totals.approved ? `${totals.approved} approved, not yet published` : 'Visible on the student portal'}
+                  caption={
+                    totals.approved
+                      ? `${totals.approved} approved, not yet published${classPublish.heldBack ? ` · ${classPublish.heldBack} with incomplete scores` : ''}`
+                      : 'Visible on the student portal'
+                  }
                   action={
-                    check(PERMISSIONS.PUBLISH_RESULT) && (
-                      <Button size="small" variant={totals.approved ? 'contained' : 'outlined'} color="success" disabled={!totals.approved} onClick={() => setStatusAction('publish')}>
-                        Publish
+                    canPublish && (
+                      <Button size="small" variant={classPublish.approved ? 'contained' : 'outlined'} color="success" disabled={!classPublish.approved} onClick={() => openStatus('publish')}>
+                        Publish all
                       </Button>
                     )
                   }
@@ -446,10 +524,52 @@ export default function ResultTableView() {
               </Stack>
               <Collapse in={showCourses}>
                 <Box sx={{ overflowX: 'auto' }}>
-                  <CourseReadiness courses={meta.courses} sessionId={sessionId} />
+                  <CourseReadiness
+                    courses={meta.courses}
+                    sessionId={sessionId}
+                    selected={selectedCourses}
+                    onToggle={canPublish ? toggleCourse : undefined}
+                    stateOf={(courseId) => courseStates.get(courseId) || { eligible: false, ready: 0, blockers: [] }}
+                  />
                 </Box>
               </Collapse>
             </Card>
+
+            {/* Publish a selection */}
+            {canPublish && (
+              <Alert
+                severity={hasSelection ? 'success' : 'info'}
+                icon={<Iconify icon={hasSelection ? 'eva:checkmark-square-2-outline' : 'eva:info-outline'} />}
+                sx={{ mb: 2, alignItems: 'center', position: 'sticky', top: 8, zIndex: 5 }}
+                action={
+                  hasSelection && (
+                    <Stack direction="row" spacing={1}>
+                      <Button size="small" color="inherit" onClick={clearSelection}>
+                        Clear
+                      </Button>
+                      {canApprovePublish && selectionPublish.withDrafts.draft > 0 && (
+                        <Button size="small" variant="outlined" color="success" onClick={() => openStatus('publish', { selection: true, approveDrafts: true })}>
+                          Approve &amp; publish
+                        </Button>
+                      )}
+                      <Button size="small" variant="contained" color="success" disabled={!selectionPublish.approvedOnly.approved} onClick={() => openStatus('publish', { selection: true })}>
+                        Publish selected
+                      </Button>
+                    </Stack>
+                  )
+                }
+              >
+                {hasSelection ? (
+                  <>
+                    <strong>{selectionLabel} selected</strong> · {selectionPublish.withDrafts.approved} approved
+                    {canApprovePublish ? ` and ${selectionPublish.withDrafts.draft} draft` : ''} result(s) ready to publish
+                    {selectionPublish.withDrafts.heldBack ? ` · ${selectionPublish.withDrafts.heldBack} held back (incomplete scores)` : ''}
+                  </>
+                ) : (
+                  'To publish only some results, tick students on the broadsheet and/or courses above. Only students and courses whose score sheets are complete can be ticked.'
+                )}
+              </Alert>
+            )}
 
             {/* Broadsheet */}
             <Card>
@@ -493,8 +613,23 @@ export default function ResultTableView() {
                 <Table stickyHeader size="small" sx={{ '& td, & th': { borderRight: 1, borderColor: 'divider', whiteSpace: 'nowrap' } }}>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ ...STICKY(0, true), minWidth: 44 }}>#</TableCell>
-                      <TableCell sx={{ ...STICKY(44, true), minWidth: 120 }}>Reg No</TableCell>
+                      {canPublish && (
+                        <TableCell padding="checkbox" sx={{ ...STICKY(0, true), minWidth: CHECK_WIDTH }}>
+                          <Tooltip title="Select every student whose score sheets are complete">
+                            <span>
+                              <Checkbox
+                                size="small"
+                                checked={allVisibleSelected}
+                                indeterminate={someVisibleSelected && !allVisibleSelected}
+                                disabled={!eligibleVisible.length && !someVisibleSelected}
+                                onChange={toggleAllVisible}
+                              />
+                            </span>
+                          </Tooltip>
+                        </TableCell>
+                      )}
+                      <TableCell sx={{ ...STICKY(lead, true), minWidth: 44 }}>#</TableCell>
+                      <TableCell sx={{ ...STICKY(lead + 44, true), minWidth: 120 }}>Reg No</TableCell>
                       <TableCell sx={{ minWidth: 180 }}>Name</TableCell>
                       {courseColumns.map((course) => (
                         <React.Fragment key={course.courseId}>
@@ -525,10 +660,22 @@ export default function ResultTableView() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {visible.map((student, i) => (
-                      <TableRow key={student.studentId} hover>
-                        <TableCell sx={{ ...STICKY(0), color: 'text.secondary' }}>{i + 1}</TableCell>
-                        <TableCell sx={STICKY(44)}>{student.regNumber}</TableCell>
+                    {visible.map((student, i) => {
+                      const state = studentStates.get(student.studentId);
+                      const checked = selectedStudents.has(student.studentId);
+                      return (
+                      <TableRow key={student.studentId} hover selected={checked}>
+                        {canPublish && (
+                          <TableCell padding="checkbox" sx={STICKY(0)}>
+                            <Tooltip title={selectTip(state, checked)} placement="right">
+                              <span>
+                                <Checkbox size="small" checked={checked} disabled={!checked && !state.eligible} onChange={() => toggleStudent(student.studentId)} />
+                              </span>
+                            </Tooltip>
+                          </TableCell>
+                        )}
+                        <TableCell sx={{ ...STICKY(lead), color: 'text.secondary' }}>{i + 1}</TableCell>
+                        <TableCell sx={STICKY(lead + 44)}>{student.regNumber}</TableCell>
                         <TableCell>
                           {student.name}
                           {student.outstanding?.length > 0 && (
@@ -558,10 +705,11 @@ export default function ResultTableView() {
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                     {!visible.length && (
                       <TableRow>
-                        <TableCell colSpan={6 + courseColumns.length} sx={{ py: 5, textAlign: 'center' }}>
+                        <TableCell colSpan={(canPublish ? 7 : 6) + courseColumns.length} sx={{ py: 5, textAlign: 'center' }}>
                           <Typography variant="body2" color="text.secondary">
                             {students.length ? 'No student matches your search.' : 'No students in this class.'}
                           </Typography>
@@ -681,7 +829,7 @@ export default function ResultTableView() {
       <Dialog open={Boolean(statusAction)} onClose={() => busy !== 'status' && setStatusAction(null)} maxWidth="sm" fullWidth>
         <DialogTitle>
           {statusAction === 'approve' && 'Approve draft results'}
-          {statusAction === 'publish' && 'Publish results'}
+          {statusAction === 'publish' && (statusScope.approveDrafts ? 'Approve and publish results' : 'Publish results')}
           {statusAction === 'reopen' && 'Reopen results'}
         </DialogTitle>
         <DialogContent>
@@ -701,9 +849,19 @@ export default function ResultTableView() {
               </>
             )}
             {statusAction === 'publish' && (
-              <Typography variant="body2">
-                Publish the {totals.approved} approved result(s). Students will see them on the student portal.
-              </Typography>
+              <>
+                <Typography variant="body2">
+                  {statusScope.selection ? `For the ${selectionLabel} selected: publish` : 'Publish'} the {publishPreview.approved} approved result(s)
+                  {statusScope.approveDrafts ? ` and approve and publish the ${publishPreview.draft} draft result(s)` : ''} whose score
+                  sheets are complete. Students will see them on the student portal.
+                </Typography>
+                {publishPreview.heldBack > 0 && (
+                  <Alert severity="info">
+                    {publishPreview.heldBack} result(s) will be held back because their score sheets are incomplete or the drafts are out
+                    of date. Finish the scores (and compute drafts again) to publish them later.
+                  </Alert>
+                )}
+              </>
             )}
             {statusAction === 'reopen' && (
               <>

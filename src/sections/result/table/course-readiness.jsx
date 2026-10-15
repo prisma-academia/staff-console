@@ -7,6 +7,7 @@ import {
   Table,
   Button,
   Tooltip,
+  Checkbox,
   TableRow,
   TableBody,
   TableCell,
@@ -19,14 +20,22 @@ import { describeSplit, RESULT_STATUS_COLORS } from 'src/utils/grading';
 
 import Iconify from 'src/components/iconify';
 
-/** Per-course state of a broadsheet: setup, score progress, saved results and issues. */
-export default function CourseReadiness({ courses, sessionId }) {
+import { selectTip } from './publish-selection';
+
+/**
+ * Per-course state of a broadsheet: setup, score progress, saved results and issues.
+ * With `onToggle`, courses whose score sheets are complete can be selected for publishing;
+ * `stateOf(courseId)` gives `{ eligible, blockers }`.
+ */
+export default function CourseReadiness({ courses, sessionId, selected, onToggle, stateOf }) {
   const navigate = useNavigate();
+  const selectable = Boolean(onToggle && stateOf);
 
   return (
     <Table size="small">
       <TableHead>
         <TableRow>
+          {selectable && <TableCell padding="checkbox" />}
           <TableCell>Course</TableCell>
           <TableCell>Assessments</TableCell>
           <TableCell sx={{ minWidth: 170 }}>Scores</TableCell>
@@ -44,8 +53,19 @@ export default function CourseReadiness({ courses, sessionId }) {
           if (c.stale) issues.push({ color: 'warning', label: `${c.stale} out of date`, tip: 'Scores changed after the draft was computed' });
           if (c.scored > c.complete) issues.push({ color: 'default', label: `${c.scored - c.complete} incomplete`, tip: 'Some assessments have no score' });
           if (c.overrides) issues.push({ color: 'info', label: `${c.overrides} override(s)`, tip: 'Scores typed in on the broadsheet' });
+          const state = selectable ? stateOf(c.courseId) : null;
+          const checked = Boolean(selected?.has(c.courseId));
           return (
-            <TableRow key={c.courseId} hover>
+            <TableRow key={c.courseId} hover selected={checked}>
+              {selectable && (
+                <TableCell padding="checkbox">
+                  <Tooltip title={selectTip(state, checked)}>
+                    <span>
+                      <Checkbox size="small" checked={checked} disabled={!checked && !state.eligible} onChange={() => onToggle(c.courseId)} />
+                    </span>
+                  </Tooltip>
+                </TableCell>
+              )}
               <TableCell>
                 <Typography variant="subtitle2">
                   {c.code}
@@ -102,4 +122,7 @@ export default function CourseReadiness({ courses, sessionId }) {
 CourseReadiness.propTypes = {
   courses: PropTypes.array.isRequired,
   sessionId: PropTypes.string,
+  selected: PropTypes.instanceOf(Set),
+  onToggle: PropTypes.func,
+  stateOf: PropTypes.func,
 };
