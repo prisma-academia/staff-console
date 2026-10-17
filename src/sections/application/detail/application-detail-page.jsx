@@ -29,6 +29,7 @@ import {
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
+import { usePdfPreview } from 'src/components/pdf-viewer';
 
 // ----------------------------------------------------------------------
 
@@ -38,7 +39,7 @@ export default function ApplicationDetailPage() {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
   const [validating, setValidating] = useState(false);
-  const [printingReceipt, setPrintingReceipt] = useState(false);
+  const receiptPreview = usePdfPreview();
   const [sendingLink, setSendingLink] = useState(false);
   const [sendingInvite, setSendingInvite] = useState(false);
 
@@ -99,29 +100,14 @@ export default function ApplicationDetailPage() {
 
   const handleBack = () => navigate('/application');
 
-  const handlePrintReceipt = async () => {
-    if (!id || printingReceipt) return;
-    setPrintingReceipt(true);
-    try {
-      const { blob, filename } = await getApplicationReceiptPdf(id);
-      const url = window.URL.createObjectURL(blob);
-      const w = window.open(url, '_blank');
-      if (w) w.focus();
-      else {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename || 'application-receipt.pdf';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-      window.URL.revokeObjectURL(url);
-      enqueueSnackbar('Receipt opened in new tab. Use the browser print option to print.', { variant: 'info' });
-    } catch (err) {
-      enqueueSnackbar(err?.message || err?.data?.message || 'Failed to load receipt', { variant: 'error' });
-    } finally {
-      setPrintingReceipt(false);
-    }
+  // Opens in the in-app preview; it owns the object URLs and revokes them on close.
+  const handlePrintReceipt = () => {
+    if (!id) return;
+    receiptPreview.open({
+      title: 'Application receipt',
+      filename: 'application-receipt.pdf',
+      fetchBlob: () => getApplicationReceiptPdf(id),
+    });
   };
 
   if (isLoading) {
@@ -246,10 +232,9 @@ export default function ApplicationDetailPage() {
                 <Button
                   variant="contained"
                   onClick={handlePrintReceipt}
-                  disabled={printingReceipt}
-                  startIcon={printingReceipt ? <CircularProgress size={16} color="inherit" /> : <Iconify icon="eva:printer-fill" />}
+                  startIcon={<Iconify icon="eva:printer-fill" />}
                 >
-                  {printingReceipt ? 'Loading…' : 'Print Receipt'}
+                  Print Receipt
                 </Button>
               )}
               {status === 'not paid' && (
@@ -411,6 +396,7 @@ export default function ApplicationDetailPage() {
             </Card>
           </Box>
         </Box>
+        {receiptPreview.dialog}
       </Container>
     </>
   );

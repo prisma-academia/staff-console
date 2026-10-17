@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useSnackbar } from 'notistack';
 import { Helmet } from 'react-helmet-async';
@@ -21,6 +20,7 @@ import { paymentApi } from 'src/api';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
+import { usePdfPreview } from 'src/components/pdf-viewer';
 
 import { formatDate as formatDay } from 'src/sections/fee/fee-format';
 
@@ -147,7 +147,7 @@ export default function PaymentDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
-  const [printingReceipt, setPrintingReceipt] = useState(false);
+  const receiptPreview = usePdfPreview();
 
   const { data: payment, isLoading, error } = useQuery({
     queryKey: ['payment', id],
@@ -174,20 +174,13 @@ export default function PaymentDetailPage() {
     },
   });
 
-  const handlePrintReceipt = async () => {
+  const handlePrintReceipt = () => {
     if (!id) return;
-    setPrintingReceipt(true);
-    try {
-      const blob = await paymentApi.getReceiptPdf(id);
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener,noreferrer');
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-      enqueueSnackbar('Receipt opened in new tab', { variant: 'success' });
-    } catch (err) {
-      enqueueSnackbar(err?.message || 'Failed to load receipt', { variant: 'error' });
-    } finally {
-      setPrintingReceipt(false);
-    }
+    receiptPreview.open({
+      title: `Receipt ${payment?.reference || ''}`.trim(),
+      filename: `receipt-${payment?.reference || id}`,
+      fetchBlob: () => paymentApi.getReceiptPdf(id),
+    });
   };
 
   if (isLoading) {
@@ -249,14 +242,13 @@ export default function PaymentDetailPage() {
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {isCompleted && (
-              <LoadingButton
+              <Button
                 variant="outlined"
                 startIcon={<Iconify icon="eva:printer-fill" />}
                 onClick={handlePrintReceipt}
-                loading={printingReceipt}
               >
                 Print receipt
-              </LoadingButton>
+              </Button>
             )}
             {!isCompleted && (
               <LoadingButton
@@ -342,6 +334,7 @@ export default function PaymentDetailPage() {
           </Grid>
         </Card>
       </Box>
+      {receiptPreview.dialog}
     </Container>
   );
 }

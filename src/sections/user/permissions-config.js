@@ -102,18 +102,29 @@ export const PERMISSION_CATEGORIES = [
     ],
   },
   {
-    label: 'Result Management',
+    // Ordered by the step each action belongs to: scores -> drafts -> approved -> published
+    label: 'Results — workflow',
+    description: 'Each step of turning scores into published results. Grant only the steps a person is responsible for.',
     permissions: [
-      { id: 'add_result', label: 'Add Result' },
-      { id: 'edit_result', label: 'Edit Result' },
-      { id: 'delete_result', label: 'Delete Result' },
-      { id: 'view_result', label: 'View Result' },
-      { id: 'view_result_template', label: 'View Result Template' },
-      { id: 'build_result', label: 'Build Result' },
-      { id: 'export_result', label: 'Export Result' },
-      { id: 'approve_result', label: 'Approve Result' },
-      { id: 'publish_result', label: 'Publish Result' },
-      { id: 'reopen_result', label: 'Reopen Approved/Published Result' },
+      { id: 'view_assessment_scores', label: '1. View score sheets', description: 'Open course score sheets (instructors always see their own courses)' },
+      { id: 'edit_assessment_scores', label: '1. Enter scores', description: 'Type and save continuous-assessment and exam scores' },
+      { id: 'build_result', label: '2. Open the broadsheet', description: 'Load the class result broadsheet for a sitting' },
+      { id: 'compute_result', label: '2. Compute drafts', description: 'Turn saved scores into draft results' },
+      { id: 'override_result', label: '2. Override a score', description: "Type a course total on the broadsheet instead of the computed one" },
+      { id: 'delete_result', label: '2. Delete drafts', description: 'Remove draft results (approved and published results are locked)' },
+      { id: 'approve_result', label: '3. Approve drafts', description: 'Lock complete drafts as approved' },
+      { id: 'publish_result', label: '4. Publish results', description: 'Release selected students or courses to the student portal' },
+      { id: 'reopen_result', label: 'Reopen for corrections', description: 'Send selected approved or published results back to draft, with a reason' },
+    ],
+  },
+  {
+    label: 'Results — records & reports',
+    permissions: [
+      { id: 'view_result', label: 'View results', description: "Students' result records, GPA, transcripts and result slips" },
+      { id: 'add_result', label: 'Add a single result', description: 'Create one result record directly (outside the broadsheet)' },
+      { id: 'edit_result', label: 'Edit results', description: 'Change result records directly; also opens any course score sheet' },
+      { id: 'export_result', label: 'Export results', description: 'Download result sheets as Excel or PDF' },
+      { id: 'view_result_activity', label: 'View results activity log', description: 'See who computed, overrode, approved, published or reopened results' },
     ],
   },
   {
@@ -205,14 +216,12 @@ export const PERMISSION_CATEGORIES = [
     ],
   },
   {
-    label: 'Assessment Management',
+    label: 'Assessment Setup',
     permissions: [
       { id: 'add_assessment', label: 'Add Assessment' },
-      { id: 'edit_assessment', label: 'Edit Assessment' },
+      { id: 'edit_assessment', label: 'Edit Assessment', description: "A course's assessments, their weights and maximum scores" },
       { id: 'delete_assessment', label: 'Delete Assessment' },
       { id: 'view_assessment', label: 'View Assessment' },
-      { id: 'view_assessment_scores', label: 'View Assessment Scores' },
-      { id: 'edit_assessment_scores', label: 'Edit Assessment Scores' },
     ],
   },
   {

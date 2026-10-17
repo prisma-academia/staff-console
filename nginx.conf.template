@@ -27,6 +27,12 @@ http {
         root /usr/share/nginx/html;
         index index.html;
 
+        # pdf.js worker (.mjs) must be served as JavaScript for module workers.
+        location ~* \.mjs$ {
+            types { application/javascript mjs; }
+            try_files $uri =404;
+        }
+
         location / {
             # If a file or directory exists, serve it directly
             try_files $uri $uri/ /index.html;

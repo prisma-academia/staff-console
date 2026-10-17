@@ -19,6 +19,7 @@ import {
 import { getAdmissionLetterPdf, getAdmissionLetterPreview } from 'src/api/adminApplicationApi';
 
 import Iconify from 'src/components/iconify';
+import { pdfFileName, usePdfPreview } from 'src/components/pdf-viewer';
 
 // ----------------------------------------------------------------------
 
@@ -34,6 +35,7 @@ export default function AdmissionLetterModal({ open, onClose, admission }) {
   const iframeRef = useRef(null);
   const { enqueueSnackbar } = useSnackbar();
   const [downloading, setDownloading] = useState(false);
+  const pdfPreview = usePdfPreview();
 
   const id = admission?._id;
 
@@ -59,22 +61,28 @@ export default function AdmissionLetterModal({ open, onClose, admission }) {
     try {
       const { blob, filename } = await getAdmissionLetterPdf(id);
       const url = window.URL.createObjectURL(blob);
-      const w = window.open(url, '_blank');
-      if (w) w.focus();
-      else {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename || 'admission-letter.pdf';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-      window.URL.revokeObjectURL(url);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = pdfFileName(/\.pdf$/i.test(filename || '') ? filename : 'admission-letter');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Revoking straight away can cancel the download before the browser reads the blob.
+      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
     } catch (err) {
       enqueueSnackbar(err?.message || 'Failed to download the admission letter', { variant: 'error' });
     } finally {
       setDownloading(false);
     }
+  };
+
+  const handlePreviewPdf = () => {
+    if (!id) return;
+    pdfPreview.open({
+      title: `Admission letter · ${applicantName}`,
+      filename: 'admission-letter.pdf',
+      fetchBlob: () => getAdmissionLetterPdf(id),
+    });
   };
 
   const handlePrint = () => {
@@ -141,6 +149,14 @@ export default function AdmissionLetterModal({ open, onClose, admission }) {
           Print
         </Button>
         <Button
+          variant="outlined"
+          startIcon={<Iconify icon="vscode-icons:file-type-pdf2" />}
+          onClick={handlePreviewPdf}
+          disabled={!id}
+        >
+          Preview PDF
+        </Button>
+        <Button
           variant="contained"
           startIcon={
             downloading ? <CircularProgress size={16} color="inherit" /> : <Iconify icon="eva:download-fill" />
@@ -151,6 +167,7 @@ export default function AdmissionLetterModal({ open, onClose, admission }) {
           Download PDF
         </Button>
       </DialogActions>
+      {pdfPreview.dialog}
     </Dialog>
   );
 }

@@ -105,7 +105,7 @@ export default function AuditDetailView() {
     );
   }
 
-  const isFailed = isFailedOperation(auditLog.entityId);
+  const isFailed = isFailedOperation(auditLog.entityId) && auditLog.status === 'failure';
 
   const formattedDate = auditLog.timestamp
     ? format(new Date(auditLog.timestamp), 'PPpp')

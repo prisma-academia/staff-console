@@ -12,6 +12,7 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import { exportTable, EXPORT_FORMATS } from 'src/utils/export-table';
 
 import Iconify from 'src/components/iconify';
+import { usePdfPreview } from 'src/components/pdf-viewer';
 
 /**
  * Export button that downloads every record matching the current filters.
@@ -21,6 +22,11 @@ export default function ExportMenu({ fetchRows, title, fileBase, filterSummary, 
   const { enqueueSnackbar } = useSnackbar();
   const [anchorEl, setAnchorEl] = useState(null);
   const [loading, setLoading] = useState(false);
+  const pdfPreview = usePdfPreview();
+
+  // PDF exports open in the preview first; Download and Print live there.
+  const handlePdf = ({ blob, filename, title: heading }) =>
+    pdfPreview.open({ title: heading, filename, fetchBlob: async () => blob });
 
   const handleExport = async (format) => {
     setAnchorEl(null);
@@ -31,8 +37,8 @@ export default function ExportMenu({ fetchRows, title, fileBase, filterSummary, 
         enqueueSnackbar('No records match the current filters', { variant: 'info' });
         return;
       }
-      await exportTable({ format, columns, rows, title, fileBase, filterSummary });
-      enqueueSnackbar(`Exported ${rows.length} records`, { variant: 'success' });
+      await exportTable({ format, columns, rows, title, fileBase, filterSummary, onPdf: handlePdf });
+      if (format !== 'pdf') enqueueSnackbar(`Exported ${rows.length} records`, { variant: 'success' });
     } catch (error) {
       enqueueSnackbar(error?.message || 'Export failed', { variant: 'error' });
     } finally {
@@ -68,6 +74,7 @@ export default function ExportMenu({ fetchRows, title, fileBase, filterSummary, 
           </MenuItem>
         ))}
       </Menu>
+      {pdfPreview.dialog}
     </>
   );
 }

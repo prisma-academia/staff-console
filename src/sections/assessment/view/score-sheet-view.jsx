@@ -643,7 +643,7 @@ export default function ScoreSheetView() {
   }
 
   const pctComplete = rows.length ? Math.round((stats.complete / rows.length) * 100) : 0;
-  const canCompute = check(PERMISSIONS.ADD_RESULT) && sheet?.setup?.ok;
+  const canCompute = check(PERMISSIONS.COMPUTE_RESULT) && sheet?.setup?.ok;
 
   return (
     <Container maxWidth="xl">

@@ -157,7 +157,7 @@ VariablesPanel.propTypes = {
 /** The palette of dynamic blocks: click or drag onto the page. */
 export function BlocksPanel({ blocks, required, html, disabled, onInsert }) {
   const [query, setQuery] = useState('');
-  const requiredNames = new Set((required || []).map((rule) => rule.name));
+  const requiredRules = new Map((required || []).map((rule) => [rule.name, rule]));
   const groups = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return blocks
@@ -182,7 +182,10 @@ export function BlocksPanel({ blocks, required, html, disabled, onInsert }) {
           <Stack spacing={0.75} sx={{ mt: 0.25 }}>
             {items.map((block) => {
               const uses = countBlocks(html, block.name);
-              const isRequired = requiredNames.has(block.name);
+              const rule = requiredRules.get(block.name);
+              const isRequired = !!rule;
+              // anyOf: another block can satisfy the rule (a QR code inside the page header).
+              const satisfied = !!rule && (rule.anyOf || [rule.name]).some((name) => countBlocks(html, name) > 0);
               return (
                 <Box
                   key={block.name}
@@ -194,7 +197,7 @@ export function BlocksPanel({ blocks, required, html, disabled, onInsert }) {
                     borderRadius: 1.5,
                     cursor: disabled ? 'default' : 'grab',
                     border: '1px solid',
-                    borderColor: isRequired && !uses ? 'warning.main' : 'divider',
+                    borderColor: isRequired && !satisfied ? 'warning.main' : 'divider',
                     bgcolor: 'background.paper',
                     transition: 'all .15s',
                     '&:hover': disabled ? {} : { borderColor: 'primary.main', boxShadow: (theme) => theme.customShadows?.z8, transform: 'translateY(-1px)' },
@@ -209,7 +212,7 @@ export function BlocksPanel({ blocks, required, html, disabled, onInsert }) {
                         <Typography variant="subtitle2" noWrap>
                           {block.label}
                         </Typography>
-                        {isRequired && <Chip size="small" label="Needed" color={uses ? 'success' : 'warning'} sx={{ height: 18, fontSize: 10 }} />}
+                        {isRequired && <Chip size="small" label="Needed" color={satisfied ? 'success' : 'warning'} sx={{ height: 18, fontSize: 10 }} />}
                         {uses > 0 && !isRequired && <Chip size="small" label="In use" sx={{ height: 18, fontSize: 10 }} />}
                       </Stack>
                       <Typography variant="caption" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -318,6 +321,19 @@ export function LayoutPanel({ channel, layout, fileName, defaultFileName, disabl
               <MenuItem value="landscape">Landscape</MenuItem>
             </TextField>
           </Stack>
+          <TextField
+            select
+            size="small"
+            fullWidth
+            label="Density"
+            value={(layout && layout.density) || 'normal'}
+            disabled={disabled}
+            onChange={(event) => onLayout({ density: event.target.value })}
+            helperText="Compact uses smaller type and tighter spacing so a typical record fits on one A4 page."
+          >
+            <MenuItem value="normal">Normal</MenuItem>
+            <MenuItem value="compact">Compact</MenuItem>
+          </TextField>
           <Divider />
           <TextField
             size="small"

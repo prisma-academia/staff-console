@@ -14,10 +14,8 @@ import {
   Stack,
   Button,
   Backdrop,
-  Checkbox,
   TextField,
   Typography,
-  FormControlLabel,
 } from '@mui/material';
 
 import { UserApi, userGroupApi } from 'src/api';
@@ -25,7 +23,7 @@ import { UserApi, userGroupApi } from 'src/api';
 import Iconify from 'src/components/iconify';
 import CustomSelect from 'src/components/select';
 
-import { PERMISSION_CATEGORIES } from './permissions-config';
+import PermissionChecklist from './permission-checklist';
 
 const genderOptions = [
   { _id: 'Male', name: 'Male' },
@@ -294,35 +292,10 @@ const AddUserModal = ({ open, setOpen }) => {
 
                 <Grid item xs={12}>
                   <Typography variant="h6" sx={{ mb: 2, mt: 1 }}>Permissions</Typography>
-                  <Box sx={{ maxHeight: 400, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-                    {PERMISSION_CATEGORIES.map((category) => (
-                      <Box key={category.label} sx={{ mb: 3 }}>
-                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                          {category.label}
-                        </Typography>
-                        <Grid container spacing={1}>
-                          {category.permissions.map((perm) => (
-                            <Grid item xs={12} sm={6} md={4} key={perm.id}>
-                              <FormControlLabel
-                                control={
-                                  <Checkbox
-                                    checked={formik.values.permission.includes(perm.id)}
-                                    onChange={(e) => {
-                                      const newPermissions = e.target.checked
-                                        ? [...formik.values.permission, perm.id]
-                                        : formik.values.permission.filter((p) => p !== perm.id);
-                                      formik.setFieldValue('permission', newPermissions);
-                                    }}
-                                  />
-                                }
-                                label={perm.label}
-                              />
-                            </Grid>
-                          ))}
-                        </Grid>
-                      </Box>
-                    ))}
-                  </Box>
+                  <PermissionChecklist
+                    value={formik.values.permission}
+                    onChange={(next) => formik.setFieldValue('permission', next)}
+                  />
                 </Grid>
 
                 {formik.values.role === 'instructor' && (

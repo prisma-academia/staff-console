@@ -20,7 +20,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 
 import { RolePermissionApi } from 'src/api';
 
-import { PERMISSION_CATEGORIES } from '../user/permissions-config';
+import PermissionChecklist from '../user/permission-checklist';
 
 const style = {
   position: 'absolute',
@@ -113,35 +113,10 @@ export default function EditRolePermission({ open, setOpen, rolePermission }) {
 
               <Grid item xs={12}>
                 <Typography variant="h6" sx={{ mb: 2, mt: 1 }}>Permissions</Typography>
-                <Box sx={{ maxHeight: 400, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-                  {PERMISSION_CATEGORIES.map((category) => (
-                    <Box key={category.label} sx={{ mb: 3 }}>
-                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                        {category.label}
-                      </Typography>
-                      <Grid container spacing={1}>
-                        {category.permissions.map((perm) => (
-                          <Grid item xs={12} sm={6} md={4} key={perm.id}>
-                            <FormControlLabel
-                              control={
-                                <Checkbox
-                                  checked={formik.values.permissions.includes(perm.id)}
-                                  onChange={(e) => {
-                                    const newPermissions = e.target.checked
-                                      ? [...formik.values.permissions, perm.id]
-                                      : formik.values.permissions.filter((p) => p !== perm.id);
-                                    formik.setFieldValue('permissions', newPermissions);
-                                  }}
-                                />
-                              }
-                              label={perm.label}
-                            />
-                          </Grid>
-                        ))}
-                      </Grid>
-                    </Box>
-                  ))}
-                </Box>
+                <PermissionChecklist
+                  value={formik.values.permissions}
+                  onChange={(next) => formik.setFieldValue('permissions', next)}
+                />
                 {formik.touched.permissions && formik.errors.permissions && (
                   <FormHelperText error sx={{ mt: 1 }}>
                     {formik.errors.permissions}

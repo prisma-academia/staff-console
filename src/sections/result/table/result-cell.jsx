@@ -83,7 +83,7 @@ ResultCell.propTypes = {
 };
 
 /** Details of one student's course result, with override and recompute actions. */
-export function ResultCellPopover({ anchorEl, student, course, scheme, sessionId, permissions, busy, onClose, onOverride, onUseComputed, onDelete }) {
+export function ResultCellPopover({ anchorEl, student, course, scheme, sessionId, permissions, busy, onClose, onOverride, onUseComputed, onDelete, onReopen }) {
   const navigate = useNavigate();
   const [value, setValue] = useState('');
 
@@ -195,9 +195,16 @@ export function ResultCellPopover({ anchorEl, student, course, scheme, sessionId
         </>
       )}
       {course.locked && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-          Reopen this class&apos;s results to change it.
-        </Typography>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+            {course.status === 'published' ? 'Published' : 'Approved'} results are locked.
+          </Typography>
+          {onReopen && course.resultId && (
+            <Button size="small" color="warning" variant="outlined" startIcon={<Iconify icon="eva:unlock-outline" />} onClick={() => onReopen(student, course)}>
+              Reopen this result
+            </Button>
+          )}
+        </Stack>
       )}
 
       <Box sx={{ mt: 1.5, textAlign: 'right' }}>
@@ -221,4 +228,5 @@ ResultCellPopover.propTypes = {
   onOverride: PropTypes.func.isRequired,
   onUseComputed: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
+  onReopen: PropTypes.func,
 };

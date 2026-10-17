@@ -173,7 +173,8 @@ const useNavConfig = () => {
       title: 'Results',
       path: '/result',
       icon: <Iconify icon="eva:clipboard-fill" width={24} />,
-      permission: PERMISSIONS.VIEW_RESULT,
+      // The page is the broadsheet, which needs build_result to load
+      permission: PERMISSIONS.BUILD_RESULT,
     },
     {
       title: 'Grading Schemes',

@@ -22,7 +22,7 @@ import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
 
-import { formatActor, formatEntityId, isFailedOperation } from './utils';
+import { formatActor, formatEntityId, placeholderChip } from './utils';
 
 // ----------------------------------------------------------------------
 
@@ -134,10 +134,10 @@ export default function AuditTableRow({
         </TableCell>
 
         <TableCell>
-          {isFailedOperation(entityId) ? (
+          {placeholderChip(entityId, status) ? (
             <Chip
-              label="Failed Operation"
-              color="warning"
+              label={placeholderChip(entityId, status).label}
+              color={placeholderChip(entityId, status).color}
               size="small"
               sx={{ fontFamily: 'monospace' }}
             />

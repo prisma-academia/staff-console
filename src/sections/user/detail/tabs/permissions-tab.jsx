@@ -36,6 +36,7 @@ export default function PermissionsTab({ formik, editMode }) {
       permissions: category.permissions.filter(
         (perm) =>
           perm.label.toLowerCase().includes(query) ||
+          (perm.description || '').toLowerCase().includes(query) ||
           perm.id.toLowerCase().includes(query) ||
           category.label.toLowerCase().includes(query)
       ),
@@ -199,10 +200,16 @@ export default function PermissionsTab({ formik, editMode }) {
                               color="primary"
                             />
                           }
+                          sx={{ alignItems: 'flex-start' }}
                           label={
-                            <Typography variant="body2" sx={{ userSelect: 'none' }}>
-                              {perm.label}
-                            </Typography>
+                            <Box sx={{ pt: 1, userSelect: 'none' }}>
+                              <Typography variant="body2">{perm.label}</Typography>
+                              {perm.description && (
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.35 }}>
+                                  {perm.description}
+                                </Typography>
+                              )}
+                            </Box>
                           }
                         />
                       </Grid>

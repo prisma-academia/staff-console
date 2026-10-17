@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { useSnackbar } from 'notistack';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import LoadingButton from '@mui/lab/LoadingButton';
 import {
   Box,
   Card,
@@ -12,24 +10,79 @@ import {
   Stack,
   Paper,
   Table,
+  Button,
+  Dialog,
   Divider,
   Tooltip,
+  MenuItem,
   useTheme,
   TableRow,
   TableBody,
   TableCell,
   TableHead,
+  TextField,
   Typography,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   TableContainer,
 } from '@mui/material';
 
 import { classTone, formatGpa, gradeTone, RESULT_STATUS_COLORS } from 'src/utils/grading';
 
-import { ResultApi } from 'src/api';
+import { courseApi, ResultApi } from 'src/api';
 import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
+import { usePdfPreview } from 'src/components/pdf-viewer';
+
+// ----------------------------------------------------------------------
+
+const SEMESTERS = ['First Semester', 'Second Semester'];
+
+const fileSafe = (value) => String(value || '').replace(/[^\w.-]+/g, '-');
+
+// Course-form levels follow the programme length (100, 200, ...), like the student portal.
+const levelNumber = (level) => {
+  const n = Number(level);
+  if (!n) return null;
+  return n < 100 ? n * 100 : n;
+};
+
+/** Small picker that collects the parameters for a PDF before it opens in the preview. */
+function PdfOptionsDialog({ open, title, onClose, onPreview, children, disabled }) {
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>{title}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ pt: 1 }}>
+          {children}
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button
+          variant="contained"
+          disabled={disabled}
+          onClick={onPreview}
+          startIcon={<Iconify icon="eva:eye-outline" />}
+        >
+          Preview
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+PdfOptionsDialog.propTypes = {
+  open: PropTypes.bool,
+  title: PropTypes.string,
+  onClose: PropTypes.func,
+  onPreview: PropTypes.func,
+  children: PropTypes.node,
+  disabled: PropTypes.bool,
+};
 
 // ----------------------------------------------------------------------
 
@@ -46,9 +99,14 @@ Stat.propTypes = { label: PropTypes.string, value: PropTypes.node, color: PropTy
 
 export default function AcademicTab({ student }) {
   const theme = useTheme();
-  const { enqueueSnackbar } = useSnackbar();
-  const [downloading, setDownloading] = useState(false);
+  const preview = usePdfPreview();
+  const [slipOpen, setSlipOpen] = useState(false);
+  const [slipKey, setSlipKey] = useState('');
+  const [formOpen, setFormOpen] = useState(false);
+  const [formSemester, setFormSemester] = useState(SEMESTERS[0]);
+  const [formLevel, setFormLevel] = useState('');
   const studentId = student?._id;
+  const regLabel = student?.regNumber || studentId;
 
   const { data: summary, isLoading, error } = useQuery({
     queryKey: ['student-academic-summary', studentId],
@@ -57,45 +115,151 @@ export default function AcademicTab({ student }) {
   });
 
   const scheme = summary?.gradingScheme;
-  const semesters = summary?.semesters || [];
+  const semesters = useMemo(() => summary?.semesters || [], [summary]);
   const outstanding = summary?.outstanding || [];
 
-  const downloadTranscript = async () => {
-    setDownloading(true);
-    try {
-      const blob = await ResultApi.downloadTranscript(studentId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `transcript-${student?.regNumber || studentId}.pdf`.replace(/[^\w.-]+/g, '-');
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      enqueueSnackbar(err?.message || 'Could not download the transcript', { variant: 'error' });
-    } finally {
-      setDownloading(false);
-    }
+  // One result slip per class level + semester (the slip endpoint is addressed that way).
+  const slipOptions = useMemo(() => {
+    const seen = new Map();
+    semesters.forEach((sitting) => {
+      const classLevelId = sitting.classLevel?.id;
+      if (!classLevelId) return;
+      const key = `${classLevelId}|${sitting.semester}`;
+      seen.set(key, {
+        key,
+        classLevelId,
+        semester: sitting.semester,
+        label: [sitting.session?.name, sitting.semester, sitting.classLevel?.name].filter(Boolean).join(' · '),
+      });
+    });
+    return [...seen.values()];
+  }, [semesters]);
+
+  const levelOptions = useMemo(() => {
+    const levels = new Set();
+    const years = parseInt(student?.program?.durationInYears, 10);
+    if (years > 0) for (let i = 1; i <= years; i += 1) levels.add(i * 100);
+    const current = levelNumber(student?.classLevel?.level);
+    if (current) levels.add(current);
+    semesters.forEach((sitting) => {
+      const level = levelNumber(sitting.classLevel?.level);
+      if (level) levels.add(level);
+    });
+    return [...levels].sort((a, b) => a - b);
+  }, [student, semesters]);
+
+  const openTranscript = () =>
+    preview.open({
+      title: 'Transcript',
+      filename: `transcript-${fileSafe(regLabel)}`,
+      fetchBlob: () => ResultApi.downloadTranscript(studentId),
+    });
+
+  const openSlipPicker = () => {
+    setSlipKey((key) => key || slipOptions[slipOptions.length - 1]?.key || '');
+    setSlipOpen(true);
+  };
+
+  const openResultSlip = () => {
+    const option = slipOptions.find((o) => o.key === slipKey);
+    if (!option) return;
+    setSlipOpen(false);
+    preview.open({
+      title: `Result slip · ${option.label}`,
+      filename: `result-${fileSafe(regLabel)}-${fileSafe(option.semester)}`,
+      fetchBlob: () => ResultApi.downloadStudentResultPdf(studentId, option.classLevelId, option.semester),
+    });
+  };
+
+  const openFormPicker = () => {
+    setFormLevel((level) => level || levelNumber(student?.classLevel?.level) || levelOptions[0] || '');
+    setFormOpen(true);
+  };
+
+  const openCourseForm = () => {
+    setFormOpen(false);
+    preview.open({
+      title: `Course form · ${formSemester}${formLevel ? ` · ${formLevel} level` : ''}`,
+      filename: `course-form-${fileSafe(regLabel)}-${fileSafe(formSemester)}`,
+      fetchBlob: () =>
+        courseApi.getCourseFormPdf({ studentId, semester: formSemester, yearId: formLevel ? String(formLevel) : '' }),
+    });
   };
 
   return (
     <Card sx={{ boxShadow: theme.shadows[2] }}>
-      <Stack direction="row" alignItems="center" sx={{ px: 3, py: 2 }} spacing={1}>
+      <Stack direction="row" alignItems="center" sx={{ px: 3, py: 2 }} spacing={1} flexWrap="wrap" useFlexGap>
         <Iconify icon="mdi:school" color={theme.palette.primary.main} />
         <Typography variant="h6" fontWeight={600} sx={{ flex: 1 }}>
           Academic Performance
         </Typography>
+        <Can do={PERMISSIONS.VIEW_COURSE_FORM}>
+          <Button size="small" variant="outlined" onClick={openFormPicker} disabled={!studentId}
+            startIcon={<Iconify icon="eva:file-text-outline" />}>
+            Course form
+          </Button>
+        </Can>
+        {slipOptions.length > 0 && (
+          <Can do={PERMISSIONS.VIEW_RESULT}>
+            <Button size="small" variant="outlined" onClick={openSlipPicker}
+              startIcon={<Iconify icon="eva:file-outline" />}>
+              Result slip
+            </Button>
+          </Can>
+        )}
         {semesters.length > 0 && (
           <Can do={PERMISSIONS.VIEW_RESULT}>
-            <LoadingButton size="small" variant="outlined" loading={downloading} onClick={downloadTranscript}
-              startIcon={<Iconify icon="eva:download-fill" />}>
+            <Button size="small" variant="outlined" onClick={openTranscript}
+              startIcon={<Iconify icon="eva:file-text-fill" />}>
               Transcript
-            </LoadingButton>
+            </Button>
           </Can>
         )}
       </Stack>
       <Divider />
+
+      <PdfOptionsDialog
+        open={slipOpen}
+        title="Result slip"
+        onClose={() => setSlipOpen(false)}
+        onPreview={openResultSlip}
+        disabled={!slipKey}
+      >
+        <TextField select fullWidth label="Sitting" value={slipKey} onChange={(e) => setSlipKey(e.target.value)}>
+          {slipOptions.map((option) => (
+            <MenuItem key={option.key} value={option.key}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </TextField>
+      </PdfOptionsDialog>
+
+      <PdfOptionsDialog
+        open={formOpen}
+        title="Course form"
+        onClose={() => setFormOpen(false)}
+        onPreview={openCourseForm}
+        disabled={!formSemester}
+      >
+        <TextField select fullWidth label="Semester" value={formSemester} onChange={(e) => setFormSemester(e.target.value)}>
+          {SEMESTERS.map((semester) => (
+            <MenuItem key={semester} value={semester}>
+              {semester}
+            </MenuItem>
+          ))}
+        </TextField>
+        {levelOptions.length > 0 && (
+          <TextField select fullWidth label="Level" value={formLevel} onChange={(e) => setFormLevel(e.target.value)}>
+            {levelOptions.map((level) => (
+              <MenuItem key={level} value={level}>
+                {level} level
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
+      </PdfOptionsDialog>
+
+      {preview.dialog}
 
       {isLoading && <Box sx={{ p: 4, textAlign: 'center' }}><Typography color="text.secondary">Loading…</Typography></Box>}
       {error && <Alert severity="error" sx={{ m: 3 }}>{error?.data?.message || error.message}</Alert>}

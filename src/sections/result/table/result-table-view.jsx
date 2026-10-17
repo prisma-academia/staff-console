@@ -46,10 +46,12 @@ import { ResultApi, programApi, classLevelApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
 
+import ReopenDialog from './reopen-dialog';
 import CourseReadiness from './course-readiness';
+import ResultActivityDrawer from './result-activity-drawer';
 import { ResultCell, ResultCellPopover } from './result-cell';
-import { selectTip, courseState, studentState, selectionSummary } from './publish-selection';
 import useScoringSession from '../../assessment/use-scoring-session';
+import { selectTip, courseState, studentState, selectionSummary } from './publish-selection';
 
 const SEMESTERS = ['First Semester', 'Second Semester'];
 
@@ -130,12 +132,13 @@ export default function ResultTableView() {
   const [search, setSearch] = useState('');
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [showCourses, setShowCourses] = useState(true);
-  const [statusAction, setStatusAction] = useState(null); // approve | publish | reopen
+  const [statusAction, setStatusAction] = useState(null); // approve | publish
   // What the status dialog acts on: the whole class, or the selected students x courses
   const [statusScope, setStatusScope] = useState({ selection: false, approveDrafts: false });
   const [selectedStudents, setSelectedStudents] = useState(() => new Set());
   const [selectedCourses, setSelectedCourses] = useState(() => new Set());
-  const [reopenReason, setReopenReason] = useState('');
+  const [reopen, setReopen] = useState(null); // { ids } preselected results, while the reopen dialog is open
+  const [activityOpen, setActivityOpen] = useState(false);
   const [busy, setBusy] = useState(null);
   const [computeOpen, setComputeOpen] = useState(false);
   const [computeOptions, setComputeOptions] = useState({ includeIncomplete: false, replaceOverrides: false });
@@ -144,10 +147,12 @@ export default function ResultTableView() {
   const [popover, setPopover] = useState(null); // { anchorEl, studentId, courseId, carry }
 
   const permissions = {
-    compute: check(PERMISSIONS.ADD_RESULT),
-    override: check(PERMISSIONS.ADD_RESULT),
+    compute: check(PERMISSIONS.COMPUTE_RESULT),
+    override: check(PERMISSIONS.OVERRIDE_RESULT),
     remove: check(PERMISSIONS.DELETE_RESULT),
+    reopen: check(PERMISSIONS.REOPEN_RESULT),
   };
+  const canBuild = check(PERMISSIONS.BUILD_RESULT);
 
   const { data: classLevels } = useQuery({ queryKey: ['classLevels'], queryFn: classLevelApi.getClassLevels });
   const { data: programs } = useQuery({ queryKey: ['programs'], queryFn: programApi.getPrograms });
@@ -157,13 +162,16 @@ export default function ResultTableView() {
   const builderQuery = useQuery({
     queryKey: ['result-builder', programId, classId, sessionId, semester],
     queryFn: () => ResultApi.getBuilder({ classId, programId, sessionId, semester }),
-    enabled: ready,
+    enabled: ready && canBuild,
     retry: false,
   });
   const data = ready ? builderQuery.data : null;
   const meta = data?.metadata;
   const scheme = meta?.gradingScheme || null;
-  const reload = () => queryClient.invalidateQueries({ queryKey: ['result-builder'] });
+  const reload = () => {
+    queryClient.invalidateQueries({ queryKey: ['result-builder'] });
+    queryClient.invalidateQueries({ queryKey: ['result-activity'] });
+  };
 
   const clearSelection = () => {
     setSelectedStudents(new Set());
@@ -291,7 +299,7 @@ export default function ResultTableView() {
   const saveOverride = async (student, course, score) => {
     setBusy('override');
     try {
-      await ResultApi.bulkSave({ resultsData: [{ studentId: student.studentId, courseId: course.courseId, score }], sessionId, semester });
+      await ResultApi.bulkSave({ resultsData: [{ studentId: student.studentId, courseId: course.courseId, score }], sessionId, semester, programId, classId });
       enqueueSnackbar(`${student.regNumber} ${course.courseCode}: score set to ${score}`, { variant: 'success' });
       reload();
     } catch (err) {
@@ -321,22 +329,36 @@ export default function ResultTableView() {
     setBusy('status');
     try {
       const body = { programId, classId, sessionId, semester };
-      if (action === 'reopen') body.reason = reopenReason.trim();
       if (statusScope.selection) {
         if (selectedStudents.size) body.studentIds = [...selectedStudents];
         if (selectedCourses.size) body.courseIds = [...selectedCourses];
       }
       if (action === 'publish' && statusScope.approveDrafts) body.approveDrafts = true;
       const result = await ResultApi[action](body);
-      const verb = { approve: 'approved', publish: 'published', reopen: 'reopened' }[action];
+      const verb = { approve: 'approved', publish: 'published' }[action];
       enqueueSnackbar(`${result?.count ?? 0} result(s) ${verb}`, { variant: 'success' });
       (result?.warnings || []).forEach((w) => enqueueSnackbar(w, { variant: 'warning', autoHideDuration: 10000 }));
       setStatusAction(null);
-      setReopenReason('');
       if (statusScope.selection) clearSelection();
       reload();
     } catch (err) {
       enqueueSnackbar(errorText(err, `Could not ${action} results`), { variant: 'error' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Sends only the picked approved / published results back to draft
+  const reopenResults = async (resultIds, reason) => {
+    setBusy('reopen');
+    try {
+      const result = await ResultApi.reopen({ programId, classId, sessionId, semester, resultIds, reason });
+      enqueueSnackbar(`${result?.count ?? 0} result(s) reopened`, { variant: 'success' });
+      setReopen(null);
+      setPopover(null);
+      reload();
+    } catch (err) {
+      enqueueSnackbar(errorText(err, 'Could not reopen the results'), { variant: 'error' });
     } finally {
       setBusy(null);
     }
@@ -412,6 +434,11 @@ export default function ResultTableView() {
               </Button>
             )}
             <Box sx={{ flex: 1 }} />
+            {ready && meta && check(PERMISSIONS.VIEW_RESULT_ACTIVITY) && (
+              <Button color="inherit" startIcon={<Iconify icon="eva:activity-outline" />} onClick={() => setActivityOpen(true)}>
+                Activity
+              </Button>
+            )}
             {ready && meta && (
               <>
                 <Button color="inherit" endIcon={<Iconify icon="eva:more-vertical-fill" />} onClick={(e) => setMenuAnchor(e.currentTarget)}>
@@ -423,12 +450,12 @@ export default function ResultTableView() {
                       <Iconify icon="eva:download-fill" sx={{ mr: 1 }} /> Export to Excel
                     </MenuItem>
                   )}
-                  {check(PERMISSIONS.REOPEN_RESULT) && (
+                  {permissions.reopen && (
                     <MenuItem
                       disabled={!totals.approved && !totals.published}
                       onClick={() => {
                         setMenuAnchor(null);
-                        openStatus('reopen');
+                        setReopen({ ids: [] });
                       }}
                     >
                       <Iconify icon="eva:unlock-outline" sx={{ mr: 1 }} /> Reopen for corrections
@@ -440,7 +467,17 @@ export default function ResultTableView() {
           </Stack>
         </Card>
 
-        {!ready && (
+        {!canBuild && (
+          <Card sx={{ p: 6, textAlign: 'center', mb: 2 }}>
+            <Iconify icon="eva:lock-outline" width={40} sx={{ color: 'text.disabled', mb: 1 }} />
+            <Typography variant="subtitle1">You can&apos;t open the broadsheet</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Opening a class broadsheet needs the &quot;Open the broadsheet&quot; permission. Ask an administrator if you need it.
+            </Typography>
+          </Card>
+        )}
+
+        {canBuild && !ready && (
           <Card sx={{ p: 6, textAlign: 'center' }}>
             <Iconify icon="eva:clipboard-outline" width={40} sx={{ color: 'text.disabled', mb: 1 }} />
             <Typography variant="subtitle1">Choose a class</Typography>
@@ -504,10 +541,10 @@ export default function ResultTableView() {
                       : 'Visible on the student portal'
                   }
                   action={
-                    canPublish && (
-                      <Button size="small" variant={classPublish.approved ? 'contained' : 'outlined'} color="success" disabled={!classPublish.approved} onClick={() => openStatus('publish')}>
-                        Publish all
-                      </Button>
+                    canPublish && classPublish.approved > 0 && (
+                      <Typography variant="caption" color="success.dark" sx={{ display: 'block' }}>
+                        Tick students or courses below to publish them
+                      </Typography>
                     )
                   }
                 />
@@ -773,6 +810,26 @@ export default function ResultTableView() {
         onOverride={saveOverride}
         onUseComputed={saveComputed}
         onDelete={deleteDraft}
+        onReopen={permissions.reopen ? (_student, course) => setReopen({ ids: [course.resultId] }) : undefined}
+      />
+
+      <ReopenDialog
+        open={Boolean(reopen)}
+        students={students}
+        initialIds={reopen?.ids}
+        busy={busy === 'reopen'}
+        onClose={() => setReopen(null)}
+        onSubmit={reopenResults}
+      />
+
+      <ResultActivityDrawer
+        open={activityOpen}
+        onClose={() => setActivityOpen(false)}
+        programId={programId}
+        classId={classId}
+        sessionId={sessionId}
+        semester={semester}
+        title={[meta?.program?.name, meta?.classLevel?.name, semester].filter(Boolean).join(' · ')}
       />
 
       {/* Compute drafts */}
@@ -830,7 +887,6 @@ export default function ResultTableView() {
         <DialogTitle>
           {statusAction === 'approve' && 'Approve draft results'}
           {statusAction === 'publish' && (statusScope.approveDrafts ? 'Approve and publish results' : 'Publish results')}
-          {statusAction === 'reopen' && 'Reopen results'}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
@@ -863,15 +919,6 @@ export default function ResultTableView() {
                 )}
               </>
             )}
-            {statusAction === 'reopen' && (
-              <>
-                <Typography variant="body2">
-                  Send this class&apos;s approved and published results back to draft so they can be corrected. Students stop
-                  seeing them until they are published again.
-                </Typography>
-                <TextField label="Reason (recorded in the audit log)" value={reopenReason} onChange={(e) => setReopenReason(e.target.value)} multiline minRows={2} required />
-              </>
-            )}
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -881,13 +928,11 @@ export default function ResultTableView() {
           <LoadingButton
             variant="contained"
             loading={busy === 'status'}
-            disabled={statusAction === 'reopen' && !reopenReason.trim()}
             onClick={changeStatus}
-            color={{ approve: 'info', publish: 'success', reopen: 'warning' }[statusAction] || 'primary'}
+            color={{ approve: 'info', publish: 'success' }[statusAction] || 'primary'}
           >
             {statusAction === 'approve' && 'Approve'}
             {statusAction === 'publish' && 'Publish'}
-            {statusAction === 'reopen' && 'Reopen'}
           </LoadingButton>
         </DialogActions>
       </Dialog>

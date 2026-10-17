@@ -32,7 +32,7 @@ import { GenericTable } from 'src/components/generic-table';
 
 import { AuditStatsView } from './audit-stats-view';
 import AuditTableToolbar from '../audit-table-toolbar';
-import { formatActor, formatEntityId, isFailedOperation } from '../utils';
+import { formatActor, ACTION_COLORS, formatEntityId, placeholderChip } from '../utils';
 
 // ----------------------------------------------------------------------
 
@@ -237,11 +237,12 @@ export default function AuditView() {
       label: 'Entity ID', 
       cellSx: { width: '10%' },
       renderCell: (row) => {
-        if (isFailedOperation(row.entityId)) {
+        const placeholder = placeholderChip(row.entityId, row.status);
+        if (placeholder) {
           return (
             <Chip
-              label="Failed Operation"
-              color="warning"
+              label={placeholder.label}
+              color={placeholder.color}
               size="small"
               sx={{ fontFamily: 'monospace' }}
             />
@@ -258,25 +259,14 @@ export default function AuditView() {
       id: 'actionType', 
       label: 'Action', 
       cellSx: { width: '10%' },
-      renderCell: (row) => {
-        const getActionTypeColor = (type) => {
-          switch (type) {
-            case 'create': return 'success';
-            case 'update': return 'info';
-            case 'delete': return 'error';
-            case 'view': return 'default';
-            default: return 'default';
-          }
-        };
-        return (
+      renderCell: (row) => (
           <Chip
-            label={row.actionType}
-            color={getActionTypeColor(row.actionType)}
+            label={String(row.actionType || '').replace('_', ' ')}
+            color={ACTION_COLORS[row.actionType] || 'default'}
             size="small"
             sx={{ textTransform: 'capitalize' }}
           />
-        );
-      }
+        )
     },
     { 
       id: 'actor', 

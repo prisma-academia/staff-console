@@ -33,6 +33,7 @@ import { usePermissions } from 'src/utils/permissions';
 import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
+import { usePdfPreview } from 'src/components/pdf-viewer';
 import { HistoryDrawer } from 'src/components/doc-studio/history';
 import CommandPalette from 'src/components/doc-studio/command-palette';
 import PreviewPane from 'src/components/doc-studio/preview/preview-pane';
@@ -133,7 +134,7 @@ export default function StudioEditorView() {
   const [record, setRecord] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [menuAnchor, setMenuAnchor] = useState(null);
-  const [exactBusy, setExactBusy] = useState(false);
+  const { open: openPdfPreview, dialog: exactPdfDialog } = usePdfPreview();
   const [coach, setCoach] = useState(() => {
     try {
       return !localStorage.getItem(COACH_KEY);
@@ -206,19 +207,16 @@ export default function StudioEditorView() {
     enqueueSnackbar('Fixed', { variant: 'success' });
   }, [mainEditor, session, enqueueSnackbar]);
 
-  const openExactPdf = useCallback(async () => {
-    setExactBusy(true);
-    try {
-      const blob = await api.previewPdf({ key, content, recordId: record?.id });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener');
-      setTimeout(() => URL.revokeObjectURL(url), 60 * 1000);
-    } catch (error) {
-      enqueueSnackbar(error.message || 'Could not produce the PDF', { variant: 'error' });
-    } finally {
-      setExactBusy(false);
-    }
-  }, [api, key, content, record, enqueueSnackbar]);
+  // The server's own PDF of the current draft (and sample record), shown in the in-app preview.
+  const openExactPdf = useCallback(() => {
+    const snapshot = content;
+    const recordId = record?.id;
+    openPdfPreview({
+      title: `${type?.title || key} · exact PDF`,
+      filename: `${key}-preview`,
+      fetchBlob: () => api.previewPdf({ key, content: snapshot, recordId }),
+    });
+  }, [api, key, content, record, type, openPdfPreview]);
 
   const hasDraft = status === 'draft' || status === 'changes' || session.saveState === 'dirty' || session.saveState === 'saving';
   const liveVersion = template?.published?.version || 0;
@@ -457,7 +455,7 @@ export default function StudioEditorView() {
       brandName={data.editor?.brandName}
       smsSender={data.editor?.brandName}
       onExactPdf={openExactPdf}
-      exactBusy={exactBusy}
+      exactBusy={false}
     />
   );
 
@@ -631,6 +629,7 @@ export default function StudioEditorView() {
       />
       <CommandPalette open={dialog === 'palette'} onClose={() => setDialog(null)} commands={commands} />
       <ShortcutsDialog open={dialog === 'shortcuts'} onClose={() => setDialog(null)} />
+      {exactPdfDialog}
       <ConflictDialog
         open={session.saveState === 'conflict'}
         onReload={runAction(session.reload, 'Loaded the latest version')}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 
 import { Box } from '@mui/system';
@@ -7,8 +7,10 @@ import {
   Stack, 
   alpha, 
   Button,
+  Tooltip,
   useTheme,
   Container,
+  IconButton,
   Typography
 } from '@mui/material';
 
@@ -17,11 +19,35 @@ import useServerTable from 'src/hooks/use-server-table';
 import { DocumentApi } from 'src/api';
 
 import Iconify from 'src/components/iconify';
+import { usePdfPreview } from 'src/components/pdf-viewer';
 import { GenericTable } from 'src/components/generic-table';
 
 import AddDocument from '../add-document';
 
-const columns = [
+const isPdf = (row) =>
+  /(^|\.)pdf$/i.test(String(row?.extension || '').trim()) || /\.pdf($|[?#])/i.test(String(row?.file || ''));
+
+/**
+ * Loads an uploaded file for the in-app preview. Uploaded files are public storage URLs, so
+ * the request carries no credentials. If storage refuses the request (e.g. no CORS), the file
+ * opens in a new tab instead.
+ */
+const fetchDocumentFile = async (url, onFallback) => {
+  let response;
+  try {
+    response = await fetch(url, { credentials: 'omit' });
+  } catch {
+    onFallback();
+    throw new Error('The file was opened in a new tab instead.');
+  }
+  if (!response.ok) {
+    onFallback();
+    throw new Error(`The file could not be loaded here (${response.status}); it was opened in a new tab.`);
+  }
+  return response.blob();
+};
+
+const baseColumns = [
   { 
     id: 'title',
     sortKey: 'title',
@@ -75,6 +101,44 @@ const columns = [
 export default function DocumentPage() {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
+
+  const { open: openPreview, close: closePreview, dialog: previewDialog } = usePdfPreview();
+
+  const columns = useMemo(
+    () => [
+      ...baseColumns,
+      {
+        id: 'actions',
+        label: '',
+        align: 'right',
+        cellSx: { width: '5%' },
+        renderCell: (row) =>
+          row.file && isPdf(row) ? (
+            <Tooltip title="View">
+              <IconButton
+                size="small"
+                aria-label={`View ${row.title || 'document'}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openPreview({
+                    title: row.title || 'Document',
+                    filename: row.title || 'document',
+                    fetchBlob: () =>
+                      fetchDocumentFile(row.file, () => {
+                        closePreview();
+                        window.open(row.file, '_blank', 'noopener,noreferrer');
+                      }),
+                  });
+                }}
+              >
+                <Iconify icon="eva:eye-outline" />
+              </IconButton>
+            </Tooltip>
+          ) : null,
+      },
+    ],
+    [openPreview, closePreview]
+  );
 
   const table = useServerTable({ defaultSortBy: 'createdAt', defaultSortOrder: 'desc' });
   const { queryParams } = table;
@@ -162,6 +226,7 @@ export default function DocumentPage() {
       </Box>
 
       <AddDocument open={open} setOpen={setOpen} />
+      {previewDialog}
     </Container>
   );
 }

@@ -13,9 +13,12 @@ import {
   Modal,
   Stack,
   Button,
+  Switch,
   Backdrop,
   TextField,
   Typography,
+  FormHelperText,
+  FormControlLabel,
 } from '@mui/material';
 
 import { toProgrammeOptions } from 'src/utils/format-programme';
@@ -120,6 +123,7 @@ const AddCourseModal = ({ open, setOpen }) => {
       classLevel: '',
       semester: '',
       instructors: [],
+      isActive: true,
     },
     validationSchema,
     onSubmit: (values) => {
@@ -243,6 +247,21 @@ const AddCourseModal = ({ open, setOpen }) => {
                       name="instructors"
                       formik={formik}
                     />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formik.values.isActive}
+                          onChange={(e) => formik.setFieldValue('isActive', e.target.checked)}
+                          name="isActive"
+                        />
+                      }
+                      label="Active"
+                    />
+                    <FormHelperText>
+                      Disabled courses are left out of course forms, score sheets and result compute.
+                    </FormHelperText>
                   </Grid>
                 </Grid>
                 <Stack direction="row" justifyContent="flex-end" spacing={2} mt={4}>

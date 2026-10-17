@@ -13,9 +13,12 @@ import {
   Modal,
   Stack,
   Button,
+  Switch,
   Backdrop,
   TextField,
   Typography,
+  FormHelperText,
+  FormControlLabel,
 } from '@mui/material';
 
 import { toProgrammeOptions } from 'src/utils/format-programme';
@@ -40,6 +43,7 @@ const getInitialValues = (course) => {
       classLevel: '',
       semester: '',
       instructors: [],
+      isActive: true,
     };
   }
   return {
@@ -51,6 +55,7 @@ const getInitialValues = (course) => {
     classLevel: course.classLevel ? (course.classLevel._id || course.classLevel) : '',
     semester: course.semester || '',
     instructors: (course.instructors || []).map((i) => (typeof i === 'object' ? i._id : i)),
+    isActive: course.isActive !== false,
   };
 };
 
@@ -227,6 +232,22 @@ const EditCourseModal = ({ open, setOpen, course }) => {
                     name="instructors"
                     formik={formik}
                   />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={formik.values.isActive}
+                        onChange={(e) => formik.setFieldValue('isActive', e.target.checked)}
+                        name="isActive"
+                      />
+                    }
+                    label="Active"
+                  />
+                  <FormHelperText>
+                    Disabled courses are left out of course forms, score sheets and result compute.
+                    Saved results and transcripts keep them.
+                  </FormHelperText>
                 </Grid>
               </Grid>
               <Stack direction="row" justifyContent="flex-end" spacing={2} mt={4}>

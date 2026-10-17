@@ -28,9 +28,32 @@ export const ENTITY_TYPES = [
   'Settings',
   'Audit',
   'Template',
+  'Assessment',
+  'ScoreEntry',
+  'GradingScheme',
 ];
 
-export const ACTION_TYPES = ['create', 'update', 'delete', 'view'];
+export const ACTION_TYPES = [
+  'create', 'update', 'delete', 'view',
+  'bulk_create', 'bulk_update', 'bulk_delete',
+  'approve', 'publish', 'reopen', 'regrade', 'export',
+];
+
+/** Chip colour of each action type. */
+export const ACTION_COLORS = {
+  create: 'success',
+  update: 'info',
+  delete: 'error',
+  view: 'default',
+  bulk_create: 'success',
+  bulk_update: 'info',
+  bulk_delete: 'error',
+  approve: 'info',
+  publish: 'success',
+  reopen: 'warning',
+  regrade: 'secondary',
+  export: 'default',
+};
 
 export const STATUS_TYPES = ['success', 'failure'];
 
@@ -130,14 +153,24 @@ export function formatActor(actor) {
 const FAILED_OPERATION_PLACEHOLDER_ID = '000000000000000000000000';
 
 /**
- * Checks if an entityId represents a failed operation
+ * Checks if an entityId is the placeholder used when a row has no single record:
+ * a failed operation, or a bulk action (approve / publish / compute ...) over many records.
  * @param {string|ObjectId} entityId - The entity ID to check
- * @returns {boolean} True if the entityId is the placeholder for failed operations
+ * @returns {boolean} True if the entityId is the placeholder
  */
 export function isFailedOperation(entityId) {
   if (!entityId) return false;
   const idString = entityId.toString();
   return idString === FAILED_OPERATION_PLACEHOLDER_ID;
+}
+
+/**
+ * The chip shown instead of an entity id for placeholder rows: failures say so,
+ * successful bulk actions are labelled as such. Null for a real record.
+ */
+export function placeholderChip(entityId, status) {
+  if (!isFailedOperation(entityId)) return null;
+  return status === 'failure' ? { label: 'Failed Operation', color: 'warning' } : { label: 'Bulk action', color: 'default' };
 }
 
 /**
@@ -148,7 +181,7 @@ export function isFailedOperation(entityId) {
 export function formatEntityId(entityId) {
   if (!entityId) return 'N/A';
   if (isFailedOperation(entityId)) {
-    return 'Failed Operation';
+    return 'No single record (bulk or failed action)';
   }
   return entityId.toString();
 }

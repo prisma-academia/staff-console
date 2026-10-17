@@ -354,6 +354,8 @@ export const courseApi = {
   createCourse: (data) => apiClient.post('course', data),
   updateCourse: (id, data) => apiClient.put(`course/${id}`, data),
   deleteCourse: (id) => apiClient.delete(`course/${id}`),
+  // A student's course form PDF (blob): { studentId, semester, yearId } (yearId = level, e.g. 100).
+  getCourseFormPdf: (params = {}) => downloadBlob('course/forms', params, 'Failed to load the course form'),
 };
 
 export const FeeApi = {
@@ -405,6 +407,8 @@ export const AppApi = {
 
 // Executive dashboard sections; `session` '' means all sessions.
 export const AnalyticsApi = {
+  /** Every section (finance, students, academics, operations) in one payload. */
+  getSummary: (session = '') => apiClient.get(`analytics?${buildQueryString({ session })}`),
   getFinance: (session = '') => apiClient.get(`analytics/finance?${buildQueryString({ session })}`),
   getStudents: (session = '') => apiClient.get(`analytics/students?${buildQueryString({ session })}`),
   getAcademics: (session = '') => apiClient.get(`analytics/academics?${buildQueryString({ session })}`),
@@ -590,6 +594,10 @@ export const StudentApi = {
   // Every student matching the list filters: resolves to { columns, rows, total }.
   exportStudentsByFilter: (params = {}) => apiClient.get(`student/admin/export?${buildQueryString(params)}`),
   getStudentById: (id) => apiClient.get(`student/${id}`),
+  // Fees with totals by fee type and session: session = 'all' or a session id.
+  // Resolves to { fees, summary: { totals, byFeeType, bySession } }.
+  getStudentFees: (id, session = 'all') =>
+    apiClient.get(`student/${id}/fees?${buildQueryString({ session: session || 'all' })}`),
   adminEditStudent: (id, data) => apiClient.put(`student/admin/edit/${id}`, data),
   adminEditRegNumber: (id, data) => apiClient.put(`student/admin/reg-number/${id}`, data),
   adminDisableStudent: (id) => apiClient.put(`student/admin/disable/${id}`),
@@ -981,10 +989,16 @@ export const ResultApi = {
   // Academic record: sittings, GPA, CGPA, class of award, outstanding carry-overs
   getStudentSummary: (studentId) => apiClient.get(`result/student/${studentId}/summary`),
   downloadTranscript: async (studentId) => resultBlobFetch(`student/${studentId}/transcript`),
-  // Lifecycle: body { programId, classId, sessionId, semester, studentIds?, reason? }
+  // Lifecycle: body { programId, classId, sessionId, semester, studentIds?, courseIds?, reason? }
   approve: (body) => apiClient.post('result/approve', body),
   publish: (body) => apiClient.post('result/publish', body),
+  // Reopen needs the exact results: body { ...sitting, resultIds, reason }
   reopen: (body) => apiClient.post('result/reopen', body),
+  // Activity log of a broadsheet: { data, pagination }
+  getActivity: (params = {}) => {
+    const queryString = buildQueryString(params);
+    return createRequestFullResult(`result/activity${queryString ? `?${queryString}` : ''}`);
+  },
 };
 
 export const GradingSchemeApi = {

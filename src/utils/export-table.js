@@ -24,7 +24,9 @@ const downloadBlob = (blob, filename) => {
 const toMatrix = (columns, rows) =>
   rows.map((row) => columns.map(({ key }) => (row[key] === null || row[key] === undefined ? '' : row[key])));
 
-export async function exportTable({ format, columns, rows, title, fileBase, filterSummary = [] }) {
+// `onPdf({ blob, filename, title })`, when given, receives the PDF instead of it being saved
+// (the export menu opens it in the in-app preview, which has its own Download).
+export async function exportTable({ format, columns, rows, title, fileBase, filterSummary = [], onPdf }) {
   const stamp = new Date().toISOString().slice(0, 10);
   const filename = `${fileBase || 'export'}-${stamp}.${format}`;
   const headers = columns.map((column) => column.label);
@@ -76,6 +78,10 @@ export async function exportTable({ format, columns, rows, title, fileBase, filt
         doc.text(`Page ${doc.getNumberOfPages()}`, pageSize.getWidth() - 80, pageSize.getHeight() - 20);
       },
     });
+    if (onPdf) {
+      onPdf({ blob: doc.output('blob'), filename, title: title || 'Export' });
+      return filename;
+    }
     doc.save(filename);
     return filename;
   }
