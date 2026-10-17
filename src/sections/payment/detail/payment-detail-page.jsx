@@ -167,10 +167,11 @@ export default function PaymentDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['payment', id] });
-      enqueueSnackbar('Payment validated successfully', { variant: 'success' });
+      // A completed payment is only re-checked with the gateway; its status never changes
+      enqueueSnackbar(payment?.status === 'Completed' ? 'Payment confirmed by the gateway' : 'Payment validated successfully', { variant: 'success' });
     },
     onError: (err) => {
-      enqueueSnackbar(err?.message || 'Failed to validate payment', { variant: 'error' });
+      enqueueSnackbar(err?.message || 'Failed to validate payment', { variant: payment?.status === 'Completed' ? 'warning' : 'error', autoHideDuration: 10000 });
     },
   });
 
@@ -250,15 +251,15 @@ export default function PaymentDetailPage() {
                 Print receipt
               </Button>
             )}
-            {!isCompleted && (
+            {payment.reference && (
               <LoadingButton
-                variant="contained"
+                variant={isCompleted ? 'outlined' : 'contained'}
                 color="info"
                 startIcon={<Iconify icon="eva:checkmark-circle-2-fill" />}
                 loading={isValidating}
                 onClick={() => validatePayment()}
               >
-                Validate payment
+                {isCompleted ? 'Re-validate with gateway' : 'Validate payment'}
               </LoadingButton>
             )}
             <Button variant="outlined" startIcon={<Iconify icon="eva:arrow-back-fill" />} onClick={() => navigate('/payment')}>
