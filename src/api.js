@@ -460,8 +460,6 @@ export const paymentApi = {
     if (reference) body.reference = reference;
     return apiClient.post('payment/verify', body);
   },
-  applyGatewayStatus: (id, expectedStatus) =>
-    apiClient.post(`payment/${id}/apply-gateway-status`, { expectedStatus }),
 };
 
 export const userGroupApi = {

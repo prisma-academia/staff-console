@@ -25,11 +25,9 @@ import DialogContentText from '@mui/material/DialogContentText';
 
 import config from 'src/config';
 import { paymentApi } from 'src/api';
-import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
-import Can from 'src/components/permission/can';
 import { usePdfPreview } from 'src/components/pdf-viewer';
 
 import { formatDate as formatDay } from 'src/sections/fee/fee-format';
@@ -154,25 +152,28 @@ InfoRow.propTypes = {
 
 const formatNaira = (value) => (typeof value === 'number' ? `₦${value.toLocaleString()}` : '—');
 
-/** Shown when the gateway disagrees with a completed payment; offers to adopt the gateway's status. */
-function GatewayCheckPanel({ check, onApply, onRecheck, onDismiss, isRechecking }) {
-  const canApply = check.found && check.suggestedStatus && check.suggestedStatus !== check.recordedStatus;
+/** Result of re-checking a completed payment that the gateway did not confirm. */
+function GatewayCheckPanel({ check, onRecheck, onDismiss, isRechecking }) {
+  let severity = 'warning';
+  let title = 'Amount differs from the gateway';
+  if (check.downgraded) {
+    severity = 'error';
+    title = `Status changed to ${check.recordedStatus}`;
+  } else if (!check.found) {
+    severity = 'error';
+    title = 'The gateway could not confirm this payment';
+  }
 
   return (
-    <Alert
-      severity={check.found ? 'warning' : 'error'}
-      sx={{ mb: 3, '& .MuiAlert-message': { width: 1 } }}
-    >
-      <AlertTitle>
-        {check.found ? 'The gateway disagrees with this payment' : 'The gateway could not confirm this payment'}
-      </AlertTitle>
+    <Alert severity={severity} sx={{ mb: 3, '& .MuiAlert-message': { width: 1 } }}>
+      <AlertTitle>{title}</AlertTitle>
       <Typography variant="body2" sx={{ mb: 1.5 }}>
         {check.message}
       </Typography>
       {check.found && (
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.5, sm: 4 }} sx={{ mb: 2 }}>
           <Typography variant="body2">
-            Recorded: <strong>{check.recordedStatus}</strong> · {formatNaira(check.recordedAmount)}
+            Was: <strong>{check.previousStatus}</strong> · {formatNaira(check.recordedAmount)}
           </Typography>
           <Typography variant="body2">
             Gateway: <strong>{check.gatewayStatus || 'unknown'}</strong> · {formatNaira(check.gatewayAmount)}
@@ -180,24 +181,12 @@ function GatewayCheckPanel({ check, onApply, onRecheck, onDismiss, isRechecking 
         </Stack>
       )}
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-        {canApply && (
-          <Can do={PERMISSIONS.ADD_PAYMENT}>
-            <Button
-              size="small"
-              variant="contained"
-              color={check.suggestedStatus === 'Completed' ? 'success' : 'error'}
-              onClick={onApply}
-            >
-              Mark as {check.suggestedStatus}
-            </Button>
-          </Can>
-        )}
-        <Button size="small" variant="outlined" color="inherit" onClick={onDismiss}>
-          Keep as {check.recordedStatus}
-        </Button>
-        <LoadingButton size="small" color="inherit" loading={isRechecking} onClick={onRecheck}>
+        <LoadingButton size="small" variant="outlined" color="inherit" loading={isRechecking} onClick={onRecheck}>
           Check again
         </LoadingButton>
+        <Button size="small" color="inherit" onClick={onDismiss}>
+          Dismiss
+        </Button>
       </Stack>
     </Alert>
   );
@@ -205,7 +194,6 @@ function GatewayCheckPanel({ check, onApply, onRecheck, onDismiss, isRechecking 
 
 GatewayCheckPanel.propTypes = {
   check: PropTypes.object.isRequired,
-  onApply: PropTypes.func.isRequired,
   onRecheck: PropTypes.func.isRequired,
   onDismiss: PropTypes.func.isRequired,
   isRechecking: PropTypes.bool,
@@ -224,7 +212,7 @@ export default function PaymentDetailPage() {
     enabled: Boolean(id),
   });
 
-  // What the gateway said on the last failed re-check of a completed payment
+  // What the gateway said the last time it did not confirm a completed payment
   const [gatewayCheck, setGatewayCheck] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -243,33 +231,21 @@ export default function PaymentDetailPage() {
       return paymentApi.verifyPayment(paymentId, reference);
     },
     onSuccess: () => {
+      setConfirmOpen(false);
       setGatewayCheck(null);
       refreshPayment();
-      // A completed payment is only re-checked with the gateway; its status never changes
       enqueueSnackbar(payment?.status === 'Completed' ? 'Payment confirmed by the gateway' : 'Payment validated successfully', { variant: 'success' });
     },
     onError: (err) => {
+      setConfirmOpen(false);
       const check = err?.data?.gatewayCheck;
       if (check) {
-        // The panel below explains the mismatch and offers the actions
+        // The server may have changed the status to match the gateway
         setGatewayCheck({ ...check, message: err.message });
+        if (check.downgraded) refreshPayment();
         return;
       }
       enqueueSnackbar(err?.message || 'Failed to validate payment', { variant: 'error', autoHideDuration: 10000 });
-    },
-  });
-
-  const { mutate: applyGatewayStatus, isPending: isApplying } = useMutation({
-    mutationFn: () => paymentApi.applyGatewayStatus(payment._id, gatewayCheck?.suggestedStatus),
-    onSuccess: () => {
-      enqueueSnackbar(`Payment marked ${gatewayCheck?.suggestedStatus} to match the gateway`, { variant: 'success' });
-      setConfirmOpen(false);
-      setGatewayCheck(null);
-      refreshPayment();
-    },
-    onError: (err) => {
-      setConfirmOpen(false);
-      enqueueSnackbar(err?.message || 'Failed to update payment status', { variant: 'error', autoHideDuration: 10000 });
     },
   });
 
@@ -355,7 +331,8 @@ export default function PaymentDetailPage() {
                 color="info"
                 startIcon={<Iconify icon="eva:checkmark-circle-2-fill" />}
                 loading={isValidating}
-                onClick={() => validatePayment()}
+                // Re-checking a completed payment can change its status, so ask first
+                onClick={() => (isCompleted ? setConfirmOpen(true) : validatePayment())}
               >
                 {isCompleted ? 'Re-validate with gateway' : 'Validate payment'}
               </LoadingButton>
@@ -369,7 +346,6 @@ export default function PaymentDetailPage() {
         {gatewayCheck && (
           <GatewayCheckPanel
             check={gatewayCheck}
-            onApply={() => setConfirmOpen(true)}
             onRecheck={() => validatePayment()}
             onDismiss={() => setGatewayCheck(null)}
             isRechecking={isValidating}
@@ -444,31 +420,25 @@ export default function PaymentDetailPage() {
         </Card>
       </Box>
       {receiptPreview.dialog}
-      <Dialog open={confirmOpen} onClose={isApplying ? undefined : () => setConfirmOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Change payment status?</DialogTitle>
+      <Dialog open={confirmOpen} onClose={isValidating ? undefined : () => setConfirmOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Re-validate with the gateway?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Payment <strong>{payment.reference}</strong> will change from <strong>{payment.status}</strong> to{' '}
-            <strong>{gatewayCheck?.suggestedStatus}</strong>, matching the gateway status &quot;{gatewayCheck?.gatewayStatus}&quot;.
+            Payment <strong>{payment.reference}</strong> is recorded as <strong>{payment.status}</strong>. If the
+            gateway reports it as anything other than successful, its status will change to match, for example
+            Failed or Abandoned.
           </DialogContentText>
-          {gatewayCheck?.suggestedStatus !== 'Completed' && (
-            <DialogContentText sx={{ mt: 1.5 }}>
-              The student&apos;s fee balance will no longer count this payment and its receipt will stop being valid.
-              The gateway is checked again before the change is saved.
-            </DialogContentText>
-          )}
+          <DialogContentText sx={{ mt: 1.5 }}>
+            A changed payment no longer counts toward the student&apos;s fee balance and its receipt stops being
+            valid. If the gateway can&apos;t be reached, nothing changes.
+          </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button variant="outlined" color="inherit" disabled={isApplying} onClick={() => setConfirmOpen(false)}>
+          <Button variant="outlined" color="inherit" disabled={isValidating} onClick={() => setConfirmOpen(false)}>
             Cancel
           </Button>
-          <LoadingButton
-            variant="contained"
-            color={gatewayCheck?.suggestedStatus === 'Completed' ? 'success' : 'error'}
-            loading={isApplying}
-            onClick={() => applyGatewayStatus()}
-          >
-            Confirm change
+          <LoadingButton variant="contained" color="info" loading={isValidating} onClick={() => validatePayment()}>
+            Re-validate
           </LoadingButton>
         </DialogActions>
       </Dialog>
