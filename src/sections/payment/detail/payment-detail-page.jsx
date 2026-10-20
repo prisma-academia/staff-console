@@ -152,16 +152,18 @@ InfoRow.propTypes = {
 
 const formatNaira = (value) => (typeof value === 'number' ? `₦${value.toLocaleString()}` : '—');
 
-/** Result of re-checking a completed payment that the gateway did not confirm. */
+/** Result of a re-validation the gateway did not confirm as a successful payment. */
 function GatewayCheckPanel({ check, onRecheck, onDismiss, isRechecking }) {
   let severity = 'warning';
-  let title = 'Amount differs from the gateway';
-  if (check.downgraded) {
+  let title = `Gateway reports this payment as "${check.gatewayStatus}"`;
+  if (!check.found) {
     severity = 'error';
+    title = 'The gateway could not be checked';
+  } else if (check.changed) {
+    severity = check.recordedStatus === 'Completed' ? 'success' : 'error';
     title = `Status changed to ${check.recordedStatus}`;
-  } else if (!check.found) {
-    severity = 'error';
-    title = 'The gateway could not confirm this payment';
+  } else if (check.gatewayStatus === 'success') {
+    title = 'Amount differs from the gateway';
   }
 
   return (
@@ -212,7 +214,7 @@ export default function PaymentDetailPage() {
     enabled: Boolean(id),
   });
 
-  // What the gateway said the last time it did not confirm a completed payment
+  // What the gateway said the last time it did not confirm the payment
   const [gatewayCheck, setGatewayCheck] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -242,7 +244,7 @@ export default function PaymentDetailPage() {
       if (check) {
         // The server may have changed the status to match the gateway
         setGatewayCheck({ ...check, message: err.message });
-        if (check.downgraded) refreshPayment();
+        if (check.changed) refreshPayment();
         return;
       }
       enqueueSnackbar(err?.message || 'Failed to validate payment', { variant: 'error', autoHideDuration: 10000 });
