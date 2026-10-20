@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useSnackbar } from 'notistack';
 import { Helmet } from 'react-helmet-async';
@@ -7,19 +8,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
+import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
 import Divider from '@mui/material/Divider';
 import Container from '@mui/material/Container';
+import AlertTitle from '@mui/material/AlertTitle';
 import Typography from '@mui/material/Typography';
 import LoadingButton from '@mui/lab/LoadingButton';
+import DialogTitle from '@mui/material/DialogTitle';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
 
 import config from 'src/config';
 import { paymentApi } from 'src/api';
+import { PERMISSIONS } from 'src/permissions/constants';
 
 import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
+import Can from 'src/components/permission/can';
 import { usePdfPreview } from 'src/components/pdf-viewer';
 
 import { formatDate as formatDay } from 'src/sections/fee/fee-format';
@@ -142,6 +152,65 @@ InfoRow.propTypes = {
   value: PropTypes.node,
 };
 
+const formatNaira = (value) => (typeof value === 'number' ? `₦${value.toLocaleString()}` : '—');
+
+/** Shown when the gateway disagrees with a completed payment; offers to adopt the gateway's status. */
+function GatewayCheckPanel({ check, onApply, onRecheck, onDismiss, isRechecking }) {
+  const canApply = check.found && check.suggestedStatus && check.suggestedStatus !== check.recordedStatus;
+
+  return (
+    <Alert
+      severity={check.found ? 'warning' : 'error'}
+      sx={{ mb: 3, '& .MuiAlert-message': { width: 1 } }}
+    >
+      <AlertTitle>
+        {check.found ? 'The gateway disagrees with this payment' : 'The gateway could not confirm this payment'}
+      </AlertTitle>
+      <Typography variant="body2" sx={{ mb: 1.5 }}>
+        {check.message}
+      </Typography>
+      {check.found && (
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.5, sm: 4 }} sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            Recorded: <strong>{check.recordedStatus}</strong> · {formatNaira(check.recordedAmount)}
+          </Typography>
+          <Typography variant="body2">
+            Gateway: <strong>{check.gatewayStatus || 'unknown'}</strong> · {formatNaira(check.gatewayAmount)}
+          </Typography>
+        </Stack>
+      )}
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        {canApply && (
+          <Can do={PERMISSIONS.ADD_PAYMENT}>
+            <Button
+              size="small"
+              variant="contained"
+              color={check.suggestedStatus === 'Completed' ? 'success' : 'error'}
+              onClick={onApply}
+            >
+              Mark as {check.suggestedStatus}
+            </Button>
+          </Can>
+        )}
+        <Button size="small" variant="outlined" color="inherit" onClick={onDismiss}>
+          Keep as {check.recordedStatus}
+        </Button>
+        <LoadingButton size="small" color="inherit" loading={isRechecking} onClick={onRecheck}>
+          Check again
+        </LoadingButton>
+      </Stack>
+    </Alert>
+  );
+}
+
+GatewayCheckPanel.propTypes = {
+  check: PropTypes.object.isRequired,
+  onApply: PropTypes.func.isRequired,
+  onRecheck: PropTypes.func.isRequired,
+  onDismiss: PropTypes.func.isRequired,
+  isRechecking: PropTypes.bool,
+};
+
 export default function PaymentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -155,6 +224,15 @@ export default function PaymentDetailPage() {
     enabled: Boolean(id),
   });
 
+  // What the gateway said on the last failed re-check of a completed payment
+  const [gatewayCheck, setGatewayCheck] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const refreshPayment = () => {
+    queryClient.invalidateQueries({ queryKey: ['payments'] });
+    queryClient.invalidateQueries({ queryKey: ['payment', id] });
+  };
+
   const { mutate: validatePayment, isPending: isValidating } = useMutation({
     mutationFn: () => {
       const paymentId = payment?._id;
@@ -165,13 +243,33 @@ export default function PaymentDetailPage() {
       return paymentApi.verifyPayment(paymentId, reference);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['payment', id] });
+      setGatewayCheck(null);
+      refreshPayment();
       // A completed payment is only re-checked with the gateway; its status never changes
       enqueueSnackbar(payment?.status === 'Completed' ? 'Payment confirmed by the gateway' : 'Payment validated successfully', { variant: 'success' });
     },
     onError: (err) => {
-      enqueueSnackbar(err?.message || 'Failed to validate payment', { variant: payment?.status === 'Completed' ? 'warning' : 'error', autoHideDuration: 10000 });
+      const check = err?.data?.gatewayCheck;
+      if (check) {
+        // The panel below explains the mismatch and offers the actions
+        setGatewayCheck({ ...check, message: err.message });
+        return;
+      }
+      enqueueSnackbar(err?.message || 'Failed to validate payment', { variant: 'error', autoHideDuration: 10000 });
+    },
+  });
+
+  const { mutate: applyGatewayStatus, isPending: isApplying } = useMutation({
+    mutationFn: () => paymentApi.applyGatewayStatus(payment._id, gatewayCheck?.suggestedStatus),
+    onSuccess: () => {
+      enqueueSnackbar(`Payment marked ${gatewayCheck?.suggestedStatus} to match the gateway`, { variant: 'success' });
+      setConfirmOpen(false);
+      setGatewayCheck(null);
+      refreshPayment();
+    },
+    onError: (err) => {
+      setConfirmOpen(false);
+      enqueueSnackbar(err?.message || 'Failed to update payment status', { variant: 'error', autoHideDuration: 10000 });
     },
   });
 
@@ -268,6 +366,16 @@ export default function PaymentDetailPage() {
           </Stack>
         </Stack>
 
+        {gatewayCheck && (
+          <GatewayCheckPanel
+            check={gatewayCheck}
+            onApply={() => setConfirmOpen(true)}
+            onRecheck={() => validatePayment()}
+            onDismiss={() => setGatewayCheck(null)}
+            isRechecking={isValidating}
+          />
+        )}
+
         <Card sx={{ p: 3 }}>
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
@@ -336,6 +444,34 @@ export default function PaymentDetailPage() {
         </Card>
       </Box>
       {receiptPreview.dialog}
+      <Dialog open={confirmOpen} onClose={isApplying ? undefined : () => setConfirmOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Change payment status?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Payment <strong>{payment.reference}</strong> will change from <strong>{payment.status}</strong> to{' '}
+            <strong>{gatewayCheck?.suggestedStatus}</strong>, matching the gateway status &quot;{gatewayCheck?.gatewayStatus}&quot;.
+          </DialogContentText>
+          {gatewayCheck?.suggestedStatus !== 'Completed' && (
+            <DialogContentText sx={{ mt: 1.5 }}>
+              The student&apos;s fee balance will no longer count this payment and its receipt will stop being valid.
+              The gateway is checked again before the change is saved.
+            </DialogContentText>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button variant="outlined" color="inherit" disabled={isApplying} onClick={() => setConfirmOpen(false)}>
+            Cancel
+          </Button>
+          <LoadingButton
+            variant="contained"
+            color={gatewayCheck?.suggestedStatus === 'Completed' ? 'success' : 'error'}
+            loading={isApplying}
+            onClick={() => applyGatewayStatus()}
+          >
+            Confirm change
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
