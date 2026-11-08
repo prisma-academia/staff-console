@@ -128,12 +128,6 @@ const useNavConfig = () => {
       permission: PERMISSIONS.VIEW_FEE,
     },
     {
-      title: 'Resits',
-      path: '/resit',
-      icon: <Iconify icon="mdi:book-refresh" width={24} />,
-      permission: PERMISSIONS.VIEW_RESIT,
-    },
-    {
       title: 'Documents',
       path: '/document',
       icon: <Iconify icon="eva:file-fill" width={24} />,
@@ -143,7 +137,8 @@ const useNavConfig = () => {
       title: 'Courses',
       path: '/course',
       icon: <Iconify icon="eva:book-open-fill" width={24} />,
-      permission: PERMISSIONS.VIEW_COURSE,
+      // The course list, and the resits of failed courses (fees, registrations, scores)
+      anyOf: [PERMISSIONS.VIEW_COURSE, PERMISSIONS.VIEW_RESIT],
     },
     {
       title: 'Class Levels',

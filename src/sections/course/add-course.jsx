@@ -148,9 +148,7 @@ const AddCourseModal = ({ open, setOpen }) => {
 
   return (
     <>
-      <Button onClick={() => setOpen(true)} variant="contained" color="inherit">
-        New Course
-      </Button>
+      {/* Opened from the Courses page header ("Add course") */}
       <Modal
         open={open}
         onClose={() => setOpen(false)}

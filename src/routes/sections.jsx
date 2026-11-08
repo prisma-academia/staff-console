@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import { lazy, Suspense } from 'react';
-import { Outlet, Navigate, useRoutes } from 'react-router-dom';
+import { Outlet, Navigate, useRoutes, useSearchParams } from 'react-router-dom';
 
 import { useAuthStore } from 'src/store';
 import DashboardLayout from 'src/layouts/dashboard';
@@ -48,7 +48,6 @@ const SessionPage = lazy(() => import('src/pages/session'));
 const GradingSchemePage = lazy(() => import('src/pages/grading-scheme'));
 const FeePage = lazy(() => import('src/pages/fee'));
 const FeeDetailPage = lazy(() => import('src/pages/fee-detail'));
-const ResitPage = lazy(() => import('src/pages/resit'));
 const MailPage = lazy(() => import('src/pages/mail'));
 const MailAccountPage = lazy(() => import('src/pages/mail-account'));
 const MailControlPage = lazy(() => import('src/pages/mail-control'));
@@ -62,6 +61,15 @@ const ApplicationDetailPage = lazy(() => import('src/sections/application/detail
 const Page404 = lazy(() => import('src/pages/page-not-found'));
 
 // PrivateRoute Component
+const RESIT_TABS = { prices: 'resit-fees', registrations: 'resit-registrations', scores: 'resit-scores' };
+
+function ResitRedirect() {
+  const [params] = useSearchParams();
+  const next = new URLSearchParams({ tab: RESIT_TABS[params.get('tab')] || 'resit-fees' });
+  if (params.get('course')) next.set('course', params.get('course'));
+  return <Navigate to={`/course?${next}`} replace />;
+}
+
 function PrivateRoute({ children }) {
   const user = useAuthStore((state) => state.user);
   return user ? children : <Navigate to="/auth/login" />;
@@ -291,14 +299,8 @@ export default function Router() {
             </PrivateRoute>
           ),
         },
-        {
-          path: 'resit',
-          element: (
-            <PrivateRoute>
-              <ResitPage />
-            </PrivateRoute>
-          ),
-        },
+        // Resits now live on the Courses page; old links and bookmarks land on the same tab
+        { path: 'resit', element: <ResitRedirect /> },
         {
           path: 'document',
           element: (

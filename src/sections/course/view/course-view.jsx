@@ -1,328 +1,224 @@
 import { useState } from 'react';
-import { useSnackbar } from 'notistack';
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { Helmet } from 'react-helmet-async';
+import { useSearchParams } from 'react-router-dom';
 
-import { Box } from '@mui/system';
-import {
-  Card,
-  Stack,
-  alpha,
-  Button,
-  Dialog,
-  Tooltip,
-  MenuItem,
-  useTheme,
-  Container,
-  TextField,
-  Typography,
-  IconButton,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  DialogContentText,
-} from '@mui/material';
+import { Box, Tab, Tabs, Stack, Button, useTheme, Container, Typography } from '@mui/material';
 
-import useServerTable from 'src/hooks/use-server-table';
+import useActiveSession from 'src/hooks/use-active-session';
 
-import { courseApi } from 'src/api';
+import { usePermissions } from 'src/utils/permissions';
+
+import config from 'src/config';
 import { PERMISSIONS } from 'src/permissions/constants';
 
-import Label from 'src/components/label';
 import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
-import { GenericTable } from 'src/components/generic-table';
 
 import AddCourseModal from '../add-course';
-import EditCourseModal from '../edit-course';
+import CourseListTab from '../course-list-tab';
+import ResitPricesTab from '../resit/resit-prices-tab';
+import ResitScoresTab from '../resit/resit-scores-tab';
+import RegisterResitDialog from '../resit/register-resit-dialog';
+import ResitRegistrationsTab from '../resit/resit-registrations-tab';
 
-// ?isActive filter: empty shows every course
-const STATUS_OPTIONS = [
-  { value: '', label: 'All' },
-  { value: 'true', label: 'Active' },
-  { value: 'false', label: 'Disabled' },
+// ----------------------------------------------------------------------
+
+// The course list, then the resits of failed courses: what a resit costs, who registered (and
+// paid) for one, and the score sheet where resit scores replace the failed ones.
+// ?tab= picks one (the first tab needs none); ?course= opens a course's resit score sheet.
+const TABS = [
+  {
+    value: 'list',
+    label: 'Course list',
+    icon: 'mdi:book-open-variant',
+    permission: PERMISSIONS.VIEW_COURSE,
+    subtitle: 'Manage academic courses and curriculum',
+  },
+  {
+    value: 'resit-fees',
+    label: 'Resit fees',
+    icon: 'mdi:tag-outline',
+    permission: PERMISSIONS.VIEW_RESIT,
+    subtitle: 'What a resit of each course costs',
+    resit: true,
+  },
+  {
+    value: 'resit-registrations',
+    label: 'Resit registrations',
+    icon: 'mdi:account-check-outline',
+    permission: PERMISSIONS.VIEW_RESIT,
+    subtitle: 'Students registered to resit a failed course, and their payments',
+    resit: true,
+  },
+  {
+    value: 'resit-scores',
+    label: 'Resit scores',
+    icon: 'mdi:restore',
+    permission: PERMISSIONS.VIEW_RESIT,
+    subtitle: 'Record resit scores in place of failed ones',
+    resit: true,
+  },
 ];
 
-export default function CoursePage() {
+const tabId = (value) => `course-tab-${value}`;
+const panelId = (value) => `course-tabpanel-${value}`;
+
+export default function CourseView() {
   const theme = useTheme();
-  const [open, setOpen] = useState(false);
-  const [editingCourse, setEditingCourse] = useState(null);
-  const [toggling, setToggling] = useState(null);
-  const queryClient = useQueryClient();
-  const { enqueueSnackbar } = useSnackbar();
+  const [params, setParams] = useSearchParams();
+  const { check } = usePermissions();
+  const { session } = useActiveSession();
+  const [addOpen, setAddOpen] = useState(false);
+  const [registerOpen, setRegisterOpen] = useState(false);
 
-  const table = useServerTable({ filterKeys: ['isActive'], defaultSortBy: 'name', defaultSortOrder: 'asc' });
-  const { queryParams, filters, setFilter } = table;
+  const tabs = TABS.filter((t) => check(t.permission));
+  const current = tabs.find((t) => t.value === params.get('tab')) || tabs[0];
 
-  const { mutate: toggleCourse, isPending: isToggling } = useMutation({
-    mutationFn: ({ id, isActive }) => courseApi.updateCourse(id, { isActive }),
-    onSuccess: (_, { isActive }) => {
-      queryClient.invalidateQueries({ queryKey: ['courses'] });
-      enqueueSnackbar(isActive ? 'Course enabled' : 'Course disabled', { variant: 'success' });
-      setToggling(null);
-    },
-    onError: (toggleError) => {
-      enqueueSnackbar(toggleError.data?.message || toggleError.message || 'Failed to update course', { variant: 'error' });
-    },
-  });
+  // Each tab keeps its own table state in the URL; switching starts the next one clean
+  const setTab = (value) =>
+    setParams(value === tabs[0]?.value ? {} : { tab: value }, { replace: true });
+  const openResitScores = (courseId, { replace = false } = {}) =>
+    setParams(
+      courseId ? { tab: 'resit-scores', course: courseId } : { tab: 'resit-scores' },
+      { replace }
+    );
 
-  const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: ['courses', 'page', queryParams],
-    queryFn: () => courseApi.getCoursesPage(queryParams),
-    placeholderData: keepPreviousData,
-  });
+  if (!current) return <NoAccess />;
 
-  const rows = data?.data ?? [];
-  const total = data?.pagination?.total ?? 0;
-
-  const columns = [
-    {
-      id: 'name',
-      sortKey: 'name',
-      label: 'Title',
-      align: 'left',
-      cellSx: { width: '18%' },
-      renderCell: (row) => (
-        <Typography variant="subtitle2" noWrap>
-          {row.name}
-        </Typography>
-      ),
-    },
-    {
-      id: 'code',
-      sortKey: 'code',
-      label: 'Code',
-      cellSx: { width: '10%' },
-      renderCell: (row) => (
-        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-          {row.code}
-        </Typography>
-      ),
-    },
-    {
-      id: 'program',
-      label: 'Programs',
-      cellSx: { width: '14%' },
-      renderCell: (row) => (
-        <Typography variant="body2" noWrap>
-          {row.programs?.map((prog) => prog.code).join(', ') || 'N/A'}
-        </Typography>
-      ),
-    },
-    {
-      id: 'classLevel',
-      label: 'Class Level',
-      cellSx: { width: '10%' },
-      renderCell: (row) => (
-        <Typography variant="body2">
-          {row.classLevel?.name || 'N/A'}
-        </Typography>
-      ),
-    },
-    {
-      id: 'semester',
-      sortKey: 'semester',
-      label: 'Semester',
-      cellSx: { width: '10%' },
-    },
-    {
-      id: 'credit',
-      sortKey: 'credit',
-      label: 'Credit',
-      cellSx: { width: '8%' },
-    },
-    {
-      id: 'instructors',
-      label: 'Instructors',
-      cellSx: { width: '18%' },
-      renderCell: (row) => (
-        <Typography variant="body2" noWrap>
-          {row.instructors?.length
-            ? row.instructors
-                .map((i) =>
-                  i.firstName && i.lastName ? `${i.firstName} ${i.lastName}` : i.email
-                )
-                .join(', ')
-            : '—'}
-        </Typography>
-      ),
-    },
-    {
-      id: 'status',
-      label: 'Status',
-      sortable: false,
-      cellSx: { width: '8%' },
-      renderCell: (row) => (
-        <Label color={row.isActive === false ? 'default' : 'success'}>
-          {row.isActive === false ? 'Disabled' : 'Active'}
-        </Label>
-      ),
-    },
-    {
-      id: 'actions',
-      label: 'Actions',
-      align: 'right',
-      sortable: false,
-      cellSx: { width: '12%' },
-      renderCell: (row) => {
-        const active = row.isActive !== false;
-        return (
-          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-            <IconButton
-              size="small"
-              color="inherit"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingCourse(row);
-              }}
-              aria-label="Edit course"
-            >
-              <Iconify icon="solar:pen-bold" />
-            </IconButton>
-            <Can do={PERMISSIONS.EDIT_COURSE}>
-              <Tooltip title={active ? 'Disable course' : 'Enable course'}>
-                <IconButton
-                  size="small"
-                  color={active ? 'inherit' : 'success'}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setToggling(row);
-                  }}
-                  aria-label={active ? 'Disable course' : 'Enable course'}
-                >
-                  <Iconify icon={active ? 'solar:forbidden-circle-bold' : 'solar:check-circle-bold'} />
-                </IconButton>
-              </Tooltip>
-            </Can>
-          </Stack>
-        );
-      },
-    },
-  ];
+  const sessionName = session ? session.name || session.code : '';
+  const isFirstTab = current.value === tabs[0].value;
 
   return (
     <Container maxWidth="xl">
-      <Box sx={{ pb: 5, pt: 4 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            alignItems: { xs: 'stretch', sm: 'center' },
-            justifyContent: 'space-between',
-            gap: 2,
-            mb: 3,
-          }}
+      {!isFirstTab && (
+        <Helmet>
+          <title>
+            {current.label} · Courses | {config.appName}
+          </title>
+        </Helmet>
+      )}
+
+      <Box sx={{ pb: 5, pt: { xs: 2, md: 4 } }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+          justifyContent="space-between"
+          spacing={2}
+          sx={{ mb: 2 }}
         >
           <Box>
             <Typography variant="h4" color="text.primary" fontWeight="700">
               Courses
             </Typography>
             <Typography variant="body2" color="text.secondary" mt={1}>
-              Manage academic courses and curriculum
+              {current.subtitle}
+              {current.resit && sessionName ? ` · ${sessionName}` : ''}
             </Typography>
           </Box>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1.5, sm: 2 }}>
-            <Button
-              variant="contained"
-              startIcon={<Iconify icon="eva:plus-fill" />}
-              onClick={() => setOpen(true)}
-              sx={{
-                width: { xs: '100%', sm: 'auto' },
-                px: 3,
-                boxShadow: theme.customShadows.primary,
-                '&:hover': {
-                  boxShadow: 'none',
-                }
-              }}
-            >
-              Add Course
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<Iconify icon="eva:download-fill" />}
-              sx={{ px: 3 }}
-            >
-              Export
-            </Button>
-          </Stack>
-        </Box>
 
-        <Card sx={{ 
-          boxShadow: `0 0 2px 0 ${alpha(theme.palette.grey[500], 0.2)}, 
-                      0 12px 24px -4px ${alpha(theme.palette.grey[500], 0.12)}`,
-          borderRadius: 2,
-        }}>
-          <GenericTable
-            data={rows}
-            columns={columns}
-            rowIdField="_id"
-            withToolbar
-            withPagination
-            isLoading={isLoading}
-            isFetching={isFetching}
-            error={error}
-            count={total}
-            {...table.tableProps}
-            emptyRowsHeight={53}
-            initialSort={{ orderBy: 'name', order: 'asc' }}
-            onRowClick={(row) => setEditingCourse(row)}
-            toolbarProps={{
-              ...table.searchProps,
-              searchPlaceholder: 'Search courses...',
-              toolbarTitle: 'Courses List',
-              customActions: (
-                <TextField
-                  select
-                  size="small"
-                  label="Status"
-                  value={filters.isActive}
-                  onChange={(e) => setFilter('isActive', e.target.value)}
-                  sx={{ minWidth: 140 }}
-                  SelectProps={{ displayEmpty: true }}
-                  InputLabelProps={{ shrink: true }}
-                >
-                  {STATUS_OPTIONS.map((option) => (
-                    <MenuItem key={option.label} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              ),
-            }}
-          />
-        </Card>
+          {current.resit ? (
+            <Can do={PERMISSIONS.MANAGE_RESIT}>
+              <Button
+                variant="contained"
+                startIcon={<Iconify icon="eva:plus-fill" />}
+                onClick={() => setRegisterOpen(true)}
+                sx={{
+                  px: 3,
+                  flexShrink: 0,
+                  boxShadow: theme.customShadows.primary,
+                  '&:hover': { boxShadow: 'none' },
+                }}
+              >
+                Register a resit
+              </Button>
+            </Can>
+          ) : (
+            <Can do={PERMISSIONS.ADD_COURSE}>
+              <Button
+                variant="contained"
+                startIcon={<Iconify icon="eva:plus-fill" />}
+                onClick={() => setAddOpen(true)}
+                sx={{
+                  px: 3,
+                  flexShrink: 0,
+                  boxShadow: theme.customShadows.primary,
+                  '&:hover': { boxShadow: 'none' },
+                }}
+              >
+                Add course
+              </Button>
+            </Can>
+          )}
+        </Stack>
+
+        {tabs.length > 1 && (
+          <Tabs
+            value={current.value}
+            onChange={(_, value) => setTab(value)}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+            aria-label="Courses and resits"
+            sx={{ mb: 3, borderBottom: (t) => `1px solid ${t.palette.divider}` }}
+          >
+            {tabs.map((t) => (
+              <Tab
+                key={t.value}
+                value={t.value}
+                label={t.label}
+                icon={<Iconify icon={t.icon} width={20} />}
+                iconPosition="start"
+                id={tabId(t.value)}
+                aria-controls={panelId(t.value)}
+              />
+            ))}
+          </Tabs>
+        )}
+
+        <Box
+          role={tabs.length > 1 ? 'tabpanel' : undefined}
+          id={panelId(current.value)}
+          aria-labelledby={tabs.length > 1 ? tabId(current.value) : undefined}
+        >
+          {current.value === 'list' && (
+            <CourseListTab onOpenResitScores={(courseId) => openResitScores(courseId)} />
+          )}
+          {current.value === 'resit-fees' && <ResitPricesTab />}
+          {current.value === 'resit-registrations' && (
+            <ResitRegistrationsTab onRecordScores={(courseId) => openResitScores(courseId)} />
+          )}
+          {current.value === 'resit-scores' && (
+            <ResitScoresTab
+              courseId={params.get('course') || ''}
+              onCourseChange={(courseId) => openResitScores(courseId, { replace: true })}
+            />
+          )}
+        </Box>
       </Box>
 
-      <AddCourseModal open={open} setOpen={setOpen} />
-      <EditCourseModal
-        open={!!editingCourse}
-        setOpen={(isOpen) => !isOpen && setEditingCourse(null)}
-        course={editingCourse}
-      />
+      <AddCourseModal open={addOpen} setOpen={setAddOpen} />
+      {current.resit && (
+        <RegisterResitDialog
+          open={registerOpen}
+          onClose={() => setRegisterOpen(false)}
+          onRegistered={() => setTab('resit-registrations')}
+        />
+      )}
+    </Container>
+  );
+}
 
-      {/* Enable/disable confirmation */}
-      <Dialog open={!!toggling} onClose={() => !isToggling && setToggling(null)}>
-        <DialogTitle>{toggling?.isActive === false ? 'Enable' : 'Disable'} {toggling?.code}?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {toggling?.isActive === false
-              ? 'The course will be back on course forms, score sheets and result compute.'
-              : 'The course will be left out of course forms, score sheets and result compute. Saved results and transcripts keep it.'}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setToggling(null)} disabled={isToggling}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            color={toggling?.isActive === false ? 'success' : 'warning'}
-            disabled={isToggling}
-            onClick={() => toggleCourse({ id: toggling._id, isActive: toggling.isActive === false })}
-          >
-            {toggling?.isActive === false ? 'Enable' : 'Disable'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+function NoAccess() {
+  return (
+    <Container maxWidth="sm" sx={{ py: 10, textAlign: 'center' }}>
+      <Iconify icon="eva:lock-outline" width={48} sx={{ color: 'text.disabled', mb: 2 }} />
+      <Typography variant="h6" gutterBottom>
+        No access to courses
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        You need the view_course permission to see the course list, or view_resit to manage
+        resits. Ask an administrator for access.
+      </Typography>
     </Container>
   );
 }

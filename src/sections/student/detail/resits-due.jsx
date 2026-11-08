@@ -12,8 +12,8 @@ import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
 
-import { formatPrice } from 'src/sections/resit/resit-format';
-import RegisterResitDialog from 'src/sections/resit/register-resit-dialog';
+import { formatPrice } from 'src/sections/course/resit/resit-format';
+import RegisterResitDialog from 'src/sections/course/resit/register-resit-dialog';
 
 // ----------------------------------------------------------------------
 
@@ -107,13 +107,13 @@ export default function ResitsDue({ student, outstanding }) {
                 </Box>
                 <Chip size="small" label={state.label} color={state.color} variant="outlined" />
                 {canRecord && state.ready && (
-                  <Tooltip title="Enter the resit score on the Resits page">
+                  <Tooltip title="Enter the resit score under Courses › Resit scores">
                     <Button
                       size="small"
                       color="inherit"
                       endIcon={<Iconify icon="eva:arrow-forward-fill" />}
                       onClick={() =>
-                        navigate(`/resit?tab=scores&course=${course.course?._id || ''}`)
+                        navigate(`/course?tab=resit-scores&course=${course.course?._id || ''}`)
                       }
                     >
                       Record score

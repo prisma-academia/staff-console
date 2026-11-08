@@ -247,7 +247,7 @@ export default function RevisionDialog({
         <Alert severity="warning">
           <strong>{resit.message}.</strong> A resit fee is set for this course, so the student must
           pay it from the student portal before the resit score can be recorded. Staff who manage
-          resits can also register the student and waive the fee on the Resits page.
+          resits can also register the student and waive the fee under Courses › Resit registrations.
         </Alert>
       );
     }

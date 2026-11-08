@@ -7,7 +7,7 @@ const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || '')
 
 /**
  * Every course (from the resit price list, which needs only view_resit), plus the
- * programmes and class levels those courses belong to, for the Resits page filters.
+ * programmes and class levels those courses belong to, for the resit tabs on the Courses page.
  */
 export default function useResitCatalogue() {
   const { data, isLoading } = useQuery({

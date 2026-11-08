@@ -127,7 +127,11 @@ export default function Nav({ openNav, onCloseNav }) {
         if (item.public) {
           return <NavItem key={item.title} item={item} />;
         }
-        return (
+        return item.anyOf ? (
+          <Can key={item.title} anyOf={item.anyOf}>
+            <NavItem item={item} />
+          </Can>
+        ) : (
           <Can key={item.title} do={item.permission}>
             <NavItem item={item} />
           </Can>
@@ -240,6 +244,7 @@ function NavItem({ item }) {
     <ListItemButton
       component={RouterLink}
       href={item.path}
+      aria-current={active ? 'page' : undefined}
       sx={{
         minHeight: 48,
         borderRadius: 1,

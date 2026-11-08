@@ -817,7 +817,7 @@ export default function ResultTableView() {
                         <TableCell>
                           {student.name}
                           {student.outstanding?.length > 0 && (
-                            <Tooltip title={`Failed, not yet passed: ${student.outstanding.join(', ')}. Record resit scores on the Resits page.`}>
+                            <Tooltip title={`Failed, not yet passed: ${student.outstanding.join(', ')}. Record resit scores under Courses › Resit scores.`}>
                               <Chip size="small" color="warning" variant="outlined" label={`${student.outstanding.length} to resit`} sx={{ ml: 0.75, height: 18 }} />
                             </Tooltip>
                           )}
@@ -874,7 +874,7 @@ export default function ResultTableView() {
                 <Box sx={{ p: 2, pb: 1 }}>
                   <Typography variant="subtitle1">Earlier retakes ({carryOverRows.length})</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Courses from other levels recorded in this sitting before resits replaced carry-overs. Failed courses are now resat on the Resits page and keep their original sitting.
+                    Courses from other levels recorded in this sitting before resits replaced carry-overs. Failed courses are now resat under Courses › Resit scores and keep their original sitting.
                   </Typography>
                 </Box>
                 <TableContainer>
