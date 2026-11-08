@@ -15,7 +15,15 @@ export const FEE_STATUS_OPTIONS = [
   { value: 'Overdue', label: 'Overdue' },
 ];
 
-export const FEE_TYPE_OPTIONS = ['Tuition', 'Hostel', 'Laboratory', 'Others'].map((value) => ({ value, label: value }));
+// Resit fees are generated one per student by resit registrations; staff can't create or edit them.
+export const RESIT_FEE_TYPE = 'Resit';
+
+export const isResitFee = (fee) => fee?.feeType === RESIT_FEE_TYPE;
+
+// Filter options (the add / edit forms keep their own list without Resit).
+export const FEE_TYPE_OPTIONS = ['Tuition', 'Hostel', 'Laboratory', 'Others', RESIT_FEE_TYPE].map(
+  (value) => ({ value, label: value })
+);
 
 export const SEMESTER_OPTIONS = ['First Semester', 'Second Semester'].map((value) => ({ value, label: value }));
 

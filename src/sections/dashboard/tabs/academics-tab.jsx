@@ -26,7 +26,7 @@ export default function AcademicsTab({ session }) {
         { label: 'Pass rate', value: hasResults ? fPct(s?.passRate) : '—', caption: `${fCount(s?.failed)} failed` },
         { label: 'Average score', value: hasResults ? s?.averageScore : '—', caption: 'Out of 100' },
         { label: 'Average GPA', value: hasResults ? s?.averageGpa?.toFixed(2) : '—', caption: 'Credit-weighted' },
-        { label: 'Carry-overs', value: fCount(s?.carryOvers), caption: `${fCount(s?.retakes)} retakes` },
+        { label: 'Resits recorded', value: fCount(s?.resits), caption: 'Failed scores replaced by a resit' },
         { label: 'Awaiting publication', value: fCount((s?.draft || 0) + (s?.approved || 0)), caption: `${fCount(s?.draft)} draft · ${fCount(s?.approved)} approved` },
       ].map((stat) => (
         <Grid key={stat.label} item xs={6} sm={4} lg={2}>

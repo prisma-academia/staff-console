@@ -69,7 +69,7 @@ export default function CourseReadiness({ courses, sessionId, selected, onToggle
               <TableCell>
                 <Typography variant="subtitle2">
                   {c.code}
-                  {c.isCarryOver && <Chip size="small" label="carry-over" variant="outlined" sx={{ ml: 1, height: 18 }} />}
+                  {c.isCarryOver && <Chip size="small" label="earlier retake" variant="outlined" sx={{ ml: 1, height: 18 }} />}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {c.name} · {c.credit} units

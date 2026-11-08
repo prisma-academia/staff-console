@@ -144,6 +144,9 @@ export default function StudentDetailPage() {
       formik.setSubmitting(false);
       queryClient.invalidateQueries({ queryKey: ['students'] });
       queryClient.invalidateQueries({ queryKey: ['student', id] });
+      // A programme / class level change rewrites the enrollment history and the fees owed
+      queryClient.invalidateQueries({ queryKey: ['student-enrollments', id] });
+      queryClient.invalidateQueries({ queryKey: ['student-fees', id] });
       enqueueSnackbar('Student updated successfully', { variant: 'success' });
       setEditMode(false);
     },
@@ -185,6 +188,8 @@ export default function StudentDetailPage() {
       },
       program: student?.program?._id || student?.program || '',
       classLevel: student?.classLevel?._id || student?.classLevel || '',
+      // Session a programme / class level change takes effect in ('' = the current session)
+      effectiveSessionId: '',
       status: student?.status || 'pending',
     },
     enableReinitialize: true,
@@ -240,6 +245,10 @@ export default function StudentDetailPage() {
       
       if (values.classLevel !== (student?.classLevel?._id || student?.classLevel || '')) {
         payload.classLevel = values.classLevel;
+      }
+
+      if ((payload.program || payload.classLevel) && values.effectiveSessionId) {
+        payload.effectiveSessionId = values.effectiveSessionId;
       }
       
       if (values.status !== (student?.status || 'pending')) {

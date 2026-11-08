@@ -61,7 +61,9 @@ export default function HomeView() {
     (access.admissions && admissions.isLoading) ||
     (access.courses && courses.isLoading);
   const attentionPartial =
-    (access.analytics && summary.isError) || (access.admissions && admissions.isError) || (access.courses && courses.isError);
+    (access.analytics && summary.isError) ||
+    (access.admissions && admissions.isError) ||
+    (access.courses && courses.isError);
 
   const attention = useMemo(
     () =>
@@ -74,11 +76,19 @@ export default function HomeView() {
       }),
     // check/checkAny change identity every render; the inputs that matter are the data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [summary.data, admissions.data, courses.data, access.analytics, access.admissions, access.courses]
+    [
+      summary.data,
+      admissions.data,
+      courses.data,
+      access.analytics,
+      access.admissions,
+      access.courses,
+    ]
   );
 
   let sessionLabel = 'All sessions';
-  if (session) sessionLabel = `Session ${session.name}${session.currentSemester ? ` · ${session.currentSemester}` : ''}`;
+  if (session)
+    sessionLabel = `Session ${session.name}${session.currentSemester ? ` · ${session.currentSemester}` : ''}`;
 
   return (
     <Container maxWidth="xl" sx={{ pb: 6 }}>
@@ -95,7 +105,13 @@ export default function HomeView() {
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
           <Stack spacing={3}>
-            {attentionSources && <AttentionRow items={attention} loading={attentionLoading} partial={attentionPartial} />}
+            {attentionSources && (
+              <AttentionRow
+                items={attention}
+                loading={attentionLoading}
+                partial={attentionPartial}
+              />
+            )}
 
             {access.analytics && (
               <KpiStrip
@@ -107,6 +123,7 @@ export default function HomeView() {
                 admissionsError={admissions.isError}
                 sessionLabel={sessionLabel}
                 canOpenDashboard={access.dashboard}
+                showFinance={access.finance}
               />
             )}
 
@@ -116,15 +133,37 @@ export default function HomeView() {
 
         <Grid item xs={12} md={4}>
           <Stack spacing={3}>
-            {access.memos && <LatestMemos memos={memos.data || []} loading={memos.isLoading} error={memos.isError} />}
-            <RecentActivity logs={activity.data || []} loading={activity.isLoading} canViewAudit={access.audit} />
-            <ProfileSummary user={user} loading={profile.isLoading && !user} error={profile.error} />
+            {access.memos && (
+              <LatestMemos
+                memos={memos.data || []}
+                loading={memos.isLoading}
+                error={memos.isError}
+              />
+            )}
+            <RecentActivity
+              logs={activity.data || []}
+              loading={activity.isLoading}
+              canViewAudit={access.audit}
+            />
+            <ProfileSummary
+              user={user}
+              loading={profile.isLoading && !user}
+              error={profile.error}
+            />
           </Stack>
         </Grid>
       </Grid>
 
-      <ChangePasswordDialog open={openChangePassword} onClose={() => setOpenChangePassword(false)} email={user?.email} />
-      <EditProfileDialog open={openEditProfile} onClose={() => setOpenEditProfile(false)} user={user} />
+      <ChangePasswordDialog
+        open={openChangePassword}
+        onClose={() => setOpenChangePassword(false)}
+        email={user?.email}
+      />
+      <EditProfileDialog
+        open={openEditProfile}
+        onClose={() => setOpenEditProfile(false)}
+        user={user}
+      />
     </Container>
   );
 }

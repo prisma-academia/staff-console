@@ -74,6 +74,11 @@ export const PERMISSIONS = {
   COMPUTE_RESULT: 'compute_result',
   OVERRIDE_RESULT: 'override_result',
   VIEW_RESULT_ACTIVITY: 'view_result_activity',
+  REVISE_RESULT: 'revise_result',
+
+  VIEW_RESIT: 'view_resit',
+  MANAGE_RESIT_PRICE: 'manage_resit_price',
+  MANAGE_RESIT: 'manage_resit',
 
   ADD_GRADING_SCHEME: 'add_grading_scheme',
   EDIT_GRADING_SCHEME: 'edit_grading_scheme',

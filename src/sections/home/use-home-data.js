@@ -49,7 +49,13 @@ export const useMyCourses = (sessionId, { enabled }) =>
   useQuery({
     queryKey: ['assessment-overview', sessionId, '', '', '', true],
     queryFn: () =>
-      AssessmentApi.getCourseOverview({ sessionId, programId: '', classLevelId: '', semester: '', mine: 'true' }),
+      AssessmentApi.getCourseOverview({
+        sessionId,
+        programId: '',
+        classLevelId: '',
+        semester: '',
+        mine: 'true',
+      }),
     staleTime: STALE,
     enabled: enabled && Boolean(sessionId),
   });
@@ -57,7 +63,8 @@ export const useMyCourses = (sessionId, { enabled }) =>
 export const useLatestMemos = ({ enabled }) =>
   useQuery({
     queryKey: ['memos', 'home'],
-    queryFn: () => MemoApi.getMemosPage({ page: 1, limit: 4, sortBy: 'createdAt', sortOrder: 'desc' }),
+    queryFn: () =>
+      MemoApi.getMemosPage({ page: 1, limit: 4, sortBy: 'createdAt', sortOrder: 'desc' }),
     select: (data) => data?.data ?? [],
     staleTime: STALE,
     enabled,
@@ -69,6 +76,8 @@ export const useLatestMemos = ({ enabled }) =>
 export function homeAccess(check, checkAny) {
   return {
     analytics: check(PERMISSIONS.VIEW_ANALYTICS),
+    // Money figures are for finance staff only; the API leaves them out for everyone else.
+    finance: checkAny([PERMISSIONS.VIEW_FEE, PERMISSIONS.VIEW_PAYMENT]),
     admissions: checkAny([PERMISSIONS.VIEW_APPLICATION, PERMISSIONS.VIEW_ADMISSION]),
     courses: check(PERMISSIONS.VIEW_ASSESSMENT_SCORES),
     memos: check(PERMISSIONS.VIEW_MEMO),

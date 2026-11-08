@@ -70,6 +70,10 @@ const formatCurrency = (amount) => {
 
 const ALL_SESSIONS = 'all';
 
+// "Programme · Class level": where the student was in a session
+const placementLabel = (placement) =>
+  [placement?.program?.name, placement?.classLevel?.name].filter(Boolean).join(' · ');
+
 // ----------------------------------------------------------------------
 
 function SummaryTile({ label, value, color, caption }) {
@@ -161,7 +165,7 @@ export default function PaymentsTab({ student }) {
   });
 
   const summary = statement?.summary;
-  const totals = summary?.totals || { expected: 0, paid: 0, outstanding: 0 };
+  const totals = summary?.totals || { expected: 0, paid: 0, outstanding: 0, arrears: 0 };
   const byFeeType = summary?.byFeeType || [];
   const bySession = summary?.bySession || [];
   const unpaidFees = useMemo(() => (statement?.fees || []).filter((fee) => !fee.isPaid), [statement]);
@@ -227,6 +231,10 @@ export default function PaymentsTab({ student }) {
 
   const studentLabel = student?.regNumber || [student?.personalInfo?.firstName, student?.personalInfo?.lastName].filter(Boolean).join(' ');
   const scopeLabel = selectedSession === ALL_SESSIONS ? 'All sessions' : sessionName(selectedSession) || 'Selected session';
+  const scopePlacement =
+    selectedSession === ALL_SESSIONS
+      ? ''
+      : placementLabel(bySession.find((row) => row.session?._id === selectedSession)?.placement);
 
   return (
     <Card sx={{ boxShadow: theme.shadows[2] }}>
@@ -278,7 +286,11 @@ export default function PaymentsTab({ student }) {
           </Stack>
         ) : (
           <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-            <SummaryTile label="Expected" value={formatCurrency(totals.expected)} caption={scopeLabel} />
+            <SummaryTile
+              label="Expected"
+              value={formatCurrency(totals.expected)}
+              caption={scopePlacement ? `${scopeLabel} · ${scopePlacement}` : scopeLabel}
+            />
             <SummaryTile label="Paid" value={formatCurrency(totals.paid)} color="success" />
             <SummaryTile
               label="Outstanding"
@@ -286,6 +298,14 @@ export default function PaymentsTab({ student }) {
               color={totals.outstanding > 0 ? 'error' : 'success'}
               caption={unpaidFees.length ? `${unpaidFees.length} unpaid fee${unpaidFees.length === 1 ? '' : 's'}` : 'Nothing owed'}
             />
+            {totals.arrears > 0 && (
+              <SummaryTile
+                label="Arrears"
+                value={formatCurrency(totals.arrears)}
+                color="error"
+                caption="Unpaid from earlier sessions"
+              />
+            )}
           </Stack>
         )}
 
@@ -326,7 +346,21 @@ export default function PaymentsTab({ student }) {
                 <TableBody>
                   {bySession.map((row) => (
                     <TableRow key={row.session?._id || 'none'}>
-                      <TableCell>{row.session?.name || 'No session'}</TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="body2">
+                            {row.session?.name || 'No session'}
+                          </Typography>
+                          {row.session?.isCurrent && (
+                            <Chip label="Current" size="small" variant="outlined" />
+                          )}
+                        </Stack>
+                        {placementLabel(row.placement) && (
+                          <Typography variant="caption" color="text.secondary" component="div">
+                            {placementLabel(row.placement)}
+                          </Typography>
+                        )}
+                      </TableCell>
                       <TableCell align="right">{formatCurrency(row.expected)}</TableCell>
                       <TableCell align="right">{formatCurrency(row.paid)}</TableCell>
                       <TableCell align="right" sx={{ color: row.outstanding > 0 ? 'error.main' : 'text.primary', fontWeight: 600 }}>
@@ -374,12 +408,18 @@ export default function PaymentsTab({ student }) {
                         <TableCell>{formatDate(fee.dueDate)}</TableCell>
                         <TableCell align="right">{formatCurrency(fee.amount)}</TableCell>
                         <TableCell align="center">
-                          <Chip
-                            size="small"
-                            label={fee.isOverdue ? 'Overdue' : 'Due'}
-                            color={fee.isOverdue ? 'error' : 'warning'}
-                            variant={fee.isOverdue ? 'filled' : 'outlined'}
-                          />
+                          <Stack direction="row" spacing={0.5} justifyContent="center">
+                            <Chip
+                              size="small"
+                              label={fee.isOverdue ? 'Overdue' : 'Due'}
+                              color={fee.isOverdue ? 'error' : 'warning'}
+                              variant={fee.isOverdue ? 'filled' : 'outlined'}
+                            />
+                            {/* Unpaid from a session before the current one */}
+                            {fee.isArrears && (
+                              <Chip size="small" label="Arrears" color="error" variant="outlined" />
+                            )}
+                          </Stack>
                         </TableCell>
                       </TableRow>
                     ))}

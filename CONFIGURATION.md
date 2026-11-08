@@ -100,6 +100,11 @@ All configuration values can be set using environment variables in a `.env` file
 - **Example (Remote)**: `VITE_FAVICON_PATH=https://cdn.example.com/favicon.ico`
 - **Example (Relative)**: `VITE_FAVICON_PATH=/favicon.ico`
 
+#### `VITE_PWA_ICON_192_PATH` / `VITE_PWA_ICON_512_PATH`
+- **Description**: 192×192 and 512×512 PNG icons listed in `manifest.json` (used when the console is installed to a home screen or desktop)
+- **Default**: `/favicon/android-chrome-192x192.png` and `/favicon/android-chrome-512x512.png` (the bundled default school's crest — set these for every other school)
+- **Example**: `VITE_PWA_ICON_512_PATH=https://cdn.example.com/favicon/android-chrome-512x512.png`
+
 #### `VITE_THEME_PRIMARY_COLOR`
 - **Description**: Primary theme color (hex code)
 - **Default**: `#DA0037`

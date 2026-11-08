@@ -92,6 +92,15 @@ export default function GradingSchemeView() {
                 <Chip size="small" color="warning" icon={<Iconify icon="eva:lock-fill" />} label="Locked" />
               </Tooltip>
             )}
+            {row.examOutcome?.enabled && (
+              <Tooltip
+                title={`Exam outcome on: failing ${row.examOutcome.failThreshold ?? 3} or more courses in a ${
+                  row.examOutcome.scope === 'session' ? 'session' : 'semester'
+                } fails`}
+              >
+                <Chip size="small" color="info" variant="outlined" label="Exam outcome" />
+              </Tooltip>
+            )}
           </Stack>
         </Stack>
       ),

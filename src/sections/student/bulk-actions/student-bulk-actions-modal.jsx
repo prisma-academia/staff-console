@@ -43,6 +43,7 @@ import { StudentApi, programApi, classLevelApi } from 'src/api';
 import Iconify from 'src/components/iconify';
 
 import { ACTIONS, needsTypedConfirmation } from './bulk-action-definitions';
+import EffectiveSessionSelect, { useEffectiveSessions } from '../effective-session-select';
 
 const SECTION_LABEL_SX = {
   fontSize: '0.6875rem',
@@ -82,6 +83,8 @@ export default function StudentBulkActionsModal({ open, setOpen }) {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [action, setAction] = useState('');
   const [targetId, setTargetId] = useState('');
+  // Session a move takes effect in: '' = the current session, a later one = early promotion
+  const [effectiveSessionId, setEffectiveSessionId] = useState('');
   const [format, setFormat] = useState('xlsx');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -114,6 +117,7 @@ export default function StudentBulkActionsModal({ open, setOpen }) {
     setSelectedIds(new Set());
     setAction('');
     setTargetId('');
+    setEffectiveSessionId('');
     setFormat('xlsx');
     setPage(0);
     setConfirmOpen(false);
@@ -189,7 +193,14 @@ export default function StudentBulkActionsModal({ open, setOpen }) {
   };
 
   const activeAction = action ? ACTIONS[action] : null;
+  const isMove = activeAction?.field === 'class' || activeAction?.field === 'programme';
   const selectedCount = selectedIds.size;
+
+  const { current: currentSession, options: effectiveSessions } = useEffectiveSessions();
+  const moveSessionId = effectiveSessionId || currentSession?._id || '';
+  const moveSession = effectiveSessions.find((s) => s._id === moveSessionId) || null;
+  // Sent only when there is a current session; without one the API keeps its default
+  const sessionPayload = moveSessionId ? { sessionId: moveSessionId } : {};
   const requiresTypedConfirmation = needsTypedConfirmation(action, selectedCount);
   const confirmWord = activeAction?.confirmWord || '';
   const typedConfirmationSatisfied =
@@ -223,9 +234,13 @@ export default function StudentBulkActionsModal({ open, setOpen }) {
       const studentIds = Array.from(selectedIds);
       switch (action) {
         case 'moveClass':
-          return StudentApi.bulkMoveStudents({ studentIds, classId: targetId });
+          return StudentApi.bulkMoveStudents({ studentIds, classId: targetId, ...sessionPayload });
         case 'moveProgramme':
-          return StudentApi.bulkMoveStudents({ studentIds, programmeId: targetId });
+          return StudentApi.bulkMoveStudents({
+            studentIds,
+            programmeId: targetId,
+            ...sessionPayload,
+          });
         case 'activate':
           return StudentApi.bulkUpdateStudentStatus({ studentIds, status: 'active' });
         case 'disable':
@@ -262,6 +277,11 @@ export default function StudentBulkActionsModal({ open, setOpen }) {
         });
       }
       queryClient.invalidateQueries({ queryKey: ['students'] });
+      if (isMove) {
+        queryClient.invalidateQueries({ queryKey: ['student'] });
+        queryClient.invalidateQueries({ queryKey: ['student-enrollments'] });
+        queryClient.invalidateQueries({ queryKey: ['student-fees'] });
+      }
       setSelectedIds(new Set());
       setConfirmOpen(false);
       setTypedConfirmation('');
@@ -585,6 +605,7 @@ export default function StudentBulkActionsModal({ open, setOpen }) {
                     onChange={(event) => {
                       setAction(event.target.value);
                       setTargetId('');
+                      setEffectiveSessionId('');
                     }}
                   >
                     {availableActions.map(([key, value]) => (
@@ -647,6 +668,16 @@ export default function StudentBulkActionsModal({ open, setOpen }) {
                 )}
               </Box>
 
+              {isMove && currentSession && (
+                <Box sx={{ mt: 2 }}>
+                  <EffectiveSessionSelect
+                    size="small"
+                    value={effectiveSessionId}
+                    onChange={setEffectiveSessionId}
+                  />
+                </Box>
+              )}
+
               {activeAction?.destructive && (
                 <Alert severity="error" variant="outlined" sx={{ mt: 2 }}>
                   Deleted students cannot be recovered. Disabling them instead is reversible.
@@ -702,6 +733,12 @@ export default function StudentBulkActionsModal({ open, setOpen }) {
                 <>
                   {' '}
                   to <strong>{targetLabel}</strong>
+                </>
+              ) : null}
+              {isMove && moveSession ? (
+                <>
+                  , taking effect in <strong>{moveSession.name || moveSession.code}</strong>
+                  {moveSession._id !== currentSession?._id ? ' (early promotion)' : ''}
                 </>
               ) : null}
               .

@@ -78,6 +78,73 @@ const RETAKE_HELP = {
 
 const num = (value) => (value === '' || value === null || value === undefined ? value : Number(value));
 
+// The exam-outcome rule of a scheme that has none yet (as the API defaults it)
+const OUTCOME_DEFAULTS = {
+  enabled: false,
+  scope: 'semester',
+  failThreshold: 3,
+  countCarryOvers: true,
+  labels: { pass: 'Passed', passCarryOver: 'Passed with resit', fail: 'Failed' },
+  failMessage: '',
+};
+
+const validThreshold = (value) => Number.isInteger(value) && value >= 1 && value <= 50;
+
+function toOutcomeValues(rule) {
+  const source = rule || {};
+  const labels = source.labels || {};
+  return {
+    enabled: Boolean(source.enabled),
+    scope: source.scope === 'session' ? 'session' : 'semester',
+    failThreshold: source.failThreshold ?? OUTCOME_DEFAULTS.failThreshold,
+    countCarryOvers: source.countCarryOvers !== false,
+    labels: {
+      pass: labels.pass || OUTCOME_DEFAULTS.labels.pass,
+      // The old default reads as today's (failed courses are resat, not carried over)
+      passCarryOver:
+        labels.passCarryOver && labels.passCarryOver !== 'Passed with carry-over'
+          ? labels.passCarryOver
+          : OUTCOME_DEFAULTS.labels.passCarryOver,
+      fail: labels.fail || OUTCOME_DEFAULTS.labels.fail,
+    },
+    failMessage: source.failMessage || '',
+  };
+}
+
+function toOutcomePayload(rule) {
+  const threshold = num(rule.failThreshold);
+  return {
+    enabled: Boolean(rule.enabled),
+    scope: rule.scope,
+    // While the rule is off, an unfinished threshold falls back to the default instead of blocking the save
+    failThreshold: rule.enabled || validThreshold(threshold) ? threshold : OUTCOME_DEFAULTS.failThreshold,
+    countCarryOvers: Boolean(rule.countCarryOvers),
+    labels: {
+      pass: String(rule.labels.pass || '').trim(),
+      passCarryOver: String(rule.labels.passCarryOver || '').trim(),
+      fail: String(rule.labels.fail || '').trim(),
+    },
+    failMessage: String(rule.failMessage || '').trim(),
+  };
+}
+
+/** "A student who fails 3 or more courses in a semester is marked Failed; 1–2 failed courses is ..." */
+function outcomeExample(rule) {
+  const threshold = Number(rule.failThreshold);
+  if (rule.failThreshold === '' || !validThreshold(threshold)) {
+    return 'Enter how many failed courses fail the exam (1 to 50).';
+  }
+  const period = rule.scope === 'session' ? 'session' : 'semester';
+  const label = (key) => String(rule.labels[key] || '').trim() || OUTCOME_DEFAULTS.labels[key];
+  const parts = [
+    `A student who fails ${threshold} or more courses in a ${period} is marked ${label('fail')}`,
+  ];
+  if (threshold === 2) parts.push(`1 failed course is ${label('passCarryOver')}`);
+  if (threshold > 2) parts.push(`1–${threshold - 1} failed courses is ${label('passCarryOver')}`);
+  parts.push(`no failed course is ${label('pass')}`);
+  return `${parts.join('; ')}. A course passed at a resit no longer counts as failed.`;
+}
+
 /** Form values -> API payload (numbers as numbers, weights as a list). */
 function toPayload(values) {
   return {
@@ -106,6 +173,7 @@ function toPayload(values) {
     assessmentWeights: ASSESSMENT_TYPES
       .map((type) => ({ type, weight: num(values.weights[type]) || 0 }))
       .filter((w) => w.weight > 0),
+    examOutcome: toOutcomePayload(values.examOutcome),
     isDefault: Boolean(values.isDefault),
     isActive: Boolean(values.isActive),
   };
@@ -127,6 +195,8 @@ function toFormValues(scheme) {
     bands: [...(source.bands || [])].sort((a, b) => b.minScore - a.minScore).map((b) => ({ remark: '', ...b })),
     classes: [...(source.classes || [])].sort((a, b) => b.minGpa - a.minGpa),
     weights,
+    // Missing on schemes made before the rule existed
+    examOutcome: toOutcomeValues(source.examOutcome),
     isDefault: Boolean(source.isDefault),
     isActive: source.isActive !== false,
   };
@@ -147,6 +217,24 @@ const validationSchema = Yup.object({
     minGpa: Yup.number().typeError('Number').min(0).required('Required'),
     maxGpa: Yup.number().typeError('Number').min(0).required('Required'),
   })).min(1, 'At least one class'),
+  examOutcome: Yup.object({
+    failThreshold: Yup.mixed().when('enabled', {
+      is: true,
+      then: () =>
+        Yup.number()
+          .typeError('Enter a whole number')
+          .integer('Enter a whole number')
+          .min(1, 'From 1 to 50')
+          .max(50, 'From 1 to 50')
+          .required('Required'),
+    }),
+    labels: Yup.object({
+      pass: Yup.string().max(40, 'At most 40 characters'),
+      passCarryOver: Yup.string().max(40, 'At most 40 characters'),
+      fail: Yup.string().max(40, 'At most 40 characters'),
+    }),
+    failMessage: Yup.string().max(500, 'At most 500 characters'),
+  }),
 });
 
 // ----------------------------------------------------------------------
@@ -256,6 +344,10 @@ export default function GradingSchemeEditor({ open, scheme, onClose, onSaved, on
             ...extra,
           });
           const weightTotal = ASSESSMENT_TYPES.reduce((sum, type) => sum + (Number(values.weights[type]) || 0), 0);
+          // The exam outcome stays editable on a locked scheme: it never changes a grade
+          const outcomeDisabled = !canSave || !values.examOutcome.enabled;
+          const thresholdError =
+            getIn(touched, 'examOutcome.failThreshold') && getIn(errors, 'examOutcome.failThreshold');
 
           return (
             <Form noValidate>
@@ -278,8 +370,8 @@ export default function GradingSchemeEditor({ open, scheme, onClose, onSaved, on
                       )}
                     >
                       This scheme grades approved or published results, so its bands, classes and rules can no longer change.
-                      Duplicate it, edit the copy and assign the copy to the programmes. Name, description, default and
-                      default assessment split can still be edited.
+                      Duplicate it, edit the copy and assign the copy to the programmes. Name, description, default,
+                      default assessment split and the exam outcome rule can still be edited.
                     </Alert>
                   )}
                   {serverErrors.length > 0 && (
@@ -497,6 +589,113 @@ export default function GradingSchemeEditor({ open, scheme, onClose, onSaved, on
                         color={weightTotal === 0 || weightTotal === 100 ? 'default' : 'error'}
                       />
                     </Stack>
+                  </Box>
+
+                  <Divider />
+
+                  {/* Exam outcome */}
+                  <Box>
+                    <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2}>
+                      <Box>
+                        <Typography variant="subtitle1">Exam outcome</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Marks each student&apos;s sitting as passed, passed with resit or failed by
+                          how many courses they failed. It shows on the broadsheet, the student portal,
+                          result slips and transcripts, and never changes a grade.
+                        </Typography>
+                      </Box>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={values.examOutcome.enabled}
+                            onChange={(e) => setFieldValue('examOutcome.enabled', e.target.checked)}
+                            disabled={!canSave}
+                          />
+                        }
+                        label={values.examOutcome.enabled ? 'On' : 'Off'}
+                        sx={{ flexShrink: 0, mr: 0 }}
+                      />
+                    </Stack>
+                    {locked && canSave && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                        Still editable on this locked scheme: the outcome only labels sittings, so changing
+                        it leaves every approved and published grade as it is.
+                      </Typography>
+                    )}
+                    <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          select
+                          fullWidth
+                          label="Counted"
+                          {...fieldProps('examOutcome.scope')}
+                          disabled={outcomeDisabled}
+                          helperText="Which failed courses add up"
+                        >
+                          <MenuItem value="semester">Per semester</MenuItem>
+                          <MenuItem value="session">Per session</MenuItem>
+                        </TextField>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Failed courses that fail"
+                          {...fieldProps('examOutcome.failThreshold')}
+                          helperText={thresholdError || 'Failing this many courses or more fails the exam'}
+                          disabled={outcomeDisabled}
+                          inputProps={{ min: 1, max: 50, step: 1 }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <TextField
+                          fullWidth
+                          label="Label: passed"
+                          {...fieldProps('examOutcome.labels.pass')}
+                          disabled={outcomeDisabled}
+                          inputProps={{ maxLength: 40 }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <TextField
+                          fullWidth
+                          label="Label: passed with resit"
+                          {...fieldProps('examOutcome.labels.passCarryOver')}
+                          disabled={outcomeDisabled}
+                          inputProps={{ maxLength: 40 }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <TextField
+                          fullWidth
+                          label="Label: failed"
+                          {...fieldProps('examOutcome.labels.fail')}
+                          disabled={outcomeDisabled}
+                          inputProps={{ maxLength: 40 }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          minRows={2}
+                          label="Message for students who fail"
+                          {...fieldProps('examOutcome.failMessage')}
+                          helperText={
+                            getIn(touched, 'examOutcome.failMessage') && getIn(errors, 'examOutcome.failMessage')
+                              ? getIn(errors, 'examOutcome.failMessage')
+                              : `Shown to students who fail · ${values.examOutcome.failMessage.length}/500`
+                          }
+                          disabled={outcomeDisabled}
+                          inputProps={{ maxLength: 500 }}
+                        />
+                      </Grid>
+                    </Grid>
+                    <Alert severity="info" icon={<Iconify icon="eva:bulb-outline" />} sx={{ mt: 2 }}>
+                      {values.examOutcome.enabled
+                        ? outcomeExample(values.examOutcome)
+                        : `Off: no outcome is shown. When on: ${outcomeExample(values.examOutcome)}`}
+                    </Alert>
                   </Box>
 
                   <Divider />

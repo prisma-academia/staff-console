@@ -48,6 +48,7 @@ const SessionPage = lazy(() => import('src/pages/session'));
 const GradingSchemePage = lazy(() => import('src/pages/grading-scheme'));
 const FeePage = lazy(() => import('src/pages/fee'));
 const FeeDetailPage = lazy(() => import('src/pages/fee-detail'));
+const ResitPage = lazy(() => import('src/pages/resit'));
 const MailPage = lazy(() => import('src/pages/mail'));
 const MailAccountPage = lazy(() => import('src/pages/mail-account'));
 const MailControlPage = lazy(() => import('src/pages/mail-control'));
@@ -287,6 +288,14 @@ export default function Router() {
           element: (
             <PrivateRoute>
               <FeeDetailPage />
+            </PrivateRoute>
+          ),
+        },
+        {
+          path: 'resit',
+          element: (
+            <PrivateRoute>
+              <ResitPage />
             </PrivateRoute>
           ),
         },

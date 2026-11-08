@@ -15,6 +15,9 @@ import Iconify from 'src/components/iconify';
 import CustomSelect from 'src/components/select';
 import { formatDateOnly } from 'src/utils/format-date-only';
 
+import EnrollmentHistoryCard from '../enrollment-history-card';
+import EffectiveSessionSelect from '../../effective-session-select';
+
 const stateOptions = [
   'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
   'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'FCT', 'Gombe', 'Imo',
@@ -25,6 +28,10 @@ const stateOptions = [
 
 export default function ProfileTab({ formik, editMode, student, programs, classLevels }) {
   const theme = useTheme();
+  // A programme / class level change can be dated to a later session (early promotion)
+  const placementChanged =
+    formik.values.program !== (student?.program?._id || student?.program || '') ||
+    formik.values.classLevel !== (student?.classLevel?._id || student?.classLevel || '');
 
   return (
     <Grid container spacing={3}>
@@ -56,6 +63,14 @@ export default function ProfileTab({ formik, editMode, student, programs, classL
                   formik={formik}
                 />
               </Grid>
+              {placementChanged && (
+                <Grid item xs={12} md={6}>
+                  <EffectiveSessionSelect
+                    value={formik.values.effectiveSessionId || ''}
+                    onChange={(value) => formik.setFieldValue('effectiveSessionId', value)}
+                  />
+                </Grid>
+              )}
             </Grid>
           </Card>
         </Grid>
@@ -356,6 +371,11 @@ export default function ProfileTab({ formik, editMode, student, programs, classL
             </Grid>
           )}
         </Card>
+      </Grid>
+
+      {/* Programme / class level per session */}
+      <Grid item xs={12}>
+        <EnrollmentHistoryCard studentId={student?._id} />
       </Grid>
     </Grid>
   );

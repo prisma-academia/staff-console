@@ -29,7 +29,7 @@ import { RESULT_STATUS_COLORS } from 'src/utils/grading';
 
 import Iconify from 'src/components/iconify';
 
-/** Every approved or published result on the broadsheet (class courses and carry-overs). */
+/** Every approved or published result on the broadsheet (class courses and earlier retakes). */
 function lockedResults(students) {
   return students.flatMap((stu) =>
     [...(stu.courses || []), ...(stu.carryOvers || [])]
@@ -168,7 +168,7 @@ export default function ReopenDialog({ open, students, initialIds, busy, onClose
                     <TableCell>{r.name}</TableCell>
                     <TableCell>
                       {r.courseCode}
-                      {r.carry && <Chip size="small" variant="outlined" label="carry-over" sx={{ ml: 0.75, height: 18 }} />}
+                      {r.carry && <Chip size="small" variant="outlined" label="earlier retake" sx={{ ml: 0.75, height: 18 }} />}
                     </TableCell>
                     <TableCell align="center">
                       {r.score ?? '—'} {r.grade}

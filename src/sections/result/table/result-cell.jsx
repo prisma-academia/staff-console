@@ -13,12 +13,18 @@ import {
   Popover,
   TableCell,
   TextField,
+  IconButton,
   Typography,
 } from '@mui/material';
 
 import { gradeBg, gradeTone, RESULT_STATUS_COLORS } from 'src/utils/grading';
 
 import Iconify from 'src/components/iconify';
+
+import { ResitMarker } from '../result-markers';
+
+const changesTip = (count) =>
+  `Changed after it was locked — ${count} change${count === 1 ? '' : 's'}`;
 
 /**
  * What a broadsheet cell shows: the saved result when it is current, otherwise
@@ -33,8 +39,12 @@ export function cellView(course) {
   };
 }
 
-/** One course cell of the broadsheet: score, grade and state icons. Click for details. */
-export function ResultCell({ course, scheme, onOpen }) {
+/**
+ * One course cell of the broadsheet: score, grade and state icons. Click for details.
+ * An "R" marks a resit score; the history icon (a result changed after it was locked)
+ * opens the score history.
+ */
+export function ResultCell({ course, scheme, onOpen, onHistory }) {
   const { score, grade, saved } = cellView(course);
   const icons = [];
   if (course.locked) icons.push(['eva:lock-fill', 'text.disabled', `Locked (${course.status})`]);
@@ -43,12 +53,14 @@ export function ResultCell({ course, scheme, onOpen }) {
   if (!course.resultId && course.calculatedScore != null) icons.push(['eva:radio-button-off-fill', 'text.disabled', 'Computed from the scores but not saved yet']);
   if (course.setupError) icons.push(['eva:alert-circle-fill', 'error.main', course.setupError]);
   else if (course.calculatedScore != null && !course.complete) icons.push(['eva:info-fill', 'text.disabled', `Missing: ${course.missing.join(', ')}`]);
+  const changes = course.resultId ? course.revisionCount || 0 : 0;
+  const markerTips = [course.isResit && 'Resit score', changes > 0 && changesTip(changes)].filter(Boolean);
 
   return (
     <TableCell
       align="center"
       onClick={(e) => onOpen(e.currentTarget)}
-      title={icons.map((i) => i[2]).join(' · ')}
+      title={[...icons.map((i) => i[2]), ...markerTips].join(' · ')}
       sx={{
         cursor: 'pointer',
         py: 0.5,
@@ -70,6 +82,22 @@ export function ResultCell({ course, scheme, onOpen }) {
           {icons.map(([icon, color]) => (
             <Iconify key={icon} icon={icon} width={13} sx={{ color }} />
           ))}
+          {course.isResit && <ResitMarker title="Resit score" />}
+          {changes > 0 && (
+            <IconButton
+              size="small"
+              title={changesTip(changes)}
+              aria-label="Score history"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onHistory) onHistory();
+                else onOpen(e.currentTarget.closest('td'));
+              }}
+              sx={{ p: 0.125, color: 'secondary.main' }}
+            >
+              <Iconify icon="mdi:history" width={14} />
+            </IconButton>
+          )}
         </Stack>
       )}
     </TableCell>
@@ -80,10 +108,14 @@ ResultCell.propTypes = {
   course: PropTypes.object.isRequired,
   scheme: PropTypes.object,
   onOpen: PropTypes.func.isRequired,
+  onHistory: PropTypes.func,
 };
 
-/** Details of one student's course result, with override and recompute actions. */
-export function ResultCellPopover({ anchorEl, student, course, scheme, sessionId, permissions, busy, onClose, onOverride, onUseComputed, onDelete, onReopen }) {
+/**
+ * Details of one student's course result: override and recompute actions on drafts,
+ * change-score and reopen actions on locked results, and the score history.
+ */
+export function ResultCellPopover({ anchorEl, student, course, scheme, sessionId, permissions, busy, onClose, onOverride, onUseComputed, onDelete, onReopen, onRevise, onHistory }) {
   const navigate = useNavigate();
   const [value, setValue] = useState('');
 
@@ -107,7 +139,7 @@ export function ResultCellPopover({ anchorEl, student, course, scheme, sessionId
     >
       <Typography variant="subtitle2">{student.name}</Typography>
       <Typography variant="caption" color="text.secondary">
-        {student.regNumber} · {course.courseCode} ({course.credit} units){course.isCarryOver ? ' · carry-over' : ''}
+        {student.regNumber} · {course.courseCode} ({course.credit} units){course.isCarryOver ? ' · earlier retake' : ''}
       </Typography>
 
       <Divider sx={{ my: 1.5 }} />
@@ -148,6 +180,7 @@ export function ResultCellPopover({ anchorEl, student, course, scheme, sessionId
           </Typography>
           {course.isOverride && <Chip size="small" variant="outlined" color="info" label="override" />}
           {course.attempt > 1 && <Chip size="small" variant="outlined" label={`attempt ${course.attempt}`} />}
+          {course.isResit && <Chip size="small" variant="outlined" color="secondary" label="resit" />}
         </Stack>
       ) : (
         <Typography variant="body2" color="text.secondary">
@@ -206,6 +239,42 @@ export function ResultCellPopover({ anchorEl, student, course, scheme, sessionId
           )}
         </Stack>
       )}
+      {/* Record a resit or correct a locked score in place, and the history of such changes */}
+      {course.resultId && ((course.locked && onRevise) || (onHistory && course.revisionCount > 0)) && (
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+          {course.locked && onRevise && course.isPass === false && (
+            <Button
+              size="small"
+              variant="contained"
+              color="secondary"
+              startIcon={<Iconify icon="mdi:restore" />}
+              onClick={() => onRevise(student, course, 'resit')}
+            >
+              Record resit score
+            </Button>
+          )}
+          {course.locked && onRevise && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<Iconify icon="eva:edit-2-outline" />}
+              onClick={() => onRevise(student, course, 'correction')}
+            >
+              Correct score
+            </Button>
+          )}
+          {onHistory && course.revisionCount > 0 && (
+            <Button
+              size="small"
+              color="inherit"
+              startIcon={<Iconify icon="mdi:history" />}
+              onClick={() => onHistory(student, course)}
+            >
+              History ({course.revisionCount})
+            </Button>
+          )}
+        </Stack>
+      )}
 
       <Box sx={{ mt: 1.5, textAlign: 'right' }}>
         <Button size="small" color="inherit" endIcon={<Iconify icon="eva:arrow-forward-fill" />} onClick={() => navigate(`/assessment/scores?courseId=${course.courseId}&sessionId=${sessionId}`)}>
@@ -229,4 +298,6 @@ ResultCellPopover.propTypes = {
   onUseComputed: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
   onReopen: PropTypes.func,
+  onRevise: PropTypes.func,
+  onHistory: PropTypes.func,
 };

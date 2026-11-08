@@ -115,6 +115,16 @@ export const PERMISSION_CATEGORIES = [
       { id: 'approve_result', label: '3. Approve drafts', description: 'Lock complete drafts as approved' },
       { id: 'publish_result', label: '4. Publish results', description: 'Release selected students or courses to the student portal' },
       { id: 'reopen_result', label: 'Reopen for corrections', description: 'Send selected approved or published results back to draft, with a reason' },
+      { id: 'revise_result', label: 'Change a published score', description: 'Correct a published score or record a resit score without reopening; the old score is kept in the history' },
+    ],
+  },
+  {
+    label: 'Resits',
+    description: 'Resit fees for failed courses and the students who registered for them.',
+    permissions: [
+      { id: 'view_resit', label: 'View resits', description: 'Resit prices and registrations' },
+      { id: 'manage_resit_price', label: 'Set resit prices', description: 'The default and per-session price of each course resit' },
+      { id: 'manage_resit', label: 'Manage registrations', description: 'Register a student for a resit, waive the fee or cancel a registration' },
     ],
   },
   {

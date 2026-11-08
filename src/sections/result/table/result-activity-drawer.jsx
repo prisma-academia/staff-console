@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import PropTypes from 'prop-types';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 
@@ -38,6 +38,7 @@ const FILTERS = [
   { value: 'approve', label: 'Approved' },
   { value: 'publish', label: 'Published' },
   { value: 'reopen', label: 'Reopened' },
+  { value: 'revise', label: 'Score changes' },
   { value: 'export', label: 'Exported' },
 ];
 
@@ -45,6 +46,12 @@ const FILTERS = [
 function describe(row) {
   const source = row.metadata?.source;
   if (row.entityType === 'ScoreEntry') return { label: 'Scores saved', color: 'default', icon: 'mdi:table-edit' };
+  // A locked score changed in place: a correction, or the score of a resit
+  if (row.actionType === 'revise') {
+    return row.metadata?.kind === 'resit'
+      ? { label: 'Resit score recorded', color: 'secondary', icon: 'mdi:restore' }
+      : { label: 'Score changed', color: 'info', icon: 'eva:edit-2-outline' };
+  }
   if (row.actionType === 'bulk_create' && source === 'override') return { label: 'Score overridden', color: 'info', icon: 'eva:edit-2-outline' };
   if (row.actionType === 'bulk_create') return { label: 'Drafts computed', color: 'primary', icon: 'mdi:calculator-variant-outline' };
   return (
@@ -59,6 +66,17 @@ function describe(row) {
       create: { label: 'Result added', color: 'success', icon: 'eva:plus-outline' },
     }[row.actionType] || { label: row.actionType, color: 'default', icon: 'eva:activity-outline' }
   );
+}
+
+/** "NUR101 · 2021/ND/001 Ada Obi · 30 F → 65 B" for a score change. */
+function reviseLine(row, studentLabel) {
+  const m = row.metadata || {};
+  const grade = (snapshot) => (snapshot?.grade ? ` ${snapshot.grade}` : '');
+  const from = m.from ?? row.before?.score;
+  const before = from != null ? `${from}${grade(row.before)} ` : '';
+  // A refused change has no "after": only the score that was tried
+  const change = m.to != null ? `${before}→ ${m.to}${grade(row.after)}` : '';
+  return [m.courseCodes?.[0], studentLabel(m.studentId), change].filter(Boolean).join(' · ');
 }
 
 /** "12 results · MTH101, PHY102 · 3 held back" */
@@ -83,13 +101,20 @@ function actorName(actor) {
 
 /**
  * Who did what on this broadsheet: score-sheet saves, computes, overrides,
- * approvals, publishing, reopening, deletions and exports, newest first.
+ * approvals, publishing, reopening, score changes, deletions and exports, newest first.
  */
-export default function ResultActivityDrawer({ open, onClose, programId, classId, sessionId, semester, title }) {
+export default function ResultActivityDrawer({ open, onClose, programId, classId, sessionId, semester, title, students }) {
   const navigate = useNavigate();
   const { check } = usePermissions();
   const [action, setAction] = useState('');
   const [page, setPage] = useState(1);
+
+  // Score changes name one student by id: show who, from the broadsheet's students
+  const studentNames = useMemo(
+    () => new Map((students || []).map((s) => [String(s.studentId), `${s.regNumber} ${s.name}`])),
+    [students]
+  );
+  const studentLabel = (id) => (id ? studentNames.get(String(id)) : '');
 
   const query = useQuery({
     queryKey: ['result-activity', programId, classId, sessionId, semester, action, page],
@@ -149,7 +174,7 @@ export default function ResultActivityDrawer({ open, onClose, programId, classId
           const kind = describe(row);
           const failed = row.status === 'failure';
           const reason = row.metadata?.reason;
-          const scope = scopeLine(row);
+          const scope = row.actionType === 'revise' ? reviseLine(row, studentLabel) : scopeLine(row);
           return (
             <Stack key={row._id} direction="row" spacing={1.5} sx={{ position: 'relative', pb: 2.5 }}>
               {/* Timeline rail */}
@@ -238,4 +263,5 @@ ResultActivityDrawer.propTypes = {
   sessionId: PropTypes.string,
   semester: PropTypes.string,
   title: PropTypes.string,
+  students: PropTypes.array,
 };

@@ -264,7 +264,7 @@ const FILTERS = [
   { id: 'missing', label: 'Missing scores' },
   { id: 'changed', label: 'Unsaved changes' },
   { id: 'errors', label: 'Errors' },
-  { id: 'carry', label: 'Carry-overs' },
+  { id: 'carry', label: 'Earlier retakes' },
 ];
 
 export default function ScoreSheetView() {
@@ -778,7 +778,7 @@ export default function ScoreSheetView() {
                   }}
                 />
                 <Stack direction="row" gap={0.75} flexWrap="wrap">
-                  {FILTERS.map((f) => (
+                  {FILTERS.filter((f) => f.id !== 'carry' || rows.some((r) => r.isCarryOver)).map((f) => (
                     <Chip
                       key={f.id}
                       label={f.label}
@@ -874,8 +874,8 @@ export default function ScoreSheetView() {
                               {row.name}
                             </Typography>
                             {row.isCarryOver && (
-                              <Tooltip title="Carry-over: retaking this course from a higher level">
-                                <Chip size="small" label="CO" color="error" variant="outlined" sx={{ height: 18, fontSize: 10 }} />
+                              <Tooltip title="Earlier retake: recorded for this course in this session before resits replaced carry-overs">
+                                <Chip size="small" label="Retake" color="default" variant="outlined" sx={{ height: 18, fontSize: 10 }} />
                               </Tooltip>
                             )}
                             {row.locked && (

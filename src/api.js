@@ -370,6 +370,11 @@ export const FeeApi = {
   createFee: (data) => apiClient.post('fee', data),
   updateFee: (id, data) => apiClient.put(`fee/${id}`, data),
   deleteFee: (id) => apiClient.delete(`fee/${id}`),
+  /**
+   * Copy fees into another session: { fromSession, toSession, feeIds?, dueDateShiftDays?, dryRun? }.
+   * Resolves to { from, to, shiftDays, create, skip, created, createdIds?, dryRun }.
+   */
+  copySession: (body) => apiClient.post('fee/copy-session', body),
 };
 
 export const InstructorApi = {
@@ -596,6 +601,8 @@ export const StudentApi = {
   getStudentById: (id) => apiClient.get(`student/${id}`),
   // Fees with totals by fee type and session: session = 'all' or a session id.
   // Resolves to { fees, summary: { totals, byFeeType, bySession } }.
+  // Programme / class level per session, newest first
+  getEnrollments: (id) => apiClient.get(`student/${id}/enrollments`),
   getStudentFees: (id, session = 'all') =>
     apiClient.get(`student/${id}/fees?${buildQueryString({ session: session || 'all' })}`),
   adminEditStudent: (id, data) => apiClient.put(`student/admin/edit/${id}`, data),
@@ -986,7 +993,7 @@ export const ResultApi = {
     const path = `student/${studentId}/classLevel/${classLevelId}/semester/${encodeURIComponent(semester)}`;
     return resultBlobFetch(path);
   },
-  // Academic record: sittings, GPA, CGPA, class of award, outstanding carry-overs
+  // Academic record: sittings, GPA, CGPA, class of award, failed courses still to resit
   getStudentSummary: (studentId) => apiClient.get(`result/student/${studentId}/summary`),
   downloadTranscript: async (studentId) => resultBlobFetch(`student/${studentId}/transcript`),
   // Lifecycle: body { programId, classId, sessionId, semester, studentIds?, courseIds?, reason? }
@@ -999,6 +1006,31 @@ export const ResultApi = {
     const queryString = buildQueryString(params);
     return createRequestFullResult(`result/activity${queryString ? `?${queryString}` : ''}`);
   },
+  // History of a locked result and whether a resit score may be recorded:
+  // { result, revisions, resit: { required, entitled, registration, message } | null }
+  getRevisions: (id) => apiClient.get(`result/${id}/revisions`),
+  // Change an approved / published score in place: { score, reason, kind: 'correction' | 'resit' }
+  revise: (id, body) => apiClient.post(`result/${id}/revise`, body),
+};
+
+// Resits of failed courses: prices and student registrations
+export const ResitApi = {
+  // { sessionId, programId, classLevelId, semester, search }
+  getPrices: (params = {}) => apiClient.get(`resit/prices?${buildQueryString(params)}`),
+  // prices: [{ courseId, sessionId (null = default), amount (null = clear) }]
+  savePrices: (prices) => apiClient.put('resit/prices', { prices }),
+  // { sessionId, courseId, state, search, page, limit } -> { data, counts, amounts, pagination, truncated }
+  getRegistrations: (params = {}) => apiClient.get(`resit/registrations?${buildQueryString(params)}`),
+  // A student's failed courses and registrations: { session, courses, registrations }
+  getStudent: (studentId) => apiClient.get(`resit/students/${studentId}`),
+  // Register on a student's behalf: { studentId, resultIds, waiveReason? }
+  register: (body) => apiClient.post('resit/registrations', body),
+  waive: (id, reason) => apiClient.post(`resit/registrations/${id}/waive`, { reason }),
+  cancel: (id) => apiClient.post(`resit/registrations/${id}/cancel`, {}),
+  // One course's resit score sheet: { course, session, price, rows, counts, schemes }
+  getSheet: (courseId) => apiClient.get(`resit/sheet?${buildQueryString({ courseId })}`),
+  // Record resit scores: { reason, entries: [{ resultId, score }] } -> { recorded, failed, rows }
+  saveScores: (body) => apiClient.post('resit/scores', body),
 };
 
 export const GradingSchemeApi = {

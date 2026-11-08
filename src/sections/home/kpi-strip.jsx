@@ -13,12 +13,25 @@ import { fPct, fCount, toneFor, fNairaShort } from 'src/sections/dashboard/utils
 // ----------------------------------------------------------------------
 
 /**
- * Four headline figures for the session, from one GET /analytics call (plus the
+ * Headline figures for the session, from one GET /analytics call (plus the
  * admissions service). Cards drill into the matching dashboard tab when allowed.
+ * The fee card is for finance staff only (`showFinance`).
  */
-export default function KpiStrip({ summary, loading, error, admissions, admissionsLoading, admissionsError, sessionLabel, canOpenDashboard }) {
+export default function KpiStrip({
+  summary,
+  loading,
+  error,
+  admissions,
+  admissionsLoading,
+  admissionsError,
+  sessionLabel,
+  canOpenDashboard,
+  showFinance,
+}) {
   const navigate = useNavigate();
   const drill = (tab) => (canOpenDashboard ? () => navigate(`/dashboard?tab=${tab}`) : undefined);
+  // Three cards fill the row as well as four do.
+  const lg = showFinance ? 3 : 4;
 
   const s = summary?.students?.summary;
   const f = summary?.finance?.summary;
@@ -28,10 +41,14 @@ export default function KpiStrip({ summary, loading, error, admissions, admissio
 
   let applicationsCaption = '';
   if (admissionsError) applicationsCaption = 'Admissions service unavailable';
-  else if (ad) applicationsCaption = `${fCount(ad.offered)} offered · ${fCount(ad.accepted)} accepted`;
+  else if (ad)
+    applicationsCaption = `${fCount(ad.offered)} offered · ${fCount(ad.accepted)} accepted`;
 
   let resultsCaption = unavailable;
-  if (a) resultsCaption = a.results ? `${fCount(a.published)} of ${fCount(a.results)} results` : 'No results recorded this session';
+  if (a)
+    resultsCaption = a.results
+      ? `${fCount(a.published)} of ${fCount(a.results)} results`
+      : 'No results recorded this session';
 
   return (
     <Grid container spacing={2.5}>
@@ -55,31 +72,35 @@ export default function KpiStrip({ summary, loading, error, admissions, admissio
         />
       </Grid>
 
-      <Grid item xs={12} sm={6} lg={3}>
+      <Grid item xs={12} sm={6} lg={lg}>
         <KpiCard
           label="Active students"
           icon="solar:users-group-rounded-bold-duotone"
           loading={loading}
           value={s ? fCount(s.active) : '—'}
           progress={s?.total ? (s.active / s.total) * 100 : undefined}
-          caption={s ? `of ${fCount(s.total)} enrolled · ${fCount(s.newThisSession)} new` : unavailable}
+          caption={
+            s ? `of ${fCount(s.total)} enrolled · ${fCount(s.newThisSession)} new` : unavailable
+          }
           onClick={drill('students')}
         />
       </Grid>
-      <Grid item xs={12} sm={6} lg={3}>
-        <KpiCard
-          label="Fees collected"
-          icon="solar:wallet-money-bold-duotone"
-          loading={loading}
-          value={f ? fNairaShort(f.collected) : '—'}
-          progress={f?.expected ? f.collectionRate : undefined}
-          tone={f?.expected ? toneFor(f.collectionRate, 75, 50) : undefined}
-          toneLabel={f?.expected ? fPct(f.collectionRate) : undefined}
-          caption={f ? `of ${fNairaShort(f.expected)} expected` : unavailable}
-          onClick={drill('finance')}
-        />
-      </Grid>
-      <Grid item xs={12} sm={6} lg={3}>
+      {showFinance && (
+        <Grid item xs={12} sm={6} lg={lg}>
+          <KpiCard
+            label="Fees collected"
+            icon="solar:wallet-money-bold-duotone"
+            loading={loading}
+            value={f ? fNairaShort(f.collected) : '—'}
+            progress={f?.expected ? f.collectionRate : undefined}
+            tone={f?.expected ? toneFor(f.collectionRate, 75, 50) : undefined}
+            toneLabel={f?.expected ? fPct(f.collectionRate) : undefined}
+            caption={f ? `of ${fNairaShort(f.expected)} expected` : unavailable}
+            onClick={drill('finance')}
+          />
+        </Grid>
+      )}
+      <Grid item xs={12} sm={6} lg={lg}>
         <KpiCard
           label="Paid applications"
           icon="solar:diploma-verified-bold-duotone"
@@ -90,7 +111,7 @@ export default function KpiStrip({ summary, loading, error, admissions, admissio
           onClick={drill('admissions')}
         />
       </Grid>
-      <Grid item xs={12} sm={6} lg={3}>
+      <Grid item xs={12} sm={6} lg={lg}>
         <KpiCard
           label="Results published"
           icon="solar:square-academic-cap-bold-duotone"
@@ -114,4 +135,5 @@ KpiStrip.propTypes = {
   admissionsError: PropTypes.bool,
   sessionLabel: PropTypes.string,
   canOpenDashboard: PropTypes.bool,
+  showFinance: PropTypes.bool,
 };

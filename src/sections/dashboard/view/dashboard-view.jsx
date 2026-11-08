@@ -11,6 +11,8 @@ import Typography from '@mui/material/Typography';
 
 import useActiveSession from 'src/hooks/use-active-session';
 
+import { usePermissions } from 'src/utils/permissions';
+
 import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
@@ -41,29 +43,46 @@ export default function DashboardView() {
   const queryClient = useQueryClient();
   const refreshing = useIsFetching({ queryKey: ['dashboard'] }) > 0;
   const { sessionId, session, isReady } = useActiveSession();
+  const { checkAny } = usePermissions();
+  // Money figures are for finance staff only; the API refuses /analytics/finance to everyone else.
+  const showFinance = checkAny([PERMISSIONS.VIEW_FEE, PERMISSIONS.VIEW_PAYMENT]);
+  const tabs = showFinance ? TABS : TABS.filter((t) => t.value !== 'finance');
 
-  const tab = TABS.some((t) => t.value === params.get('tab')) ? params.get('tab') : 'overview';
+  const tab = tabs.some((t) => t.value === params.get('tab')) ? params.get('tab') : 'overview';
   const setTab = (value) => {
     setParams(value === 'overview' ? {} : { tab: value }, { replace: true });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const scopeLabel = session ? `Session ${session.name}${session.isCurrent ? ' (current)' : ''}` : 'All sessions';
+  const scopeLabel = session
+    ? `Session ${session.name}${session.isCurrent ? ' (current)' : ''}`
+    : 'All sessions';
 
   return (
     <Can do={PERMISSIONS.VIEW_ANALYTICS} fallback={<NoAccess />}>
       <Container maxWidth="xl" sx={{ pb: 6 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'flex-end' }} spacing={2} sx={{ mb: 3 }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          alignItems={{ sm: 'flex-end' }}
+          spacing={2}
+          sx={{ mb: 3 }}
+        >
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h4">Executive dashboard</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {scopeLabel} · finance and academics follow the session picker in the header
+              {scopeLabel} · {showFinance ? 'finance and academics follow' : 'academics follow'} the
+              session picker in the header
             </Typography>
           </Box>
           <Button
             variant="outlined"
             color="inherit"
-            startIcon={<Iconify icon="solar:refresh-bold" sx={{ ...(refreshing && { animation: 'spin 1s linear infinite' }) }} />}
+            startIcon={
+              <Iconify
+                icon="solar:refresh-bold"
+                sx={{ ...(refreshing && { animation: 'spin 1s linear infinite' }) }}
+              />
+            }
             onClick={() => queryClient.invalidateQueries({ queryKey: ['dashboard'] })}
             disabled={refreshing}
             sx={{ '@keyframes spin': { to: { transform: 'rotate(360deg)' } } }}
@@ -80,15 +99,23 @@ export default function DashboardView() {
           allowScrollButtonsMobile
           sx={{ mb: 3, borderBottom: (t) => `1px solid ${t.palette.divider}` }}
         >
-          {TABS.map((t) => (
-            <Tab key={t.value} value={t.value} label={t.label} icon={<Iconify icon={t.icon} width={20} />} iconPosition="start" />
+          {tabs.map((t) => (
+            <Tab
+              key={t.value}
+              value={t.value}
+              label={t.label}
+              icon={<Iconify icon={t.icon} width={20} />}
+              iconPosition="start"
+            />
           ))}
         </Tabs>
 
         {isReady && (
           <>
-            {tab === 'overview' && <OverviewTab session={sessionId} onNavigate={setTab} />}
-            {tab === 'finance' && <FinanceTab session={sessionId} />}
+            {tab === 'overview' && (
+              <OverviewTab session={sessionId} onNavigate={setTab} showFinance={showFinance} />
+            )}
+            {tab === 'finance' && showFinance && <FinanceTab session={sessionId} />}
             {tab === 'admissions' && <AdmissionsTab />}
             {tab === 'students' && <StudentsTab session={sessionId} />}
             {tab === 'academics' && <AcademicsTab session={sessionId} />}

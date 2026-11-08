@@ -37,6 +37,10 @@ import Iconify from 'src/components/iconify';
 import Can from 'src/components/permission/can';
 import { usePdfPreview } from 'src/components/pdf-viewer';
 
+import { OutcomeChip, ResitMarker } from 'src/sections/result/result-markers';
+
+import ResitsDue from '../resits-due';
+
 // ----------------------------------------------------------------------
 
 const SEMESTERS = ['First Semester', 'Second Semester'];
@@ -117,6 +121,18 @@ export default function AcademicTab({ student }) {
   const scheme = summary?.gradingScheme;
   const semesters = useMemo(() => summary?.semesters || [], [summary]);
   const outstanding = summary?.outstanding || [];
+
+  // Each sitting shows its exam outcome; a per-session outcome (the same on every semester
+  // of the session) shows once, on the session's last semester.
+  const outcomeShown = useMemo(
+    () =>
+      semesters.map((sitting, index) => {
+        if (!sitting.outcome) return false;
+        if (sitting.outcome.scope !== 'session') return true;
+        return semesters[index + 1]?.session?.id !== sitting.session?.id;
+      }),
+    [semesters]
+  );
 
   // One result slip per class level + semester (the slip endpoint is addressed that way).
   const slipOptions = useMemo(() => {
@@ -282,22 +298,24 @@ export default function AcademicTab({ student }) {
               Graded with {scheme.name} ({scheme.maxPoint}-point, pass mark {scheme.passMark}, {scheme.retakePolicy} attempt counts for retakes)
             </Typography>
           )}
-          {outstanding.length > 0 && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              Carry-over courses outstanding: {outstanding.map((c) => `${c.code} (${c.attempts} attempt${c.attempts > 1 ? 's' : ''})`).join(', ')}
-            </Alert>
-          )}
+          <ResitsDue student={student} outstanding={outstanding} />
         </Box>
       )}
 
-      {semesters.map((sitting) => (
+      {semesters.map((sitting, index) => (
         <Box key={`${sitting.session?.id}-${sitting.semester}`} sx={{ p: 3 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
             <Typography variant="subtitle1" fontWeight={600}>
               {sitting.session?.name} · {sitting.semester}
               {sitting.classLevel?.name ? ` · ${sitting.classLevel.name}` : ''}
             </Typography>
-            <Stack direction="row" spacing={1}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              {outcomeShown[index] && (
+                <OutcomeChip
+                  outcome={sitting.outcome}
+                  prefix={sitting.outcome.scope === 'session' ? 'Session' : undefined}
+                />
+              )}
               <Chip label={`GPA ${formatGpa(sitting.gpa, scheme)}`} size="small" />
               <Chip label={`CGPA ${formatGpa(sitting.cgpa, scheme)}`} size="small" variant="outlined" />
             </Stack>
@@ -323,14 +341,21 @@ export default function AcademicTab({ student }) {
                     <TableCell>
                       {course.code}
                       {course.isCarryOver && (
-                        <Tooltip title={`Retake (attempt ${course.attempt})`}>
-                          <Chip label="CO" size="small" variant="outlined" sx={{ ml: 0.5, height: 18 }} />
+                        <Tooltip title={`Earlier retake (attempt ${course.attempt}), recorded before resits replaced carry-overs`}>
+                          <Chip label="Retake" size="small" variant="outlined" sx={{ ml: 0.5, height: 18 }} />
                         </Tooltip>
                       )}
                     </TableCell>
                     <TableCell>{course.name}</TableCell>
                     <TableCell align="center">{course.credit}</TableCell>
-                    <TableCell align="center">{course.score}</TableCell>
+                    <TableCell align="center">
+                      {course.score}
+                      {course.isResit && (
+                        <Tooltip title="Resit score: it replaced the failed score (the old score is in the result's history)">
+                          <ResitMarker sx={{ ml: 0.5, verticalAlign: 'middle' }} />
+                        </Tooltip>
+                      )}
+                    </TableCell>
                     <TableCell align="center">
                       <Chip label={course.grade} color={gradeTone(course.grade, scheme)} size="small" />
                     </TableCell>

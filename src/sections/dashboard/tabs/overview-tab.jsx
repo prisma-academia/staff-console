@@ -12,8 +12,24 @@ import Iconify from 'src/components/iconify';
 import KpiCard from '../components/kpi-card';
 import Panel, { SectionHeading } from '../components/panel';
 import { Funnel, RankList, BarChart } from '../components/charts';
-import { useFinance, useStudents, useAcademics, useAdmissions, useOperations } from '../use-dashboard-data';
-import { fPct, SERIES, fCount, fNaira, toneFor, fillMonths, fNairaShort, fMonthToDate , ordinalSteps } from '../utils';
+import {
+  useFinance,
+  useStudents,
+  useAcademics,
+  useAdmissions,
+  useOperations,
+} from '../use-dashboard-data';
+import {
+  fPct,
+  SERIES,
+  fCount,
+  fNaira,
+  toneFor,
+  fillMonths,
+  fNairaShort,
+  fMonthToDate,
+  ordinalSteps,
+} from '../utils';
 
 // ----------------------------------------------------------------------
 
@@ -66,10 +82,20 @@ function buildAlerts({ finance, students, academics, admissions, operations }) {
   const a = academics?.summary;
   if (a) {
     if (a.draft > 0) {
-      alerts.push({ severity: 'warning', tab: 'academics', title: `${fCount(a.draft)} results in draft`, detail: 'Awaiting approval' });
+      alerts.push({
+        severity: 'warning',
+        tab: 'academics',
+        title: `${fCount(a.draft)} results in draft`,
+        detail: 'Awaiting approval',
+      });
     }
     if (a.approved > 0) {
-      alerts.push({ severity: 'info', tab: 'academics', title: `${fCount(a.approved)} results approved, not published`, detail: 'Students cannot see them yet' });
+      alerts.push({
+        severity: 'info',
+        tab: 'academics',
+        title: `${fCount(a.approved)} results approved, not published`,
+        detail: 'Students cannot see them yet',
+      });
     }
     if (a.courseCount > 0 && a.assessmentCoverage < 100) {
       alerts.push({
@@ -84,30 +110,55 @@ function buildAlerts({ finance, students, academics, admissions, operations }) {
   if (ad) {
     const pendingOffers = ad.offered - ad.accepted;
     if (pendingOffers > 0) {
-      alerts.push({ severity: 'info', tab: 'admissions', title: `${fCount(pendingOffers)} offers not yet accepted`, detail: 'Acceptance fee unpaid' });
+      alerts.push({
+        severity: 'info',
+        tab: 'admissions',
+        title: `${fCount(pendingOffers)} offers not yet accepted`,
+        detail: 'Acceptance fee unpaid',
+      });
     }
     const awaitingDecision = ad.paid - ad.offered;
     if (awaitingDecision > 0) {
-      alerts.push({ severity: 'warning', tab: 'admissions', title: `${fCount(awaitingDecision)} paid applicants awaiting a decision`, detail: 'No admission offer issued yet' });
+      alerts.push({
+        severity: 'warning',
+        tab: 'admissions',
+        title: `${fCount(awaitingDecision)} paid applicants awaiting a decision`,
+        detail: 'No admission offer issued yet',
+      });
     }
     if (ad.daysToClose != null && ad.daysToClose >= 0 && ad.daysToClose <= 14) {
-      alerts.push({ severity: 'warning', tab: 'admissions', title: `Applications close in ${ad.daysToClose} day${ad.daysToClose === 1 ? '' : 's'}`, detail: admissions.session?.name });
+      alerts.push({
+        severity: 'warning',
+        tab: 'admissions',
+        title: `Applications close in ${ad.daysToClose} day${ad.daysToClose === 1 ? '' : 's'}`,
+        detail: admissions.session?.name,
+      });
     }
   }
   const o = operations?.summary;
   if (o) {
     if (o.failedActionsLast30Days > 0) {
-      alerts.push({ severity: 'info', tab: 'operations', title: `${fCount(o.failedActionsLast30Days)} failed actions in 30 days`, detail: 'See audit activity' });
+      alerts.push({
+        severity: 'info',
+        tab: 'operations',
+        title: `${fCount(o.failedActionsLast30Days)} failed actions in 30 days`,
+        detail: 'See audit activity',
+      });
     }
     if (o.pendingStaff > 0) {
-      alerts.push({ severity: 'info', tab: 'operations', title: `${o.pendingStaff} staff account${o.pendingStaff > 1 ? 's' : ''} pending`, detail: 'Not yet activated' });
+      alerts.push({
+        severity: 'info',
+        tab: 'operations',
+        title: `${o.pendingStaff} staff account${o.pendingStaff > 1 ? 's' : ''} pending`,
+        detail: 'Not yet activated',
+      });
     }
   }
   return alerts.sort((x, y) => SEVERITY[x.severity] - SEVERITY[y.severity]);
 }
 
-export default function OverviewTab({ session, onNavigate }) {
-  const finance = useFinance(session);
+export default function OverviewTab({ session, onNavigate, showFinance }) {
+  const finance = useFinance(session, { enabled: showFinance });
   const students = useStudents(session);
   const academics = useAcademics(session);
   const operations = useOperations();
@@ -120,140 +171,142 @@ export default function OverviewTab({ session, onNavigate }) {
   const ad = admissions.data?.summary;
 
   const alerts = buildAlerts({
-    finance: finance.data,
+    finance: showFinance ? finance.data : null,
     students: students.data,
     academics: academics.data,
     admissions: admissions.data,
     operations: operations.data,
   });
-  const alertsLoading = finance.isLoading || students.isLoading || academics.isLoading;
+  const alertsLoading =
+    (showFinance && finance.isLoading) || students.isLoading || academics.isLoading;
 
   const monthly = fillMonths(finance.data?.monthly, ['amount', 'count'], 12);
   const feeRows = (finance.data?.fees || []).slice(0, 6);
   const programmes = (students.data?.byProgram || []).slice(0, 8);
   const funnel = admissions.data?.funnel || [];
 
+  // Ranked headline figures, most important first. Finance cards are for finance staff only.
+  const kpis = [
+    showFinance && {
+      key: 'collection',
+      label: 'Fee collection rate',
+      icon: 'solar:wallet-money-bold-duotone',
+      loading: finance.isLoading,
+      value: fPct(f?.collectionRate),
+      progress: f?.collectionRate,
+      tone: f?.expected ? toneFor(f.collectionRate, 75, 50) : undefined,
+      caption: f ? `${fNairaShort(f.collected)} of ${fNairaShort(f.expected)} billed` : '',
+      tab: 'finance',
+    },
+    showFinance && {
+      key: 'outstanding',
+      label: 'Outstanding fees',
+      icon: 'solar:bill-cross-bold-duotone',
+      loading: finance.isLoading,
+      value: fNairaShort(f?.outstanding),
+      tone: f && (f.overdueOutstanding > 0 ? 'critical' : 'good'),
+      toneLabel:
+        f?.overdueOutstanding > 0 ? `${fNairaShort(f.overdueOutstanding)} overdue` : 'None overdue',
+      caption: f ? `${f.feeCount} fees this session` : '',
+      tab: 'finance',
+    },
+    {
+      key: 'students',
+      label: 'Active students',
+      icon: 'solar:users-group-rounded-bold-duotone',
+      loading: students.isLoading,
+      value: fCount(s?.active),
+      progress: s?.total ? (s.active / s.total) * 100 : undefined,
+      caption: s
+        ? `of ${fCount(s.total)} enrolled · ${fCount(s.newThisSession)} new this session`
+        : '',
+      tab: 'students',
+    },
+    {
+      key: 'admissions',
+      label: 'Admissions accepted',
+      icon: 'solar:diploma-verified-bold-duotone',
+      loading: admissions.isLoading,
+      value: admissions.isError ? '—' : fCount(ad?.accepted),
+      progress: ad?.paid ? (ad.accepted / ad.paid) * 100 : undefined,
+      caption: ad
+        ? `${fCount(ad.paid)} paid applicants · ${fCount(ad.offered)} offered`
+        : 'Admissions service unavailable',
+      tab: 'admissions',
+    },
+    showFinance && {
+      key: 'revenue',
+      label: 'Revenue collected',
+      icon: 'solar:graph-up-bold-duotone',
+      loading: finance.isLoading,
+      value: fNairaShort(f?.revenue),
+      caption: f ? `${fNairaShort(f.revenueLast30Days)} in the last 30 days` : '',
+      tab: 'finance',
+    },
+    {
+      key: 'pass-rate',
+      label: 'Course pass rate',
+      icon: 'solar:medal-ribbons-star-bold-duotone',
+      loading: academics.isLoading,
+      value: a?.results ? fPct(a.passRate) : '—',
+      progress: a?.results ? a.passRate : undefined,
+      tone: a?.results ? toneFor(a.passRate, 70, 50) : undefined,
+      caption: academicCaption(a),
+      tab: 'academics',
+    },
+    {
+      key: 'adoption',
+      label: 'Student portal adoption',
+      icon: 'solar:smartphone-bold-duotone',
+      loading: students.isLoading,
+      value: fPct(s?.portalAdoption),
+      progress: s?.portalAdoption,
+      caption: s ? `${fCount(s.activeLast30Days)} signed in within 30 days` : '',
+      tab: 'students',
+    },
+    {
+      key: 'staff',
+      label: 'Staff active this week',
+      icon: 'solar:case-round-bold-duotone',
+      loading: operations.isLoading,
+      value: o ? `${fCount(o.staffActiveLast7Days)} / ${fCount(o.staff)}` : '—',
+      progress: o?.staff ? (o.staffActiveLast7Days / o.staff) * 100 : undefined,
+      caption: o ? `${fCount(o.actionsLast30Days)} recorded actions in 30 days` : '',
+      tab: 'operations',
+    },
+  ].filter(Boolean);
+  // Without the finance cards there are five, which sit better three to a row.
+  const kpiLg = kpis.length % 4 === 0 ? 3 : 4;
+
   return (
     <Grid container spacing={3}>
-      {/* Ranked headline figures, most important first */}
-      <Grid item xs={12} sm={6} lg={3}>
-        <KpiCard
-          rank={1}
-          label="Fee collection rate"
-          icon="solar:wallet-money-bold-duotone"
-          loading={finance.isLoading}
-          value={fPct(f?.collectionRate)}
-          progress={f?.collectionRate}
-          tone={f?.expected ? toneFor(f.collectionRate, 75, 50) : undefined}
-          caption={f ? `${fNairaShort(f.collected)} of ${fNairaShort(f.expected)} billed` : ''}
-          onClick={() => onNavigate('finance')}
-        />
-      </Grid>
-      <Grid item xs={12} sm={6} lg={3}>
-        <KpiCard
-          rank={2}
-          label="Outstanding fees"
-          icon="solar:bill-cross-bold-duotone"
-          loading={finance.isLoading}
-          value={fNairaShort(f?.outstanding)}
-          tone={f && (f.overdueOutstanding > 0 ? 'critical' : 'good')}
-          toneLabel={f?.overdueOutstanding > 0 ? `${fNairaShort(f.overdueOutstanding)} overdue` : 'None overdue'}
-          caption={f ? `${f.feeCount} fees this session` : ''}
-          onClick={() => onNavigate('finance')}
-        />
-      </Grid>
-      <Grid item xs={12} sm={6} lg={3}>
-        <KpiCard
-          rank={3}
-          label="Active students"
-          icon="solar:users-group-rounded-bold-duotone"
-          loading={students.isLoading}
-          value={fCount(s?.active)}
-          progress={s?.total ? (s.active / s.total) * 100 : undefined}
-          caption={s ? `of ${fCount(s.total)} enrolled · ${fCount(s.newThisSession)} new this session` : ''}
-          onClick={() => onNavigate('students')}
-        />
-      </Grid>
-      <Grid item xs={12} sm={6} lg={3}>
-        <KpiCard
-          rank={4}
-          label="Admissions accepted"
-          icon="solar:diploma-verified-bold-duotone"
-          loading={admissions.isLoading}
-          value={admissions.isError ? '—' : fCount(ad?.accepted)}
-          progress={ad?.paid ? (ad.accepted / ad.paid) * 100 : undefined}
-          caption={ad ? `${fCount(ad.paid)} paid applicants · ${fCount(ad.offered)} offered` : 'Admissions service unavailable'}
-          onClick={() => onNavigate('admissions')}
-        />
-      </Grid>
-      <Grid item xs={12} sm={6} lg={3}>
-        <KpiCard
-          rank={5}
-          label="Revenue collected"
-          icon="solar:graph-up-bold-duotone"
-          loading={finance.isLoading}
-          value={fNairaShort(f?.revenue)}
-          caption={f ? `${fNairaShort(f.revenueLast30Days)} in the last 30 days` : ''}
-          onClick={() => onNavigate('finance')}
-        />
-      </Grid>
-      <Grid item xs={12} sm={6} lg={3}>
-        <KpiCard
-          rank={6}
-          label="Course pass rate"
-          icon="solar:medal-ribbons-star-bold-duotone"
-          loading={academics.isLoading}
-          value={a?.results ? fPct(a.passRate) : '—'}
-          progress={a?.results ? a.passRate : undefined}
-          tone={a?.results ? toneFor(a.passRate, 70, 50) : undefined}
-          caption={academicCaption(a)}
-          onClick={() => onNavigate('academics')}
-        />
-      </Grid>
-      <Grid item xs={12} sm={6} lg={3}>
-        <KpiCard
-          rank={7}
-          label="Student portal adoption"
-          icon="solar:smartphone-bold-duotone"
-          loading={students.isLoading}
-          value={fPct(s?.portalAdoption)}
-          progress={s?.portalAdoption}
-          caption={s ? `${fCount(s.activeLast30Days)} signed in within 30 days` : ''}
-          onClick={() => onNavigate('students')}
-        />
-      </Grid>
-      <Grid item xs={12} sm={6} lg={3}>
-        <KpiCard
-          rank={8}
-          label="Staff active this week"
-          icon="solar:case-round-bold-duotone"
-          loading={operations.isLoading}
-          value={o ? `${fCount(o.staffActiveLast7Days)} / ${fCount(o.staff)}` : '—'}
-          progress={o?.staff ? (o.staffActiveLast7Days / o.staff) * 100 : undefined}
-          caption={o ? `${fCount(o.actionsLast30Days)} recorded actions in 30 days` : ''}
-          onClick={() => onNavigate('operations')}
-        />
-      </Grid>
+      {kpis.map(({ key, tab, ...card }, index) => (
+        <Grid key={key} item xs={12} sm={6} lg={kpiLg}>
+          <KpiCard rank={index + 1} {...card} onClick={() => onNavigate(tab)} />
+        </Grid>
+      ))}
 
       {/* Revenue momentum + attention list */}
-      <Grid item xs={12} md={8}>
-        <Panel
-          title="Revenue collected by month"
-          subheader="Completed fee payments"
-          loading={finance.isLoading}
-          empty={!monthly.length}
-          emptyText="No completed payments yet"
-          action={<DrillButton onClick={() => onNavigate('finance')} />}
-        >
-          <BarChart
-            categories={monthly.map((m) => fMonthToDate(m.month))}
-            series={[{ name: 'Collected', data: monthly.map((m) => m.amount) }]}
-            valueFormat={fNairaShort}
-            height={300}
-          />
-        </Panel>
-      </Grid>
-      <Grid item xs={12} md={4}>
+      {showFinance && (
+        <Grid item xs={12} md={8}>
+          <Panel
+            title="Revenue collected by month"
+            subheader="Completed fee payments"
+            loading={finance.isLoading}
+            empty={!monthly.length}
+            emptyText="No completed payments yet"
+            action={<DrillButton onClick={() => onNavigate('finance')} />}
+          >
+            <BarChart
+              categories={monthly.map((m) => fMonthToDate(m.month))}
+              series={[{ name: 'Collected', data: monthly.map((m) => m.amount) }]}
+              valueFormat={fNairaShort}
+              height={300}
+            />
+          </Panel>
+        </Grid>
+      )}
+      <Grid item xs={12} md={showFinance ? 4 : 12}>
         <Panel
           title="Needs attention"
           subheader="Ranked by severity"
@@ -265,8 +318,15 @@ export default function OverviewTab({ session, onNavigate }) {
             {alerts.map((alert) => {
               const sev = SEVERITY_ICON[alert.severity];
               return (
-                <ListItemButton key={alert.title} onClick={() => onNavigate(alert.tab)} sx={{ borderRadius: 1, alignItems: 'flex-start', py: 1 }}>
-                  <Box sx={{ color: sev.color, mr: 1.5, mt: 0.25, display: 'flex' }} title={sev.word}>
+                <ListItemButton
+                  key={alert.title}
+                  onClick={() => onNavigate(alert.tab)}
+                  sx={{ borderRadius: 1, alignItems: 'flex-start', py: 1 }}
+                >
+                  <Box
+                    sx={{ color: sev.color, mr: 1.5, mt: 0.25, display: 'flex' }}
+                    title={sev.word}
+                  >
                     <Iconify icon={sev.icon} width={20} />
                   </Box>
                   <ListItemText
@@ -286,35 +346,41 @@ export default function OverviewTab({ session, onNavigate }) {
         <SectionHeading title="Module snapshots" description="Open a tab for the full breakdown" />
       </Grid>
 
-      <Grid item xs={12} md={6}>
-        <Panel
-          rank={1}
-          title="Collection by fee"
-          subheader="Largest outstanding balances first"
-          loading={finance.isLoading}
-          empty={!feeRows.length}
-          emptyText="No fees set up for this session"
-          action={<DrillButton onClick={() => onNavigate('finance')} />}
-        >
-          <RankList
-            max={100}
-            rows={feeRows.map((fee) => ({
-              key: fee._id,
-              label: fee.name,
-              value: fee.progress,
-              display: fPct(fee.progress),
-              caption: `${fNairaShort(fee.outstanding)} due`,
-              color: fee.isOverdue ? 'error.main' : SERIES[0],
-              ...(fee.isOverdue && { caption: `${fNairaShort(fee.outstanding)} overdue` }),
-            }))}
-          />
-        </Panel>
-      </Grid>
+      {showFinance && (
+        <Grid item xs={12} md={6}>
+          <Panel
+            rank={1}
+            title="Collection by fee"
+            subheader="Largest outstanding balances first"
+            loading={finance.isLoading}
+            empty={!feeRows.length}
+            emptyText="No fees set up for this session"
+            action={<DrillButton onClick={() => onNavigate('finance')} />}
+          >
+            <RankList
+              max={100}
+              rows={feeRows.map((fee) => ({
+                key: fee._id,
+                label: fee.name,
+                value: fee.progress,
+                display: fPct(fee.progress),
+                caption: `${fNairaShort(fee.outstanding)} due`,
+                color: fee.isOverdue ? 'error.main' : SERIES[0],
+                ...(fee.isOverdue && { caption: `${fNairaShort(fee.outstanding)} overdue` }),
+              }))}
+            />
+          </Panel>
+        </Grid>
+      )}
       <Grid item xs={12} md={6}>
         <Panel
           rank={4}
           title="Admissions funnel"
-          subheader={admissions.data?.session ? `Admission session ${admissions.data.session.name}` : 'Active admission session'}
+          subheader={
+            admissions.data?.session
+              ? `Admission session ${admissions.data.session.name}`
+              : 'Active admission session'
+          }
           loading={admissions.isLoading}
           empty={admissions.isError || !funnel.length || !funnel[0].count}
           emptyText={admissions.isError ? 'Admissions service unavailable' : 'No applications yet'}
@@ -344,7 +410,7 @@ export default function OverviewTab({ session, onNavigate }) {
           />
         </Panel>
       </Grid>
-      <Grid item xs={12} md={6}>
+      <Grid item xs={12} md={showFinance ? 6 : 12}>
         <Panel
           rank={6}
           title="Results pipeline"
@@ -368,7 +434,11 @@ export default function OverviewTab({ session, onNavigate }) {
   );
 }
 
-OverviewTab.propTypes = { session: PropTypes.string, onNavigate: PropTypes.func.isRequired };
+OverviewTab.propTypes = {
+  session: PropTypes.string,
+  onNavigate: PropTypes.func.isRequired,
+  showFinance: PropTypes.bool,
+};
 
 function academicCaption(a) {
   if (!a) return '';
@@ -378,7 +448,13 @@ function academicCaption(a) {
 
 function DrillButton({ onClick }) {
   return (
-    <Button size="small" color="inherit" endIcon={<Iconify icon="eva:arrow-ios-forward-fill" />} onClick={onClick} sx={{ flexShrink: 0 }}>
+    <Button
+      size="small"
+      color="inherit"
+      endIcon={<Iconify icon="eva:arrow-ios-forward-fill" />}
+      onClick={onClick}
+      sx={{ flexShrink: 0 }}
+    >
       Details
     </Button>
   );

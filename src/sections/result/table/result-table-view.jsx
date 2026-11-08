@@ -17,6 +17,7 @@ import {
   Dialog,
   Select,
   Switch,
+  Divider,
   Tooltip,
   Checkbox,
   Collapse,
@@ -47,6 +48,8 @@ import { ResultApi, programApi, classLevelApi } from 'src/api';
 import Iconify from 'src/components/iconify';
 
 import ReopenDialog from './reopen-dialog';
+import RevisionDialog from './revision-dialog';
+import { OutcomeChip } from '../result-markers';
 import CourseReadiness from './course-readiness';
 import ResultActivityDrawer from './result-activity-drawer';
 import { ResultCell, ResultCellPopover } from './result-cell';
@@ -145,12 +148,16 @@ export default function ResultTableView() {
   const [computeOutcome, setComputeOutcome] = useState(null);
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [popover, setPopover] = useState(null); // { anchorEl, studentId, courseId, carry }
+  // While the change-score / history dialog is open: { studentId, courseId, resultId, carry, view, kind }
+  const [revising, setRevising] = useState(null);
+  const [failedOnly, setFailedOnly] = useState(false);
 
   const permissions = {
     compute: check(PERMISSIONS.COMPUTE_RESULT),
     override: check(PERMISSIONS.OVERRIDE_RESULT),
     remove: check(PERMISSIONS.DELETE_RESULT),
     reopen: check(PERMISSIONS.REOPEN_RESULT),
+    revise: check(PERMISSIONS.REVISE_RESULT),
   };
   const canBuild = check(PERMISSIONS.BUILD_RESULT);
 
@@ -168,6 +175,9 @@ export default function ResultTableView() {
   const data = ready ? builderQuery.data : null;
   const meta = data?.metadata;
   const scheme = meta?.gradingScheme || null;
+  // Exam outcome per student; null when the scheme's outcome rule is off
+  const outcomeSummary = meta?.outcomeSummary || null;
+  const outcomeOn = Boolean(outcomeSummary);
   const reload = () => {
     queryClient.invalidateQueries({ queryKey: ['result-builder'] });
     queryClient.invalidateQueries({ queryKey: ['result-activity'] });
@@ -179,6 +189,7 @@ export default function ResultTableView() {
   };
   useEffect(() => {
     setPopover(null);
+    setRevising(null);
     setSelectedStudents(new Set());
     setSelectedCourses(new Set());
   }, [programId, classId, semester, sessionId]);
@@ -187,8 +198,30 @@ export default function ResultTableView() {
   const courseColumns = students[0]?.courses ?? [];
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return term ? students.filter((s) => `${s.regNumber} ${s.name}`.toLowerCase().includes(term)) : students;
-  }, [students, search]);
+    return students.filter(
+      (s) =>
+        (!term || `${s.regNumber} ${s.name}`.toLowerCase().includes(term)) &&
+        (!failedOnly || !outcomeOn || s.outcome?.status === 'fail')
+    );
+  }, [students, search, failedOnly, outcomeOn]);
+  const provisionalOutcomes = useMemo(
+    () => students.filter((s) => s.outcome?.provisional).length,
+    [students]
+  );
+  const outcomeRule = scheme?.examOutcome;
+  const outcomeLabels = {
+    pass: 'Passed',
+    passCarryOver: 'Passed with resit',
+    fail: 'Failed',
+    ...outcomeRule?.labels,
+  };
+  let emptyText = 'No students in this class.';
+  if (students.length) {
+    emptyText =
+      failedOnly && outcomeOn && !search.trim()
+        ? 'No student failed this sitting.'
+        : 'No student matches your filters.';
+  }
 
   const totals = useMemo(() => {
     const t = { students: 0, complete: 0, unsaved: 0, stale: 0, draft: 0, approved: 0, published: 0, setupIssues: 0 };
@@ -266,6 +299,12 @@ export default function ResultTableView() {
 
   const popoverStudent = popover && students.find((s) => s.studentId === popover.studentId);
   const popoverCourse = popoverStudent && (popover.carry ? popoverStudent.carryOvers : popoverStudent.courses).find((c) => c.courseId === popover.courseId);
+  const revisingStudent = revising && students.find((s) => s.studentId === revising.studentId);
+  const revisingCourse =
+    revisingStudent &&
+    (revising.carry ? revisingStudent.carryOvers : revisingStudent.courses).find(
+      (c) => c.courseId === revising.courseId
+    );
 
   // ------------------------------------------------------------------
   // Actions
@@ -362,6 +401,26 @@ export default function ResultTableView() {
     } finally {
       setBusy(null);
     }
+  };
+
+  // Change a locked score in place, or look at its history ('change' | 'history');
+  // kind 'resit' records a resit of a failed course, 'correction' fixes a wrong score
+  const openRevision = (student, course, carry, view, kind = 'correction') => {
+    setPopover(null);
+    setRevising({
+      studentId: student.studentId,
+      courseId: course.courseId,
+      resultId: course.resultId,
+      carry: Boolean(carry),
+      view,
+      kind,
+    });
+  };
+
+  const revised = (message) => {
+    enqueueSnackbar(message, { variant: 'success' });
+    setRevising(null);
+    reload();
   };
 
   const exportResults = async () => {
@@ -549,6 +608,34 @@ export default function ResultTableView() {
                   }
                 />
               </Stack>
+              {/* Exam outcome: how many passed, passed with courses to resit, or failed this sitting */}
+              {outcomeOn && (
+                <>
+                  <Divider />
+                  <Stack direction="row" flexWrap="wrap" alignItems="center" gap={1} sx={{ px: 2, py: 1.5 }}>
+                    <Typography variant="subtitle2" sx={{ mr: 0.5 }}>
+                      Exam outcome
+                    </Typography>
+                    <Chip size="small" color="success" label={`${outcomeSummary.pass} ${outcomeLabels.pass}`} />
+                    <Chip
+                      size="small"
+                      color="warning"
+                      label={`${outcomeSummary.pass_co} ${outcomeLabels.passCarryOver}`}
+                    />
+                    <Chip size="small" color="error" label={`${outcomeSummary.fail} ${outcomeLabels.fail}`} />
+                    {outcomeSummary.none > 0 && (
+                      <Chip size="small" variant="outlined" label={`${outcomeSummary.none} without results`} />
+                    )}
+                    <Typography variant="caption" color="text.secondary">
+                      {outcomeRule?.failThreshold ?? 3} or more failed courses in a{' '}
+                      {outcomeRule?.scope === 'session' ? 'session' : 'semester'} fails
+                      {provisionalOutcomes > 0
+                        ? ` · ${provisionalOutcomes} provisional until every result is published`
+                        : ''}
+                    </Typography>
+                  </Stack>
+                </>
+              )}
             </Card>
 
             {/* Courses */}
@@ -630,6 +717,19 @@ export default function ResultTableView() {
                     ),
                   }}
                 />
+                {outcomeOn && (
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        color="error"
+                        checked={failedOnly}
+                        onChange={(e) => setFailedOnly(e.target.checked)}
+                      />
+                    }
+                    label={`${outcomeLabels.fail} only`}
+                  />
+                )}
                 <FormControlLabel control={<Switch size="small" checked={showBreakdown} onChange={(e) => setShowBreakdown(e.target.checked)} />} label="Show assessment scores" />
               </Stack>
               {scheme && (
@@ -694,6 +794,7 @@ export default function ResultTableView() {
                       <TableCell align="center" sx={{ minWidth: 64 }}>GPA</TableCell>
                       <TableCell align="center" sx={{ minWidth: 64 }}>CGPA</TableCell>
                       <TableCell sx={{ minWidth: 130 }}>Class</TableCell>
+                      {outcomeOn && <TableCell sx={{ minWidth: 150 }}>Outcome</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -716,8 +817,8 @@ export default function ResultTableView() {
                         <TableCell>
                           {student.name}
                           {student.outstanding?.length > 0 && (
-                            <Tooltip title={`Owes: ${student.outstanding.join(', ')}`}>
-                              <Chip size="small" color="error" variant="outlined" label={`${student.outstanding.length} CO`} sx={{ ml: 0.75, height: 18 }} />
+                            <Tooltip title={`Failed, not yet passed: ${student.outstanding.join(', ')}. Record resit scores on the Resits page.`}>
+                              <Chip size="small" color="warning" variant="outlined" label={`${student.outstanding.length} to resit`} sx={{ ml: 0.75, height: 18 }} />
                             </Tooltip>
                           )}
                         </TableCell>
@@ -729,7 +830,12 @@ export default function ResultTableView() {
                                   {a.score ?? '—'}
                                 </TableCell>
                               ))}
-                            <ResultCell course={course} scheme={scheme} onOpen={(anchorEl) => setPopover({ anchorEl, studentId: student.studentId, courseId: course.courseId, carry: false })} />
+                            <ResultCell
+                              course={course}
+                              scheme={scheme}
+                              onOpen={(anchorEl) => setPopover({ anchorEl, studentId: student.studentId, courseId: course.courseId, carry: false })}
+                              onHistory={() => openRevision(student, course, false, 'history')}
+                            />
                           </React.Fragment>
                         ))}
                         <TableCell align="center" sx={{ fontWeight: 600 }}>{formatGpa(student.gpa, scheme)}</TableCell>
@@ -741,14 +847,19 @@ export default function ResultTableView() {
                             '—'
                           )}
                         </TableCell>
+                        {outcomeOn && (
+                          <TableCell>
+                            {student.outcome ? <OutcomeChip outcome={student.outcome} /> : '—'}
+                          </TableCell>
+                        )}
                       </TableRow>
                       );
                     })}
                     {!visible.length && (
                       <TableRow>
-                        <TableCell colSpan={(canPublish ? 7 : 6) + courseColumns.length} sx={{ py: 5, textAlign: 'center' }}>
+                        <TableCell colSpan={(canPublish ? 7 : 6) + courseColumns.length + (outcomeOn ? 1 : 0)} sx={{ py: 5, textAlign: 'center' }}>
                           <Typography variant="body2" color="text.secondary">
-                            {students.length ? 'No student matches your search.' : 'No students in this class.'}
+                            {emptyText}
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -761,9 +872,9 @@ export default function ResultTableView() {
             {carryOverRows.length > 0 && (
               <Card sx={{ mt: 2 }}>
                 <Box sx={{ p: 2, pb: 1 }}>
-                  <Typography variant="subtitle1">Carry-over courses ({carryOverRows.length})</Typography>
+                  <Typography variant="subtitle1">Earlier retakes ({carryOverRows.length})</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Courses these students failed earlier and are retaking this semester. Their results are saved as a new attempt.
+                    Courses from other levels recorded in this sitting before resits replaced carry-overs. Failed courses are now resat on the Resits page and keep their original sitting.
                   </Typography>
                 </Box>
                 <TableContainer>
@@ -786,7 +897,12 @@ export default function ResultTableView() {
                             {course.courseCode} · {course.courseName}
                           </TableCell>
                           <TableCell>{course.assessments.map((a) => `${a.type} ${a.score ?? '—'}/${a.maxScore}`).join(' · ') || '—'}</TableCell>
-                          <ResultCell course={course} scheme={scheme} onOpen={(anchorEl) => setPopover({ anchorEl, studentId: stu.studentId, courseId: course.courseId, carry: true })} />
+                          <ResultCell
+                            course={course}
+                            scheme={scheme}
+                            onOpen={(anchorEl) => setPopover({ anchorEl, studentId: stu.studentId, courseId: course.courseId, carry: true })}
+                            onHistory={() => openRevision(stu, course, true, 'history')}
+                          />
                         </TableRow>
                       ))}
                     </TableBody>
@@ -811,6 +927,25 @@ export default function ResultTableView() {
         onUseComputed={saveComputed}
         onDelete={deleteDraft}
         onReopen={permissions.reopen ? (_student, course) => setReopen({ ids: [course.resultId] }) : undefined}
+        onRevise={
+          permissions.revise
+            ? (student, course, kind) => openRevision(student, course, popover?.carry, 'change', kind)
+            : undefined
+        }
+        onHistory={(student, course) => openRevision(student, course, popover?.carry, 'history')}
+      />
+
+      <RevisionDialog
+        open={Boolean(revising)}
+        resultId={revising?.resultId}
+        student={revisingStudent}
+        course={revisingCourse}
+        scheme={scheme}
+        canRevise={permissions.revise}
+        view={revising?.view}
+        initialKind={revising?.kind || 'correction'}
+        onClose={() => setRevising(null)}
+        onRevised={revised}
       />
 
       <ReopenDialog
@@ -830,6 +965,7 @@ export default function ResultTableView() {
         sessionId={sessionId}
         semester={semester}
         title={[meta?.program?.name, meta?.classLevel?.name, semester].filter(Boolean).join(' · ')}
+        students={students}
       />
 
       {/* Compute drafts */}
@@ -855,8 +991,7 @@ export default function ResultTableView() {
           ) : (
             <Stack spacing={1.5} sx={{ pt: 1 }}>
               <Typography variant="body2">
-                Works out every student&apos;s course totals from the saved assessment scores, for the class&apos;s courses and
-                any carry-overs, and saves them as drafts graded with {scheme?.name || 'the programme’s grading scheme'}.
+                Works out every student&apos;s course totals from the saved assessment scores, for the class&apos;s courses, and saves them as drafts graded with {scheme?.name || 'the programme’s grading scheme'}.
                 Approved and published results are not touched.
               </Typography>
               <FormControlLabel
