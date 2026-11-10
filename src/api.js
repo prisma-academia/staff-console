@@ -913,6 +913,8 @@ export const SessionApi = {
   getCurrentSession: () => apiClient.get('session/current'),
   createSession: (data) => apiClient.post('session', data),
   updateSession: (id, data) => apiClient.put(`session/${id}`, data),
+  // Makes this the current session; the api clears the previous one.
+  setCurrentSession: (id) => apiClient.put(`session/${id}`, { isCurrent: true }),
   deleteSession: (id) => apiClient.delete(`session/${id}`),
 };
 

@@ -26,6 +26,8 @@ import { SessionApi } from 'src/api';
 
 import CustomSelect from 'src/components/select';
 
+import useSwitchSession from './use-switch-session';
+
 const SEMESTER_OPTIONS = [
   { name: 'First Semester', _id: 'First Semester' },
   { name: 'Second Semester', _id: 'Second Semester' },
@@ -55,11 +57,17 @@ const EditSession = ({ open, setOpen, session }) => {
     [session]
   );
 
-  const { mutate, isPending } = useMutation({
+  const { current, confirmSwitch, followSwitch, dialog: switchDialog } = useSwitchSession();
+
+  const { mutate, mutateAsync, isPending } = useMutation({
     mutationFn: ({ id, data }) => SessionApi.updateSession(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['session', 'current'] });
+    onSuccess: (_updated, { id, data }) => {
+      if (Boolean(data.isCurrent) !== Boolean(session?.isCurrent)) {
+        followSwitch(data.isCurrent ? id : null);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['sessions'] });
+        queryClient.invalidateQueries({ queryKey: ['session'] });
+      }
       enqueueSnackbar('Session updated successfully', { variant: 'success' });
       setOpen(false);
     },
@@ -94,9 +102,18 @@ const EditSession = ({ open, setOpen, session }) => {
         endDate: values.endDate ? new Date(values.endDate).toISOString() : undefined,
         isCurrent: Boolean(values.isCurrent),
       };
-      mutate({ id: session._id, data: payload });
+      const variables = { id: session._id, data: payload };
+      if (payload.isCurrent && !session.isCurrent) {
+        confirmSwitch({ name: payload.name }, () => mutateAsync(variables));
+      } else {
+        mutate(variables);
+      }
     },
   });
+
+  let currentLabel = 'Make this the current session';
+  if (session?.isCurrent) currentLabel = 'Current session';
+  else if (current) currentLabel = `Make this the current session (replaces ${current.name})`;
 
   const handleModalClose = () => setOpen(false);
 
@@ -115,104 +132,107 @@ const EditSession = ({ open, setOpen, session }) => {
   if (!session) return null;
 
   return (
-    <Modal
-      open={open}
-      onClose={handleModalClose}
-      closeAfterTransition
-      keepMounted={false}
-      slots={{ backdrop: Backdrop }}
-      slotProps={{ backdrop: { timeout: 500 } }}
-    >
-      <Fade in={open}>
-        <Box sx={modalStyle}>
-          <Typography variant="h5" sx={{ mb: 3 }}>
-            Edit Session
-          </Typography>
-          <Box component="form" onSubmit={formik.handleSubmit}>
-            <Stack spacing={2.5}>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <TextField
-                    label="Session name"
-                    name="name"
-                    placeholder="e.g. 2024/2025"
-                    fullWidth
-                    value={formik.values.name}
-                    onChange={formik.handleChange}
-                    error={formik.touched.name && Boolean(formik.errors.name)}
-                    helperText={formik.touched.name && formik.errors.name}
-                  />
+    <>
+      <Modal
+        open={open}
+        onClose={handleModalClose}
+        closeAfterTransition
+        keepMounted={false}
+        slots={{ backdrop: Backdrop }}
+        slotProps={{ backdrop: { timeout: 500 } }}
+      >
+        <Fade in={open}>
+          <Box sx={modalStyle}>
+            <Typography variant="h5" sx={{ mb: 3 }}>
+              Edit Session
+            </Typography>
+            <Box component="form" onSubmit={formik.handleSubmit}>
+              <Stack spacing={2.5}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Session name"
+                      name="name"
+                      placeholder="e.g. 2024/2025"
+                      fullWidth
+                      value={formik.values.name}
+                      onChange={formik.handleChange}
+                      error={formik.touched.name && Boolean(formik.errors.name)}
+                      helperText={formik.touched.name && formik.errors.name}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Code (optional)"
+                      name="code"
+                      placeholder="e.g. 2024-25"
+                      fullWidth
+                      value={formik.values.code}
+                      onChange={formik.handleChange}
+                      error={formik.touched.code && Boolean(formik.errors.code)}
+                      helperText={formik.touched.code && formik.errors.code}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <CustomSelect
+                      data={SEMESTER_OPTIONS}
+                      label="Current semester"
+                      name="currentSemester"
+                      formik={formik}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Start date"
+                      name="startDate"
+                      type="date"
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                      value={formik.values.startDate}
+                      onChange={formik.handleChange}
+                      error={formik.touched.startDate && Boolean(formik.errors.startDate)}
+                      helperText={formik.touched.startDate && formik.errors.startDate}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="End date"
+                      name="endDate"
+                      type="date"
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                      value={formik.values.endDate}
+                      onChange={formik.handleChange}
+                      error={formik.touched.endDate && Boolean(formik.errors.endDate)}
+                      helperText={formik.touched.endDate && formik.errors.endDate}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          name="isCurrent"
+                          checked={formik.values.isCurrent}
+                          onChange={formik.handleChange}
+                        />
+                      }
+                      label={currentLabel}
+                    />
+                  </Grid>
                 </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    label="Code (optional)"
-                    name="code"
-                    placeholder="e.g. 2024-25"
-                    fullWidth
-                    value={formik.values.code}
-                    onChange={formik.handleChange}
-                    error={formik.touched.code && Boolean(formik.errors.code)}
-                    helperText={formik.touched.code && formik.errors.code}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <CustomSelect
-                    data={SEMESTER_OPTIONS}
-                    label="Current semester"
-                    name="currentSemester"
-                    formik={formik}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Start date"
-                    name="startDate"
-                    type="date"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                    value={formik.values.startDate}
-                    onChange={formik.handleChange}
-                    error={formik.touched.startDate && Boolean(formik.errors.startDate)}
-                    helperText={formik.touched.startDate && formik.errors.startDate}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="End date"
-                    name="endDate"
-                    type="date"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                    value={formik.values.endDate}
-                    onChange={formik.handleChange}
-                    error={formik.touched.endDate && Boolean(formik.errors.endDate)}
-                    helperText={formik.touched.endDate && formik.errors.endDate}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        name="isCurrent"
-                        checked={formik.values.isCurrent}
-                        onChange={formik.handleChange}
-                      />
-                    }
-                    label="Set as current session (only one can be current at a time)"
-                  />
-                </Grid>
-              </Grid>
-              <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ pt: 1 }}>
-                <Button onClick={handleModalClose}>Cancel</Button>
-                <LoadingButton loading={isPending} variant="contained" type="submit">
-                  Update Session
-                </LoadingButton>
+                <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ pt: 1 }}>
+                  <Button onClick={handleModalClose}>Cancel</Button>
+                  <LoadingButton loading={isPending} variant="contained" type="submit">
+                    Update Session
+                  </LoadingButton>
+                </Stack>
               </Stack>
-            </Stack>
+            </Box>
           </Box>
-        </Box>
-      </Fade>
-    </Modal>
+        </Fade>
+      </Modal>
+      {switchDialog}
+    </>
   );
 };
 

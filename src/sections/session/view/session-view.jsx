@@ -28,6 +28,7 @@ import { GenericTable } from 'src/components/generic-table';
 import AddSession from '../add-session';
 import EditSession from '../edit-session';
 import SessionDetails from '../session-details';
+import useSwitchSession from '../use-switch-session';
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
@@ -43,7 +44,7 @@ const formatDate = (dateString) => {
 };
 
 const formatCreatedBy = (row) => {
-  const {createdBy} = row;
+  const { createdBy } = row;
   if (!createdBy) return '—';
   if (typeof createdBy === 'object') {
     const name = [createdBy.firstName, createdBy.lastName].filter(Boolean).join(' ');
@@ -60,6 +61,8 @@ export default function SessionView() {
 
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
+
+  const { setCurrent, dialog: switchDialog } = useSwitchSession();
 
   const table = useServerTable({ defaultSortBy: 'startDate', defaultSortOrder: 'desc' });
   const { queryParams } = table;
@@ -97,9 +100,9 @@ export default function SessionView() {
     setEditingSession(session);
   };
 
-  const handleView = (session, e) => {
+  const handleSetCurrent = (session, e) => {
     e.stopPropagation();
-    setViewingSession(session);
+    setCurrent(session);
   };
 
   const columns = [
@@ -119,10 +122,8 @@ export default function SessionView() {
       id: 'code',
       sortKey: 'code',
       label: 'Code',
-      cellSx: { width: '10%' },
-      renderCell: (row) => (
-        <Typography variant="body2">{row.code || '—'}</Typography>
-      ),
+      cellSx: { width: '8%' },
+      renderCell: (row) => <Typography variant="body2">{row.code || '—'}</Typography>,
     },
     {
       id: 'currentSemester',
@@ -163,7 +164,7 @@ export default function SessionView() {
     {
       id: 'createdBy',
       label: 'Created By',
-      cellSx: { width: '14%' },
+      cellSx: { width: '12%' },
       renderCell: (row) => (
         <Typography variant="body2" noWrap>
           {formatCreatedBy(row)}
@@ -173,15 +174,26 @@ export default function SessionView() {
     {
       id: 'action',
       label: '',
-      cellSx: { width: '14%' },
+      cellSx: { width: '20%' },
       renderCell: (row) => (
-        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-          <Can do={PERMISSIONS.VIEW_SESSION}>
-            <Tooltip title="View">
-              <IconButton onClick={(e) => handleView(row, e)} size="small">
-                <Iconify icon="eva:eye-fill" />
-              </IconButton>
-            </Tooltip>
+        <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center">
+          <Can do={PERMISSIONS.EDIT_SESSION}>
+            <Button
+              size="small"
+              variant={row.isCurrent ? 'text' : 'outlined'}
+              color={row.isCurrent ? 'success' : 'primary'}
+              disabled={row.isCurrent}
+              onClick={(e) => handleSetCurrent(row, e)}
+              startIcon={
+                <Iconify
+                  icon={row.isCurrent ? 'eva:checkmark-circle-2-fill' : 'eva:swap-fill'}
+                  width={18}
+                />
+              }
+              sx={{ whiteSpace: 'nowrap', mr: 0.5 }}
+            >
+              {row.isCurrent ? 'Current' : 'Set current'}
+            </Button>
           </Can>
           <Can do={PERMISSIONS.EDIT_SESSION}>
             <Tooltip title="Edit">
@@ -192,11 +204,7 @@ export default function SessionView() {
           </Can>
           <Can do={PERMISSIONS.DELETE_SESSION}>
             <Tooltip title="Delete">
-              <IconButton
-                onClick={(e) => handleDelete(row._id, e)}
-                size="small"
-                color="error"
-              >
+              <IconButton onClick={(e) => handleDelete(row._id, e)} size="small" color="error">
                 <Iconify icon="eva:trash-2-fill" />
               </IconButton>
             </Tooltip>
@@ -209,7 +217,6 @@ export default function SessionView() {
   const handleCloseEdit = (value) => {
     if (!value) setEditingSession(null);
   };
-
 
   return (
     <Container maxWidth="xl">
@@ -279,7 +286,7 @@ export default function SessionView() {
         setOpen={(value) => !value && setViewingSession(null)}
         session={viewingSession}
       />
+      {switchDialog}
     </Container>
   );
 }
-
