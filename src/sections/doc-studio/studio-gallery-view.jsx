@@ -173,7 +173,7 @@ export default function StudioGalleryView() {
             </Button>
           }
         >
-          Admissions documents (application form, admission letter, applicant emails) are not on Brand Kit v{brandVersion} yet. {admissionsBrandProblem(admissionsBrand.status)}
+          Admissions documents (application form, admission letter, bond form, fee schedule, applicant emails) are not on Brand Kit v{brandVersion} yet. {admissionsBrandProblem(admissionsBrand.status)}
         </Alert>
       )}
 

@@ -42,6 +42,7 @@ const EMPTY_REGISTRATION = {
   lateOpensAt: '',
   lateClosesAt: '',
   acceptanceFeeDeadline: '',
+  lecturesBeginAt: '',
 };
 
 const REGISTRATION_FIELDS = [
@@ -50,6 +51,7 @@ const REGISTRATION_FIELDS = [
   { key: 'lateOpensAt', label: 'Late registration opens' },
   { key: 'lateClosesAt', label: 'Late registration closes' },
   { key: 'acceptanceFeeDeadline', label: 'Acceptance fee deadline' },
+  { key: 'lecturesBeginAt', label: 'Lectures begin' },
 ];
 
 /** 'YYYY-MM-DD' for a date input, or '' when unset. */

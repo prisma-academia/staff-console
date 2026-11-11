@@ -9,6 +9,7 @@ import {
   Box,
   Card,
   Grid,
+  Alert,
   Stack,
   alpha,
   Button,
@@ -28,6 +29,8 @@ import {
   AccordionDetails,
   DialogContentText,
 } from '@mui/material';
+
+import { RouterLink } from 'src/routes/components';
 
 import { SettingsApi } from 'src/api';
 import { PERMISSIONS } from 'src/permissions/constants';
@@ -780,42 +783,26 @@ export default function AppSettingsView() {
                           </Divider>
                         </Grid>
 
-                        <Grid item xs={12} md={6}>
-                          <TextField
-                            fullWidth
-                            label="Bond Acceptance Form URL"
-                            name="asset.staticFiles.bondAcceptanceForm"
-                            value={formik.values.asset.staticFiles.bondAcceptanceForm}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            error={
-                              formik.touched.asset?.staticFiles?.bondAcceptanceForm &&
-                              Boolean(formik.errors.asset?.staticFiles?.bondAcceptanceForm)
+                        {/* The applicant downloads are Template Studio documents now. The old
+                            URL values stay in the form untouched so saving settings keeps them. */}
+                        <Grid item xs={12}>
+                          <Alert
+                            severity="info"
+                            action={
+                              <Button
+                                color="inherit"
+                                size="small"
+                                component={RouterLink}
+                                href="/studio"
+                              >
+                                Open Template Studio
+                              </Button>
                             }
-                            helperText={
-                              formik.touched.asset?.staticFiles?.bondAcceptanceForm &&
-                              formik.errors.asset?.staticFiles?.bondAcceptanceForm
-                            }
-                          />
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <TextField
-                            fullWidth
-                            label="Schedule of Fees URL"
-                            name="asset.staticFiles.scheduleOfFees"
-                            value={formik.values.asset.staticFiles.scheduleOfFees}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            error={
-                              formik.touched.asset?.staticFiles?.scheduleOfFees &&
-                              Boolean(formik.errors.asset?.staticFiles?.scheduleOfFees)
-                            }
-                            helperText={
-                              formik.touched.asset?.staticFiles?.scheduleOfFees &&
-                              formik.errors.asset?.staticFiles?.scheduleOfFees
-                            }
-                            placeholder="Use {session} as placeholder"
-                          />
+                          >
+                            The bond/acceptance form and schedule of fees that admitted applicants
+                            download are edited in Template Studio, under Admissions. Until a
+                            document is published there, applicants keep getting the old PDF.
+                          </Alert>
                         </Grid>
                       </Grid>
                     </AccordionDetails>
