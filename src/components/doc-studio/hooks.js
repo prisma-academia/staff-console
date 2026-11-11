@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
-import { studioApi } from 'src/api/docStudioApi';
+import { brandApi, studioApi } from 'src/api/docStudioApi';
 
 // ----------------------------------------------------------------------
 
@@ -222,6 +222,82 @@ export function useStudioTemplate(service, key) {
     reload,
     overwrite,
     actions,
+  };
+}
+
+// ----------------------------------------------------------------------
+
+const ADMISSIONS_BRAND_KEY = ['doc-studio', 'admissions-brand'];
+
+/** Why admissions documents are not on the current Brand Kit, in plain words. */
+export function admissionsBrandProblem(status) {
+  const reason = status?.sync?.reason || (status?.source === 'core' ? null : status?.lastPull?.reason);
+  switch (reason) {
+    case 'unauthorized':
+      return 'The core api refused the request. Sign out and back in, then try again.';
+    case 'unreachable':
+      return 'The admissions service could not reach the core api. Check MAIN_API_URL on application-api.';
+    case 'no-main-api':
+      return 'MAIN_API_URL is not set on application-api.';
+    case 'not-published':
+      return 'No Brand Kit has been published yet.';
+    default:
+      return '';
+  }
+}
+
+/**
+ * Keeps admissions documents (application form, admission letter, applicant
+ * emails) on the published Brand Kit. application-api prints from its own copy
+ * of the kit; when that copy is missing or older than the core api's published
+ * version, this asks it to copy the kit again using the signed-in staff login.
+ * It tries once per published version per page, so a failure never loops.
+ */
+export function useAdmissionsBrandSync(corePublishedVersion, { enabled = true } = {}) {
+  const queryClient = useQueryClient();
+  const status = useQuery({
+    queryKey: ADMISSIONS_BRAND_KEY,
+    queryFn: brandApi.admissionsStatus,
+    enabled,
+    staleTime: 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const [syncing, setSyncing] = useState(false);
+  const attempted = useRef(null);
+
+  const target = Number(corePublishedVersion) || 0;
+  const current = status.data && status.data.source !== 'legacy' ? Number(status.data.version) || 0 : 0;
+  const inSync = target > 0 && current === target;
+
+  const sync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const result = await brandApi.refreshAdmissions();
+      queryClient.setQueryData(ADMISSIONS_BRAND_KEY, result);
+      // Admissions thumbnails were rendered with the old brand.
+      queryClient.invalidateQueries({ queryKey: ['doc-studio', 'thumb', 'admissions'] });
+      return result;
+    } finally {
+      setSyncing(false);
+    }
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (!enabled || !target || !status.data || inSync || attempted.current === target) return;
+    attempted.current = target;
+    sync().catch(() => {});
+  }, [enabled, target, status.data, inSync, sync]);
+
+  return {
+    status: status.data,
+    error: status.error,
+    isLoading: status.isLoading,
+    inSync,
+    syncing,
+    sync,
+    // Settled = checked, and either in sync or the automatic attempt is done.
+    settled: Boolean(status.data) && !syncing && (inSync || attempted.current === target),
   };
 }
 

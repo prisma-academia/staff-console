@@ -26,6 +26,7 @@ import { brandApi } from 'src/api/docStudioApi';
 import { PERMISSIONS } from 'src/permissions/constants';
 
 import Iconify from 'src/components/iconify';
+import { useAdmissionsBrandSync, admissionsBrandProblem } from 'src/components/doc-studio/hooks';
 
 import TemplateCard from './template-card';
 import { useStudioCatalogue } from './use-catalogue';
@@ -114,6 +115,8 @@ export default function StudioGalleryView() {
   const [area, setArea] = useState('all');
 
   const brandVersion = brandState?.published?.version || 0;
+  // Opening the Studio brings the admissions documents onto the published kit.
+  const admissionsBrand = useAdmissionsBrandSync(brandVersion, { enabled: check(PERMISSIONS.VIEW_DOC_STUDIO) });
   const areas = useMemo(() => Array.from(new Set(catalogue.types.map((item) => item.area))).sort(), [catalogue.types]);
 
   const filtered = useMemo(() => {
@@ -158,6 +161,20 @@ export default function StudioGalleryView() {
         <Box sx={{ mb: 3 }}>
           <BrandHero onOpen={() => navigate('/studio/brand')} />
         </Box>
+      )}
+
+      {brandVersion > 0 && admissionsBrand.settled && !admissionsBrand.inSync && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => navigate('/studio/brand')}>
+              Open Brand Kit
+            </Button>
+          }
+        >
+          Admissions documents (application form, admission letter, applicant emails) are not on Brand Kit v{brandVersion} yet. {admissionsBrandProblem(admissionsBrand.status)}
+        </Alert>
       )}
 
       {catalogue.engineSkew && (

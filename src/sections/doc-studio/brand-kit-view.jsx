@@ -42,8 +42,8 @@ import { PERMISSIONS } from 'src/permissions/constants';
 import { brandApi, studioApi } from 'src/api/docStudioApi';
 
 import Iconify from 'src/components/iconify';
-import { timeAgo, useRelativeTime } from 'src/components/doc-studio/hooks';
 import { PrintFrame, EmailFrame } from 'src/components/doc-studio/preview/preview-pane';
+import { timeAgo, useRelativeTime, useAdmissionsBrandSync, admissionsBrandProblem } from 'src/components/doc-studio/hooks';
 
 // ----------------------------------------------------------------------
 
@@ -283,6 +283,66 @@ Showcase.propTypes = { kit: PropTypes.object };
 
 // ----------------------------------------------------------------------
 
+/**
+ * Whether the admissions documents (application form, admission letter,
+ * applicant emails) print with the published kit. application-api keeps its
+ * own copy, so this is the one place a stale copy would show.
+ */
+function AdmissionsBrandStatus({ admissions, publishedVersion }) {
+  const { status, error, inSync, syncing, sync, settled } = admissions;
+  if (!publishedVersion) return null;
+
+  const syncButton = (
+    <LoadingButton color="inherit" size="small" loading={syncing} onClick={() => sync().catch(() => {})}>
+      Sync now
+    </LoadingButton>
+  );
+
+  if (error) {
+    return (
+      <Alert severity="warning" sx={{ mb: 2 }} action={syncButton}>
+        Could not check the admissions documents: {error.message}
+      </Alert>
+    );
+  }
+  if (!status || (!inSync && !settled)) {
+    return (
+      <Alert severity="info" icon={<CircularProgress size={18} />} sx={{ mb: 2 }}>
+        Checking that admissions documents use Brand Kit v{publishedVersion}…
+      </Alert>
+    );
+  }
+  if (inSync) {
+    return (
+      <Alert severity="success" sx={{ mb: 2 }}>
+        Admissions documents (application form, admission letter, applicant emails) use Brand Kit v{publishedVersion}.
+      </Alert>
+    );
+  }
+  const printing = status.source === 'legacy' ? 'the old admission-letter branding' : `Brand Kit v${status.version}`;
+  const why = admissionsBrandProblem(status);
+  return (
+    <Alert severity="warning" sx={{ mb: 2 }} action={syncButton}>
+      Admissions documents (application form, admission letter, applicant emails) still print with {printing}, not v{publishedVersion}.
+      {why ? ` ${why}` : ''}
+    </Alert>
+  );
+}
+
+AdmissionsBrandStatus.propTypes = {
+  admissions: PropTypes.shape({
+    status: PropTypes.object,
+    error: PropTypes.object,
+    inSync: PropTypes.bool,
+    syncing: PropTypes.bool,
+    sync: PropTypes.func,
+    settled: PropTypes.bool,
+  }).isRequired,
+  publishedVersion: PropTypes.number,
+};
+
+// ----------------------------------------------------------------------
+
 export default function BrandKitView() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -339,6 +399,8 @@ export default function BrandKitView() {
 
   const hasChanges = Boolean(data?.draft) || (kit && JSON.stringify(kit) !== JSON.stringify(normalize(data?.published?.kit)));
 
+  const admissions = useAdmissionsBrandSync(data?.published?.version);
+
   const publish = async () => {
     setPublishing(true);
     try {
@@ -349,12 +411,19 @@ export default function BrandKitView() {
       }
       const res = await brandApi.publish({ note, baseRevision: revision.current });
       revision.current = res.revision;
-      // application-api mirrors the kit — ask it to pull the new version now.
-      brandApi.refreshAdmissions().catch(() => enqueueSnackbar('Admissions documents will pick up the new brand within a minute.', { variant: 'info' }));
+      // application-api prints admissions documents from its own copy of the
+      // kit: have it copy the new version now, and only claim "every document"
+      // once it confirms.
+      const copied = await admissions.sync().catch((err) => ({ syncError: err }));
       queryClient.invalidateQueries({ queryKey: ['doc-studio'] });
       setPublishOpen(false);
       setNote('');
-      enqueueSnackbar(`Brand Kit v${res.version} is live on every document`, { variant: 'success' });
+      if (copied && copied.source !== 'legacy' && Number(copied.version) === Number(res.version)) {
+        enqueueSnackbar(`Brand Kit v${res.version} is live on every document`, { variant: 'success' });
+      } else {
+        const why = copied?.syncError?.message || admissionsBrandProblem(copied);
+        enqueueSnackbar(`Brand Kit v${res.version} is live, but admissions documents did not update${why ? `: ${why}` : ''}. Use “Sync now” on this page.`, { variant: 'warning', autoHideDuration: 10000 });
+      }
       refetch();
     } catch (err) {
       enqueueSnackbar(err.message || 'Publishing failed', { variant: 'error' });
@@ -411,6 +480,8 @@ export default function BrandKitView() {
           You can view the Brand Kit; changing it needs the “Manage the Brand Kit” permission.
         </Alert>
       )}
+
+      <AdmissionsBrandStatus admissions={admissions} publishedVersion={data?.published?.version} />
 
       <Grid container spacing={3}>
         <Grid item xs={12} lg={6}>
